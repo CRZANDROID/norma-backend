@@ -1,0 +1,101 @@
+// NORMA — modelo entidad-relación inicial
+// Ajustable cuando se defina el dominio completo del producto.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum SourceType {
+  API
+  FEED
+  MANUAL
+  WEBHOOK
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole @default(ANALYST)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Client {
+  id        String       @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  status    EntityStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  alerts    Alert[]
+
+  @@map("clients")
+}
+
+model Source {
+  id        String       @id @default(cuid())
+  name      String
+  type      SourceType
+  url       String?
+  status    EntityStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  alerts    Alert[]
+
+  @@map("sources")
+}
+
+model Alert {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  severity    AlertSeverity @default(MEDIUM)
+  status      AlertStatus   @default(OPEN)
+  clientId    String?       @map("client_id")
+  sourceId    String?       @map("source_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  source Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([sourceId])
+  @@index([status])
+  @@map("alerts")
+}
