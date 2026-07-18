@@ -82,15 +82,34 @@ prisma/
 
 ## Ambientes
 
-| Ambiente | Uso |
-|----------|-----|
-| `development` | Local (este setup) |
-| `staging` | Pendiente de despliegue |
-| `production` | Pendiente de despliegue |
+| Ambiente | Uso | Backend URL (objetivo) | Frontend URL (objetivo) |
+|----------|-----|------------------------|-------------------------|
+| `development` | Local en tu máquina | `http://localhost:3000` | `http://localhost:5173` |
+| `staging` | Validación pre-producción | TBD (ej. Railway/Render/Fly) | TBD (ej. Vercel/Netlify) |
+| `production` | Clientes reales | TBD | TBD |
 
-Variables por ambiente: `NODE_ENV`, `PORT`, `DATABASE_URL`, `CORS_ORIGIN`.
+### Variables por ambiente
 
-## Modelo ER inicial
+| Variable | Development | Staging / Production |
+|----------|-------------|----------------------|
+| `NODE_ENV` | `development` | `staging` / `production` |
+| `PORT` | `3000` | asignado por el host |
+| `DATABASE_URL` | Supabase project (dev) | Supabase project (staging/prod) o branch |
+| `CORS_ORIGIN` | `http://localhost:5173` | URL del frontend desplegado |
+| `SUPABASE_URL` | URL del proyecto Supabase | misma o proyecto dedicado |
+| `SUPABASE_ANON_KEY` | publishable/anon key | key del ambiente |
+| `SUPABASE_JWT_SECRET` | JWT secret del proyecto (Settings → API) | secret del ambiente |
 
-Entidades: `User`, `Client`, `Source`, `Alert` (con enums de rol, severidad y estado).  
-Es un punto de partida alineado a las pantallas del frontend; se refinará con el dominio completo del producto.
+Reglas:
+- Nunca subir `.env` a Git.
+- Staging y Production deben usar proyectos/branches de Supabase separados cuando sea posible.
+- Migraciones en staging/prod: `pnpm prisma:deploy`.
+
+### Tablero
+
+GitHub Project: [NORMA — Piloto Arca](https://github.com/users/CRZANDROID/projects/1)
+
+## Modelo ER
+
+Modelo administrativo evoluciona hacia: usuarios vinculados a Supabase Auth, roles, membresías, clientes, perfiles regulatorios, fuentes y hallazgos.  
+El semáforo operativo del piloto usa 4 niveles: verde, amarillo, naranja y rojo.

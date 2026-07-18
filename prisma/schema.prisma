@@ -1,5 +1,5 @@
-// NORMA — modelo entidad-relación inicial
-// Ajustable cuando se defina el dominio completo del producto.
+// NORMA — modelo administrativo del piloto Arca
+// Auth: Supabase Auth (authUserId). Datos de negocio: Prisma/PostgreSQL.
 
 generator client {
   provider = "prisma-client-js"
@@ -14,6 +14,7 @@ enum UserRole {
   ADMIN
   ANALYST
   VIEWER
+  CLIENT_USER
 }
 
 enum EntityStatus {
@@ -21,14 +22,14 @@ enum EntityStatus {
   INACTIVE
 }
 
-enum AlertSeverity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
+enum ImpactLevel {
+  GREEN
+  YELLOW
+  ORANGE
+  RED
 }
 
-enum AlertStatus {
+enum FindingStatus {
   OPEN
   ACKNOWLEDGED
   RESOLVED
@@ -36,20 +37,29 @@ enum AlertStatus {
 }
 
 enum SourceType {
+  CONGRESS_STATE
+  CONGRESS_FEDERAL
+  DOF
+  AUTHORITY
+  MEDIA
+  TRANSCRIPT
+  MANUAL
   API
   FEED
-  MANUAL
   WEBHOOK
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  name         String
-  role         UserRole @default(ANALYST)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id         String       @id @default(cuid())
+  authUserId String       @unique @map("auth_user_id")
+  email      String       @unique
+  name       String
+  role       UserRole     @default(ANALYST)
+  status     EntityStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  memberships ClientMembership[]
 
   @@map("users")
 }
@@ -57,35 +67,82 @@ model User {
 model Client {
   id        String       @id @default(cuid())
   name      String
+  slug      String       @unique
   email     String?
   phone     String?
   status    EntityStatus @default(ACTIVE)
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
-  alerts    Alert[]
+
+  memberships ClientMembership[]
+  profiles    RegulatoryProfile[]
+  findings    Finding[]
 
   @@map("clients")
 }
 
-model Source {
+model ClientMembership {
   id        String       @id @default(cuid())
-  name      String
-  type      SourceType
-  url       String?
+  userId    String       @map("user_id")
+  clientId  String       @map("client_id")
+  role      UserRole     @default(ANALYST)
   status    EntityStatus @default(ACTIVE)
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
-  alerts    Alert[]
 
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([clientId])
+  @@map("client_memberships")
+}
+
+model RegulatoryProfile {
+  id          String       @id @default(cuid())
+  clientId    String       @map("client_id")
+  name        String
+  description String?
+  keywords    String[]     @default([])
+  categories  String[]     @default([])
+  products    Json?
+  status      EntityStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("regulatory_profiles")
+}
+
+model Source {
+  id             String       @id @default(cuid())
+  name           String
+  code           String       @unique
+  type           SourceType
+  url            String?
+  section        String?
+  jurisdiction   String?
+  frequency      String?
+  keywordsGuide  String[]     @default([]) @map("keywords_guide")
+  config         Json?
+  status         EntityStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  findings Finding[]
+
+  @@index([status])
   @@map("sources")
 }
 
-model Alert {
+model Finding {
   id          String        @id @default(cuid())
   title       String
   description String?
-  severity    AlertSeverity @default(MEDIUM)
-  status      AlertStatus   @default(OPEN)
+  impact      ImpactLevel   @default(YELLOW)
+  status      FindingStatus @default(OPEN)
   clientId    String?       @map("client_id")
   sourceId    String?       @map("source_id")
   createdAt   DateTime      @default(now()) @map("created_at")
@@ -97,5 +154,6 @@ model Alert {
   @@index([clientId])
   @@index([sourceId])
   @@index([status])
-  @@map("alerts")
+  @@index([impact])
+  @@map("findings")
 }
