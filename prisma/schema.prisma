@@ -1,0 +1,160 @@
+// NORMA — modelo administrativo del piloto Arca
+// Auth: JWT propio (passwordHash). Datos de negocio: Prisma/PostgreSQL (Supabase u otro).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  ANALYST
+  VIEWER
+  CLIENT_USER
+}
+
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ImpactLevel {
+  GREEN
+  YELLOW
+  ORANGE
+  RED
+}
+
+enum FindingStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum SourceType {
+  CONGRESS_STATE
+  CONGRESS_FEDERAL
+  DOF
+  AUTHORITY
+  MEDIA
+  TRANSCRIPT
+  MANUAL
+  API
+  FEED
+  WEBHOOK
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  name         String
+  role         UserRole     @default(ANALYST)
+  status       EntityStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  memberships ClientMembership[]
+
+  @@map("users")
+}
+
+model Client {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  email     String?
+  phone     String?
+  status    EntityStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  memberships ClientMembership[]
+  profiles    RegulatoryProfile[]
+  findings    Finding[]
+
+  @@map("clients")
+}
+
+model ClientMembership {
+  id        String       @id @default(cuid())
+  userId    String       @map("user_id")
+  clientId  String       @map("client_id")
+  role      UserRole     @default(ANALYST)
+  status    EntityStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([clientId])
+  @@map("client_memberships")
+}
+
+model RegulatoryProfile {
+  id          String       @id @default(cuid())
+  clientId    String       @map("client_id")
+  name        String
+  description String?
+  keywords    String[]     @default([])
+  categories  String[]     @default([])
+  products    Json?
+  status      EntityStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("regulatory_profiles")
+}
+
+model Source {
+  id             String       @id @default(cuid())
+  name           String
+  code           String       @unique
+  type           SourceType
+  url            String?
+  section        String?
+  jurisdiction   String?
+  frequency      String?
+  keywordsGuide  String[]     @default([]) @map("keywords_guide")
+  config         Json?
+  status         EntityStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  findings Finding[]
+
+  @@index([status])
+  @@map("sources")
+}
+
+model Finding {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  impact      ImpactLevel   @default(YELLOW)
+  status      FindingStatus @default(OPEN)
+  clientId    String?       @map("client_id")
+  sourceId    String?       @map("source_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  source Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([sourceId])
+  @@index([status])
+  @@index([impact])
+  @@map("findings")
+}

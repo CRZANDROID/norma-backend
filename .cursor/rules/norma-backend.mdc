@@ -1,0 +1,44 @@
+---
+description: NORMA NestJS modules — controllers, services, guards, DTOs
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# NORMA — Backend NestJS
+
+## Capas
+
+```text
+Controller → Service → PrismaService
+```
+
+- Controllers: HTTP, DTOs, `@UseGuards`, status codes. No Prisma directo (salvo `health`).
+- Services: reglas de negocio y queries Prisma.
+- DTOs en `dto/` con validación (`class-validator` + `ValidationPipe` global).
+
+## AuthZ en cada ruta de negocio
+
+```typescript
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
+```
+
+- Usar `@CurrentUser()` para el usuario NORMA.
+- Mutaciones de catálogo (clients/sources/users): `ADMIN`.
+- Profiles: `ADMIN` + `ANALYST` según `docs/SPRINT-3-BACKEND.md`.
+- No-ADMIN: filtrar por memberships activas.
+- Login: `POST /auth/login` → Bearer JWT Nest (no Supabase Auth).
+
+## Errores
+
+| Código | Uso |
+|--------|-----|
+| 401 | Sin token / inválido |
+| 403 | Sin rol o sin membership |
+| 404 | No existe |
+| 409 | slug/code/membership duplicado |
+| 400 | Body inválido |
+
+## Módulos
+
+Implementar en `src/modules/{clients,sources,users}/`. No inventar prefix `/api` si el resto vive en raíz.
