@@ -1,0 +1,26 @@
+---
+description: NORMA core — stack, auth, data flow, non-negotiables
+alwaysApply: true
+---
+
+# NORMA — Core
+
+Antes de implementar, consulta `docs/PRODUCT.md`, `docs/ARCHITECTURE.md` y `docs/SPRINTS.md`.
+
+## Stack fijo
+
+- Backend: NestJS + Express + Prisma + PostgreSQL (Supabase)
+- Auth: Supabase Auth (Bearer JWT). Nest no guarda passwords.
+- Flujo: Frontend → NestJS → Prisma → Postgres. No PostgREST de negocio desde el front.
+
+## Reglas
+
+- Soft-status `ACTIVE`/`INACTIVE`; no hard-delete en el piloto.
+- Multi-tenant por `Client` + `ClientMembership`. `ADMIN` ve todo.
+- No agregar Redis/OpenAI/Resend/scrapers fuera del sprint que los consume.
+- Conventional Commits; ramas `main` / `dev` / `feature/*`.
+- Secretos solo en `.env` (nunca commit).
+
+## Sprint actual
+
+CRUD admin (clients, profiles, sources, users). Brief: `docs/SPRINT-3-BACKEND.md`.

@@ -113,3 +113,14 @@ GitHub Project: [NORMA — Piloto Arca](https://github.com/users/CRZANDROID/proj
 
 Modelo administrativo evoluciona hacia: usuarios vinculados a Supabase Auth, roles, membresías, clientes, perfiles regulatorios, fuentes y hallazgos.  
 El semáforo operativo del piloto usa 4 niveles: verde, amarillo, naranja y rojo.
+
+## Documentación para agentes y colaboradores
+
+| Archivo | Contenido |
+|---------|-----------|
+| [AGENTS.md](./AGENTS.md) | Índice de entrada para cualquier agente |
+| [docs/PRODUCT.md](./docs/PRODUCT.md) | Producto, alcance, actores |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Stack, Auth, multi-tenant |
+| [docs/SPRINTS.md](./docs/SPRINTS.md) | Plan semanal 1–8 |
+| [docs/SPRINT-3-BACKEND.md](./docs/SPRINT-3-BACKEND.md) | Contrato CRUD admin |
+| `.cursor/rules/` | Reglas Cursor (core, NestJS, Prisma) |
