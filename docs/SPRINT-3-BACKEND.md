@@ -2,8 +2,9 @@
  
 **Sprint:** 3 — CRUD administrativo vertical  
 **Repo:** `norma-backend` (`backend-norma`)  
-**Stack:** NestJS + Express + Prisma + PostgreSQL (Supabase) + Supabase Auth  
-**Proyecto GitHub:** `NORMA — Piloto Arca` (issues S3)
+**Stack:** NestJS + Express + Prisma + PostgreSQL (Supabase = DB) + JWT propio  
+**Proyecto GitHub:** `NORMA — Piloto Arca` (issues S3)  
+**Estado backend:** completo (issues #8, #9, #10)
 
 ---
 
@@ -27,28 +28,23 @@ En Sprints 1–2 se dejó:
 
 - App NestJS viva (`/health`)
 - Schema Prisma multi-tenant (clientes, memberships, perfiles, fuentes)
-- Login con Supabase Auth + sync de usuario local + `GET /auth/me`
+- Auth propia: `POST /auth/login` (bcrypt + JWT) + `GET /auth/me`
 
-Todavía **no** se puede operar el negocio: `ClientsModule` y `SourcesModule` están vacíos (`@Module({})`).
-
-Sin este CRUD:
-
-- No hay forma de dar de alta/editar clientes o perfiles desde la app
-- No se puede gestionar el catálogo de fuentes antes de scrapers (Sprint 5)
-- No se puede asignar quién ve qué cliente
+El objetivo de S3 fue dejar de tener shells vacíos y operar el catálogo admin por API.
 
 La ingesta, IA, colas y findings **no** entran aquí; dependen de que el catálogo administrativo ya exista y esté autorizado.
 
 ---
 
-## 3. Qué ya existe (no rehacer)
+## 3. Qué existe (referencia)
 
 ### 3.1 Auth — listo
 
 | Pieza | Archivo | Para qué |
 |-------|---------|----------|
-| Guard de token Supabase | `src/modules/auth/supabase-auth.guard.ts` | Rechaza requests sin Bearer válido |
-| Sync usuario local | `src/modules/auth/auth.service.ts` | Upsert por `authUserId` en primer login |
+| Login JWT | `src/modules/auth/auth.service.ts` | `POST /auth/login` → accessToken |
+| Guard JWT | `src/modules/auth/jwt-auth.guard.ts` | Rechaza requests sin Bearer válido |
+| Strategy | `src/modules/auth/jwt.strategy.ts` | Valida JWT y carga usuario |
 | Usuario en request | `@CurrentUser()` | Inyecta `AuthUser` en controllers |
 | Roles | `@Roles(...)` + `RolesGuard` | Autorización por `UserRole` |
 | Perfil | `GET /auth/me` | Devuelve rol + memberships |
@@ -57,7 +53,7 @@ La ingesta, IA, colas y findings **no** entran aquí; dependen de que el catálo
 
 Tablas relevantes:
 
-- `users`
+- `users` (incluye `password_hash`)
 - `clients`
 - `client_memberships`
 - `regulatory_profiles`
@@ -75,32 +71,30 @@ Enums clave:
 - Cliente: **Arca Continental** (`slug: arca-continental`)
 - Perfil regulatorio piloto (bebidas / empaques)
 - Fuentes: `dof`, `diputados-gaceta`, `jalisco-congreso`
+- Admin seed: `AUTH_SEED_EMAIL` / `AUTH_SEED_PASSWORD`
 
-El API debe **listar y gestionar** ese seed; no hace falta recrearlo salvo bugs.
-
-### 3.4 Módulos a implementar
+### 3.4 Módulos S3 — implementados
 
 ```text
-src/modules/clients/   → hoy vacío
-src/modules/sources/   → hoy vacío
-src/modules/users/     → no existe; crear (recomendado) o extender auth
+src/modules/clients/   → CRUD + profiles
+src/modules/sources/   → CRUD + activate/deactivate
+src/modules/users/     → admin users + memberships
 ```
-
-`AppModule` ya importa `ClientsModule` y `SourcesModule`. Si se crea `UsersModule`, agregarlo ahí.
 
 ---
 
 ## 4. Reglas de arquitectura (obligatorias)
 
-1. **Supabase Auth** = identidad y contraseñas. Nest **nunca** guarda passwords.
+1. **Auth propia en Nest** = email/password (`passwordHash`) + JWT. Supabase solo hostea Postgres.
 2. **Prisma** = único acceso a datos de negocio.
 3. El frontend **no** consulta tablas de negocio directo en Supabase (PostgREST).
 4. Flujo canónico:
 
 ```text
 Frontend
-  → Authorization: Bearer <supabase_access_token>
-  → SupabaseAuthGuard
+  → POST /auth/login
+  → Authorization: Bearer <nest_jwt>
+  → JwtAuthGuard
   → RolesGuard (si aplica)
   → Controller
   → Service
@@ -143,12 +137,13 @@ Frontend
 
 \* Solo sobre clientes donde exista `ClientMembership` con `status = ACTIVE`.
 
-### Tipo `AuthUser` (ya existe)
+`RolesGuard` deja pasar a cualquier `ADMIN` aunque el endpoint pida otro rol. Usarlo en controllers con `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles(...)`.
+
+### Tipo `AuthUser`
 
 ```ts
 type AuthUser = {
   id: string;
-  authUserId: string;
   email: string;
   name: string;
   role: UserRole;
@@ -160,8 +155,6 @@ type AuthUser = {
   }>;
 };
 ```
-
-`RolesGuard` ya deja pasar a cualquier `ADMIN` aunque el endpoint pida otro rol. Usarlo en controllers nuevos con `@UseGuards(SupabaseAuthGuard, RolesGuard)` + `@Roles(...)`.
 
 ---
 
@@ -205,33 +198,40 @@ src/modules/users/
 **Convenciones globales**
 
 - Sin prefix `/api` (hoy las rutas viven en la raíz: `/auth/me`, `/health`).
-- Header: `Authorization: Bearer <supabase_access_token>`
+- Header: `Authorization: Bearer <nest_jwt>` (obtenido con `POST /auth/login`)
 - IDs: strings `cuid`
 - Fechas: ISO-8601
 - Soft deactivate/activate en rutas dedicadas (más claras para el front que un PATCH genérico de `status`, aunque internamente actualicen el mismo campo)
 
 ---
 
-### 7.1 Auth (referencia — ya implementado)
+### 7.1 Auth (referencia)
+
+#### `POST /auth/login`
+
+| | |
+|--|--|
+| **Auth** | No |
+| **Body** | `{ "email": "...", "password": "..." }` |
+| **Response** | `200` → `{ accessToken, user }` |
 
 #### `GET /auth/me`
 
 | | |
 |--|--|
-| **Auth** | Bearer (`SupabaseAuthGuard`) |
+| **Auth** | Bearer (`JwtAuthGuard`) |
 | **Roles** | Cualquiera autenticado |
 | **Response** | `200` → `AuthUser` |
 
-**Por qué existe:** el frontend necesita saber quién es el usuario **en el modelo NORMA** (rol global + memberships), no solo el email de Supabase. Sin esto no puede mostrar navegación, ocultar botones de admin ni saber a qué cliente pertenece.
+**Por qué existe:** el frontend necesita saber quién es el usuario **en el modelo NORMA** (rol global + memberships).
 
 **Response ejemplo:**
 
 ```json
 {
   "id": "clx...",
-  "authUserId": "uuid-supabase",
-  "email": "user@example.com",
-  "name": "Nombre",
+  "email": "admin@norma.local",
+  "name": "Admin NORMA",
   "role": "ADMIN",
   "memberships": [
     {
@@ -256,7 +256,7 @@ El cliente (ej. Arca Continental) es la unidad de multi-tenancy. Casi todo lo re
 
 | | |
 |--|--|
-| **Guards** | `SupabaseAuthGuard` |
+| **Guards** | `JwtAuthGuard` |
 | **Roles** | Autenticado; filtrar por membership si no es `ADMIN` |
 | **Query** | `status?: ACTIVE \| INACTIVE`, `q?: string` (name/slug) |
 | **Response** | `200` → `Client[]` |
@@ -284,7 +284,7 @@ El cliente (ej. Arca Continental) es la unidad de multi-tenancy. Casi todo lo re
 
 | | |
 |--|--|
-| **Guards** | `SupabaseAuthGuard` |
+| **Guards** | `JwtAuthGuard` |
 | **AuthZ** | `ADMIN` o membership activa en ese `id` |
 | **Response** | `200` → `Client` + `profiles[]` |
 | **Errors** | `403`, `404` |
@@ -297,7 +297,7 @@ El cliente (ej. Arca Continental) es la unidad de multi-tenancy. Casi todo lo re
 
 | | |
 |--|--|
-| **Guards** | `SupabaseAuthGuard`, `RolesGuard` |
+| **Guards** | `JwtAuthGuard`, `RolesGuard` |
 | **Roles** | `@Roles(ADMIN)` |
 | **Response** | `201` → `Client` |
 | **Errors** | `400`, `403`, `409` (slug duplicado) |
@@ -584,7 +584,7 @@ Las fuentes son el catálogo de orígenes de información (DOF, congresos, etc.)
 
 NORMA distingue:
 
-- **Identidad** → Supabase Auth
+- **Identidad** → email + `passwordHash` (Nest JWT)
 - **Perfil de negocio** → tabla `users` (rol global)
 - **Acceso a un cliente** → `client_memberships` (rol por cliente)
 
@@ -606,7 +606,6 @@ NORMA distingue:
 [
   {
     "id": "clx...",
-    "authUserId": "uuid",
     "email": "admin@norma.local",
     "name": "Admin NORMA",
     "role": "ADMIN",
@@ -650,7 +649,7 @@ NORMA distingue:
 | **Response** | `200` → user |
 | **Errors** | `400`, `403`, `404` |
 
-**Por qué:** el primer login crea usuarios con rol default (`ANALYST`). Hay que poder promover a `ADMIN` o bajar a `VIEWER` desde el producto, no solo con SQL. El rol **global** gobierna el backoffice; el rol de membership gobierna el acceso por cliente.
+**Por qué:** el alta vía `POST /users` crea usuarios con rol default (`ANALYST` salvo que se indique otro). Hay que poder promover a `ADMIN` o bajar a `VIEWER` desde el producto, no solo con SQL. El rol **global** gobierna el backoffice; el rol de membership gobierna el acceso por cliente.
 
 ---
 
@@ -662,7 +661,7 @@ NORMA distingue:
 | **Efecto** | `users.status = INACTIVE` / `ACTIVE` |
 | **Response** | `200` → user |
 
-**Por qué:** cortar acceso de negocio aunque el usuario aún exista en Supabase Auth. El guard/sync debe rechazar usuarios `INACTIVE` (verificar que el comportamiento actual lo respete o alinearlo). Mejor que borrar: se puede reactivar y se conserva auditoría.
+**Por qué:** cortar acceso de negocio sin borrar el registro. El login y los guards rechazan usuarios `INACTIVE`. Mejor que borrar: se puede reactivar y se conserva auditoría.
 
 ---
 
@@ -693,15 +692,15 @@ Constraint Prisma: `@@unique([userId, clientId])`.
 
 ---
 
-### Política de invite / link en S3
+### Política de alta de usuarios en S3
 
 | En alcance | Fuera de alcance (follow-up) |
 |------------|------------------------------|
-| Listar users creados tras login | `inviteUserByEmail` de Supabase Admin API |
-| Asignar role global | Flujo completo de invitación por correo |
-| Crear/editar memberships | Provisionar `authUserId` inventado |
+| `POST /users` (ADMIN crea email/password) | Invites por correo / magic links |
+| Asignar role global | SSO / IdP externo |
+| Crear/editar memberships | Registro público self-service |
 
-**Por qué este corte:** crear identidad es responsabilidad de Supabase. Nest solo administra el **perfil de negocio**. Inventar usuarios sin Auth rompe el login.
+**Por qué este corte:** Nest es dueño de la identidad de negocio. El alta la hace un ADMIN.
 
 ---
 
@@ -709,7 +708,9 @@ Constraint Prisma: `@@unique([userId, clientId])`.
 
 | Método | Ruta | Roles | Propósito corto |
 |--------|------|-------|-----------------|
-| `GET` | `/auth/me` | auth | Perfil NORMA (ya existe) |
+| `POST` | `/auth/login` | público | Emite JWT |
+| `GET` | `/auth/me` | auth | Perfil NORMA |
+| `POST` | `/users` | ADMIN | Crear usuario |
 | `GET` | `/clients` | auth + filtro | Listar clientes |
 | `GET` | `/clients/:id` | auth + acceso | Detalle + perfiles |
 | `POST` | `/clients` | ADMIN | Crear cliente |
@@ -742,21 +743,21 @@ Constraint Prisma: `@@unique([userId, clientId])`.
 
 ### S3: CRUD Clients + regulatory profiles API (P0, est. 5)
 
-- [ ] Create / read / update / deactivate clients
-- [ ] Profiles linked to clients
-- [ ] AuthZ enforced (no-ADMIN → `403` en mutaciones de cliente)
+- [x] Create / read / update / deactivate clients
+- [x] Profiles linked to clients
+- [x] AuthZ enforced (no-ADMIN → `403` en mutaciones de cliente)
 
 ### S3: CRUD Sources + activate/deactivate (P0, est. 5)
 
-- [ ] CRUD works
-- [ ] Activate / deactivate endpoints
-- [ ] Seed pilot sources visibles: `dof`, `diputados-gaceta`, `jalisco-congreso`
+- [x] CRUD works
+- [x] Activate / deactivate endpoints
+- [x] Seed pilot sources visibles: `dof`, `diputados-gaceta`, `jalisco-congreso`
 
 ### S3: Basic user admin and role assignment (P1, est. 5)
 
-- [ ] Admin can list users
-- [ ] Role assignment persists
-- [ ] Non-admin cannot manage users (`403`)
+- [x] Admin can list users
+- [x] Role assignment persists
+- [x] Non-admin cannot manage users (`403`)
 
 ---
 
@@ -792,36 +793,31 @@ Constraint Prisma: `@@unique([userId, clientId])`.
 
 ```bash
 pnpm install
+pnpm prisma:deploy   # o prisma:migrate
+pnpm prisma:seed
 pnpm start:dev
 
 curl http://localhost:3000/health
 
-curl http://localhost:3000/auth/me ^
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+curl -X POST http://localhost:3000/auth/login ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"admin@norma.local\",\"password\":\"ChangeMe123!\"}"
 ```
 
-Obtener token: login en el frontend (`http://localhost:5173`) → DevTools → sesión Supabase, o `supabase.auth.getSession()`.
-
-Promover a ADMIN (después del primer login):
-
-```sql
-UPDATE users SET role = 'ADMIN' WHERE email = 'tu@correo.com';
-```
-
-O con Prisma Studio: `pnpm prisma:studio`.
+Usa `AUTH_SEED_EMAIL` / `AUTH_SEED_PASSWORD` del `.env`. Guía completa: [postman-pruebas.md](./postman-pruebas.md).
 
 ---
 
 ## 13. Definition of Done
 
-- [ ] `ClientsModule` y `SourcesModule` dejan de ser shells vacíos
-- [ ] Endpoints de esta especificación responden según el contrato
-- [ ] Mutaciones protegidas con Bearer + roles
-- [ ] Arca + 3 fuentes seed gestionables por API
-- [ ] ADMIN gestiona users/roles/memberships; no-ADMIN recibe `403`
-- [ ] El frontend puede conectar pantallas sin mocks
-- [ ] No se introdujeron passwords locales
-- [ ] Controllers no hablan con Prisma sin pasar por services
+- [x] `ClientsModule` y `SourcesModule` dejan de ser shells vacíos
+- [x] Endpoints de esta especificación responden según el contrato
+- [x] Mutaciones protegidas con Bearer + roles
+- [x] Arca + 3 fuentes seed gestionables por API
+- [x] ADMIN gestiona users/roles/memberships; no-ADMIN recibe `403`
+- [x] Contratos documentados para que el frontend conecte sin mocks
+- [x] Auth propia con `passwordHash` + JWT (sin Supabase Auth)
+- [x] Controllers no hablan con Prisma sin pasar por services
 
 ---
 
@@ -844,14 +840,19 @@ Ante ambigüedad, preferir en este orden:
 | Schema | `prisma/schema.prisma` |
 | Seed | `prisma/seed.ts` |
 | Auth module | `src/modules/auth/` |
-| Clients shell | `src/modules/clients/clients.module.ts` |
-| Sources shell | `src/modules/sources/sources.module.ts` |
+| Clients | `src/modules/clients/` |
+| Sources | `src/modules/sources/` |
+| Users | `src/modules/users/` |
+| Pruebas Postman | `docs/postman-pruebas.md` |
 | Issues seed script | `scripts/seed-github-project.ps1` (bloque Sprint 3) |
 
-**Issues GitHub (títulos):**
+**Issues GitHub (backend — cerrados):**
 
-- `S3: CRUD Clients + regulatory profiles API`
-- `S3: CRUD Sources + activate/deactivate`
-- `S3: Basic user admin and role assignment`
-- `S3: Admin screens connected to real API` ← frontend (depende de este brief)
+- `S3: CRUD Clients + regulatory profiles API` (#8)
+- `S3: CRUD Sources + activate/deactivate` (#9)
+- `S3: Basic user admin and role assignment` (#10)
+
+**Issue frontend (pendiente del sprint):**
+
+- `S3: Admin screens connected to real API`
 `)

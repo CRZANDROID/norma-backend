@@ -14,12 +14,12 @@ Controller → Service → PrismaService
 
 - Controllers: HTTP, DTOs, `@UseGuards`, status codes. No Prisma directo (salvo `health`).
 - Services: reglas de negocio y queries Prisma.
-- DTOs en `dto/` con validación (`class-validator` cuando se agregue).
+- DTOs en `dto/` con validación (`class-validator` + `ValidationPipe` global).
 
 ## AuthZ en cada ruta de negocio
 
 ```typescript
-@UseGuards(SupabaseAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 ```
 
@@ -27,6 +27,7 @@ Controller → Service → PrismaService
 - Mutaciones de catálogo (clients/sources/users): `ADMIN`.
 - Profiles: `ADMIN` + `ANALYST` según `docs/SPRINT-3-BACKEND.md`.
 - No-ADMIN: filtrar por memberships activas.
+- Login: `POST /auth/login` → Bearer JWT Nest (no Supabase Auth).
 
 ## Errores
 

@@ -14,8 +14,8 @@ Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
 ## Verdades fijas
 
 - NestJS + **Express** (no Fastify sin decisión explícita).
-- Auth = **Supabase Auth**; Nest valida Bearer; **no** passwords locales.
-- Datos de negocio solo vía **Prisma** → PostgreSQL.
+- Auth = **JWT propio** (`POST /auth/login`, `passwordHash` bcrypt). Nest emite y valida Bearer.
+- Datos de negocio solo vía **Prisma** → PostgreSQL (Supabase = hosting DB).
 - Soft-status `ACTIVE`/`INACTIVE`; evitar hard-delete.
 - `ADMIN` = backoffice total; no-ADMIN filtrar por `ClientMembership`.
 - Frontend **no** lee tablas de negocio por PostgREST.
@@ -23,7 +23,7 @@ Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
 ## Estructura relevante
 
 ```text
-src/modules/{auth,clients,sources,alerts}/
+src/modules/{auth,clients,sources,users}/
 prisma/schema.prisma
 docs/
 .cursor/rules/

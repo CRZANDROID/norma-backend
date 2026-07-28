@@ -8,8 +8,8 @@ Piloto inicial: Arca Continental + pocas fuentes representativas.
 | Sprint | Nombre | Enfoque | Estado típico |
 |--------|--------|---------|---------------|
 | 1 | Fundaciones | Repos, Nest/React, Prisma, health, tablero | Hecho |
-| 2 | Identidad | Supabase Auth, guards, schema admin, `/auth/me`, login | Hecho |
-| 3 | CRUD admin | Clients, profiles, sources, users + pantallas | **Actual** |
+| 2 | Identidad | Auth JWT propia, guards, schema admin, `/auth/me`, login | Hecho |
+| 3 | CRUD admin | Clients, profiles, sources, users + pantallas | **Backend hecho**; front pendiente |
 | 4 | Estabilización | Swagger, validación, errores, seed/tests, Sentry, Storage | Pendiente |
 | 5 | Ingesta | Redis/BullMQ + conectores piloto | Pendiente |
 | 6 | Documentos | Registro, storage, extract/normalize/dedup | Pendiente |
@@ -32,10 +32,10 @@ Fechas de iteración en el Project (aprox.): Sprint 1 desde 2026-07-06, duració
 
 ## Sprint 2 — Identidad y modelo administrativo
 
-- Schema: users (`authUserId`), clients, memberships, profiles, sources, findings
-- Nest: validar JWT Supabase, sync user, guards, roles, `GET /auth/me`
-- Front: login Supabase, rutas protegidas, Bearer en Axios
-- Seed Arca + fuentes piloto
+- Schema: users (`passwordHash`), clients, memberships, profiles, sources, findings
+- Nest: JWT propio (`POST /auth/login`), guards, roles, `GET /auth/me`
+- Front: login contra Nest, rutas protegidas, Bearer en Axios
+- Seed Arca + fuentes piloto + admin local
 
 **Entregable:** usuario autenticado con perfil NORMA.
 
@@ -43,16 +43,21 @@ Fechas de iteración en el Project (aprox.): Sprint 1 desde 2026-07-06, duració
 
 ## Sprint 3 — CRUD administrativo vertical
 
-Issues:
+Issues backend (hechos):
 
-- `S3: CRUD Clients + regulatory profiles API` (P0)
-- `S3: CRUD Sources + activate/deactivate` (P0)
-- `S3: Basic user admin and role assignment` (P1)
+- `S3: CRUD Clients + regulatory profiles API` (P0) — **hecho**
+- `S3: CRUD Sources + activate/deactivate` (P0) — **hecho**
+- `S3: Basic user admin and role assignment` (P1) — **hecho**
+
+Issue frontend (pendiente):
+
 - `S3: Admin screens connected to real API` (Frontend, P0)
 
-**Entregable:** panel admin con datos reales (no mocks).
+**Entregable backend:** API admin real (clients, profiles, sources, users) con AuthZ.  
+**Entregable sprint completo:** panel admin con datos reales (no mocks) — depende del front.
 
-Detalle backend: [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md)
+Detalle backend: [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md)  
+Pruebas: [postman-pruebas.md](./postman-pruebas.md)
 
 ---
 
@@ -107,8 +112,8 @@ Detalle backend: [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md)
 ## Dependencias (no saltar)
 
 ```text
-Auth/tenant (S2)
-  → CRUD admin (S3)
+Auth JWT / tenant (S2)
+  → CRUD admin API (S3 backend) → pantallas admin (S3 front)
   → Hardening (S4)
   → Colas + conectores (S5)
   → Documentos (S6)

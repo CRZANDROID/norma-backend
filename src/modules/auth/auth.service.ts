@@ -1,29 +1,42 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcryptjs';
+import { UserRole } from '../../database/prisma-client';
 import { PrismaService } from '../../database/prisma.service';
-import { AuthUser, JwtPayloadUser } from './auth.types';
+import { AuthUser, JwtPayload } from './auth.types';
+
+const BCRYPT_ROUNDS = 12;
+
+type UserRow = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  status: string;
+  memberships: Array<{
+    clientId: string;
+    role: UserRole;
+    client: { name: string; slug: string };
+  }>;
+};
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  async syncUserFromSupabase(payload: JwtPayloadUser): Promise<AuthUser> {
-    if (!payload.email || !payload.authUserId) {
-      throw new UnauthorizedException('Token missing required identity claims');
-    }
-
-    const user = await this.prisma.user.upsert({
-      where: { authUserId: payload.authUserId },
-      create: {
-        authUserId: payload.authUserId,
-        email: payload.email.toLowerCase(),
-        name: payload.name || payload.email.split('@')[0],
-        role: UserRole.ANALYST,
-      },
-      update: {
-        email: payload.email.toLowerCase(),
-        name: payload.name || undefined,
-      },
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{ accessToken: string; user: AuthUser }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
       include: {
         memberships: {
           where: { status: 'ACTIVE' },
@@ -32,23 +45,20 @@ export class AuthService {
       },
     });
 
-    if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('User account is inactive');
+    if (!user || user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Invalid email or password');
     }
 
-    return {
-      id: user.id,
-      authUserId: user.authUserId,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      memberships: user.memberships.map((m) => ({
-        clientId: m.clientId,
-        clientName: m.client.name,
-        clientSlug: m.client.slug,
-        role: m.role,
-      })),
-    };
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const authUser = this.toAuthUser(user);
+    const payload: JwtPayload = { sub: user.id, email: user.email };
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    return { accessToken, user: authUser };
   }
 
   async getMe(userId: string): Promise<AuthUser> {
@@ -66,9 +76,47 @@ export class AuthService {
       throw new UnauthorizedException('User not found or inactive');
     }
 
+    return this.toAuthUser(user);
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, BCRYPT_ROUNDS);
+  }
+
+  async createUser(input: {
+    email: string;
+    name: string;
+    password: string;
+    role?: UserRole;
+  }): Promise<AuthUser> {
+    const email = input.email.toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+
+    const passwordHash = await this.hashPassword(input.password);
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        name: input.name,
+        passwordHash,
+        role: input.role ?? UserRole.ANALYST,
+      },
+      include: {
+        memberships: {
+          where: { status: 'ACTIVE' },
+          include: { client: true },
+        },
+      },
+    });
+
+    return this.toAuthUser(user);
+  }
+
+  private toAuthUser(user: UserRow): AuthUser {
     return {
       id: user.id,
-      authUserId: user.authUserId,
       email: user.email,
       name: user.name,
       role: user.role,

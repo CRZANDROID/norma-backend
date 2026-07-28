@@ -1,12 +1,12 @@
 # NORMA — Backend
 
-API NestJS + Prisma + PostgreSQL (Supabase) para el proyecto NORMA.
+API NestJS + Prisma + PostgreSQL (Supabase solo como base de datos) para el proyecto NORMA.
 
 ## Requisitos
 
 - Node.js 20+
 - pnpm
-- Proyecto PostgreSQL en [Supabase](https://supabase.com) (o Postgres local)
+- PostgreSQL en [Supabase](https://supabase.com) (o Postgres local) — **solo DB**, la auth es propia (JWT)
 
 ## Setup local
 
@@ -60,15 +60,55 @@ src/
   database/          # PrismaModule / PrismaService
   health/            # GET /health
   modules/
-    auth/
-    clients/
-    alerts/
-    sources/
+    auth/            # login JWT, /auth/me
+    clients/         # CRUD clientes + perfiles
+    sources/         # CRUD fuentes
+    users/           # admin usuarios + memberships
   app.module.ts
   main.ts
 prisma/
-  schema.prisma      # Modelo ER inicial
+  schema.prisma
 ```
+
+## Rutas principales
+
+Auth: `Authorization: Bearer <accessToken>` (excepto `/health` y `POST /auth/login`).
+
+| Método | Ruta | Roles |
+|--------|------|-------|
+| `GET` | `/health` | — |
+| `POST` | `/auth/login` | público |
+| `GET` | `/auth/me` | autenticado |
+| `GET` | `/clients` | autenticado* |
+| `GET` | `/clients/:id` | autenticado* |
+| `POST` | `/clients` | ADMIN |
+| `PATCH` | `/clients/:id` | ADMIN |
+| `PATCH` | `/clients/:id/deactivate` | ADMIN |
+| `PATCH` | `/clients/:id/activate` | ADMIN |
+| `GET` | `/clients/:clientId/profiles` | autenticado* |
+| `POST` | `/clients/:clientId/profiles` | ADMIN, ANALYST |
+| `GET` | `/profiles/:id` | autenticado* |
+| `PATCH` | `/profiles/:id` | ADMIN, ANALYST |
+| `PATCH` | `/profiles/:id/deactivate` | ADMIN |
+| `PATCH` | `/profiles/:id/activate` | ADMIN |
+| `GET` | `/sources` | ADMIN, ANALYST, VIEWER |
+| `GET` | `/sources/:id` | ADMIN, ANALYST, VIEWER |
+| `POST` | `/sources` | ADMIN |
+| `PATCH` | `/sources/:id` | ADMIN |
+| `PATCH` | `/sources/:id/deactivate` | ADMIN |
+| `PATCH` | `/sources/:id/activate` | ADMIN |
+| `POST` | `/users` | ADMIN |
+| `GET` | `/users` | ADMIN |
+| `GET` | `/users/:id` | ADMIN |
+| `PATCH` | `/users/:id/role` | ADMIN |
+| `PATCH` | `/users/:id/deactivate` | ADMIN |
+| `PATCH` | `/users/:id/activate` | ADMIN |
+| `POST` | `/users/:id/memberships` | ADMIN |
+| `PATCH` | `/memberships/:id` | ADMIN |
+
+\*No-ADMIN: solo clientes/perfiles de memberships `ACTIVE`.
+
+Guía Postman: [docs/postman-pruebas.md](docs/postman-pruebas.md).
 
 ## Scripts
 
@@ -94,15 +134,16 @@ prisma/
 |----------|-------------|----------------------|
 | `NODE_ENV` | `development` | `staging` / `production` |
 | `PORT` | `3000` | asignado por el host |
-| `DATABASE_URL` | Supabase project (dev) | Supabase project (staging/prod) o branch |
+| `DATABASE_URL` | Supabase Postgres (dev) | Postgres staging/prod (Supabase u otro) |
 | `CORS_ORIGIN` | `http://localhost:5173` | URL del frontend desplegado |
-| `SUPABASE_URL` | URL del proyecto Supabase | misma o proyecto dedicado |
-| `SUPABASE_ANON_KEY` | publishable/anon key | key del ambiente |
-| `SUPABASE_JWT_SECRET` | JWT secret del proyecto (Settings → API) | secret del ambiente |
+| `JWT_SECRET` | secreto local | secreto fuerte por ambiente |
+| `JWT_EXPIRES_IN` | `8h` | según política |
+| `AUTH_SEED_EMAIL` | admin de desarrollo | opcional (solo seed) |
+| `AUTH_SEED_PASSWORD` | password de desarrollo | opcional (solo seed) |
 
 Reglas:
 - Nunca subir `.env` a Git.
-- Staging y Production deben usar proyectos/branches de Supabase separados cuando sea posible.
+- Staging y Production deben usar bases separadas cuando sea posible.
 - Migraciones en staging/prod: `pnpm prisma:deploy`.
 
 ### Tablero
@@ -111,7 +152,7 @@ GitHub Project: [NORMA — Piloto Arca](https://github.com/users/CRZANDROID/proj
 
 ## Modelo ER
 
-Modelo administrativo evoluciona hacia: usuarios vinculados a Supabase Auth, roles, membresías, clientes, perfiles regulatorios, fuentes y hallazgos.  
+Modelo administrativo: usuarios con auth propia (email/password + JWT), roles, membresías, clientes, perfiles regulatorios, fuentes y hallazgos.  
 El semáforo operativo del piloto usa 4 niveles: verde, amarillo, naranja y rojo.
 
 ## Documentación para agentes y colaboradores

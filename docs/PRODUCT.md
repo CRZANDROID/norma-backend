@@ -12,7 +12,7 @@ Equipos regulatorios revisan manualmente muchas fuentes (DOF, congresos, autorid
 
 ## Alcance del piloto (qué SÍ)
 
-- Backoffice autenticado (Supabase Auth + NestJS)
+- Backoffice autenticado (NestJS: email/password + JWT propio)
 - Multi-tenant por **cliente** (Arca primero)
 - Catálogo de **fuentes** (empezar con pocas representativas: DOF, Diputados, un congreso estatal)
 - **Perfil regulatorio** del cliente (keywords, categorías, portafolio)
@@ -22,7 +22,7 @@ Equipos regulatorios revisan manualmente muchas fuentes (DOF, congresos, autorid
 
 - Microservicios
 - Fastify (se mantiene Express en NestJS)
-- JWT / passwords propios en Nest (usa Supabase Auth)
+- Supabase Auth / identidad externalizada (Postgres en Supabase sí; auth es de Nest)
 - Consultas de negocio desde el frontend directo a tablas Supabase
 - Integrar OpenAI, Redis, BullMQ, Resend “por checklist” antes de que aporten valor
 - Desplegar los 32 congresos desde el día uno
@@ -57,3 +57,4 @@ Tablero: GitHub Project **NORMA — Piloto Arca**.
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — stack y reglas técnicas
 - [SPRINTS.md](./SPRINTS.md) — plan semanal
 - [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md) — brief CRUD admin (backend)
+- [postman-pruebas.md](./postman-pruebas.md) — guía de pruebas de endpoints

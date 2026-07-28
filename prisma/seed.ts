@@ -1,4 +1,5 @@
-import { PrismaClient, SourceType, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
+import { PrismaClient, SourceType, UserRole } from '../generated/prisma';
 
 const prisma = new PrismaClient();
 
@@ -57,7 +58,6 @@ async function main() {
       products: {
         categories: ['refrescos', 'aguas', 'jugos', 'bebidas saborizadas'],
       },
-      status: 'ACTIVE',
     },
   });
 
@@ -99,47 +99,46 @@ async function main() {
     });
   }
 
-  // Placeholder admin linked after first Supabase login by email match/update.
-  // Create only if an AUTH_SEED_USER_ID is provided.
-  const seedAuthUserId = process.env.AUTH_SEED_USER_ID;
-  const seedEmail = process.env.AUTH_SEED_EMAIL ?? 'admin@norma.local';
+  const seedEmail = (process.env.AUTH_SEED_EMAIL ?? 'admin@norma.local').toLowerCase();
+  const seedPassword = process.env.AUTH_SEED_PASSWORD ?? 'ChangeMe123!';
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
 
-  if (seedAuthUserId) {
-    const admin = await prisma.user.upsert({
-      where: { authUserId: seedAuthUserId },
-      update: {
-        email: seedEmail.toLowerCase(),
-        name: 'Admin NORMA',
-        role: UserRole.ADMIN,
-        status: 'ACTIVE',
-      },
-      create: {
-        authUserId: seedAuthUserId,
-        email: seedEmail.toLowerCase(),
-        name: 'Admin NORMA',
-        role: UserRole.ADMIN,
-        status: 'ACTIVE',
-      },
-    });
+  const admin = await prisma.user.upsert({
+    where: { email: seedEmail },
+    update: {
+      name: 'Admin NORMA',
+      role: UserRole.ADMIN,
+      status: 'ACTIVE',
+      passwordHash,
+    },
+    create: {
+      email: seedEmail,
+      name: 'Admin NORMA',
+      role: UserRole.ADMIN,
+      status: 'ACTIVE',
+      passwordHash,
+    },
+  });
 
-    await prisma.clientMembership.upsert({
-      where: {
-        userId_clientId: {
-          userId: admin.id,
-          clientId: arca.id,
-        },
-      },
-      update: { role: UserRole.ADMIN, status: 'ACTIVE' },
-      create: {
+  await prisma.clientMembership.upsert({
+    where: {
+      userId_clientId: {
         userId: admin.id,
         clientId: arca.id,
-        role: UserRole.ADMIN,
-        status: 'ACTIVE',
       },
-    });
-  }
+    },
+    update: { role: UserRole.ADMIN, status: 'ACTIVE' },
+    create: {
+      userId: admin.id,
+      clientId: arca.id,
+      role: UserRole.ADMIN,
+      status: 'ACTIVE',
+    },
+  });
 
-  console.log('Seed completed: Arca client, regulatory profile, pilot sources');
+  console.log(
+    `Seed completed: Arca client, regulatory profile, pilot sources, admin ${seedEmail}`,
+  );
 }
 
 main()

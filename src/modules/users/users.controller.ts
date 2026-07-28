@@ -1,37 +1,64 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
+  Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { EntityStatus, UserRole } from '@prisma/client';
+import { UserRole } from '../../database/prisma-client';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
+import { CreateMembershipDto } from './dto/create-membership.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { ListUsersQueryDto } from './dto/list-users.query.dto';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
-@UseGuards(SupabaseAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  list(
-    @Query('status') status?: EntityStatus,
-    @Query('q') q?: string,
-  ) {
-    const normalizedStatus =
-      status === EntityStatus.ACTIVE || status === EntityStatus.INACTIVE
-        ? status
-        : undefined;
+  findAll(@Query() query: ListUsersQueryDto) {
+    return this.usersService.findAll(query);
+  }
 
-    return this.usersService.list({ status: normalizedStatus, q });
+  @Post()
+  create(@Body() dto: CreateUserDto) {
+    return this.usersService.create(dto);
+  }
+
+  @Post(':id/memberships')
+  createMembership(
+    @Param('id') id: string,
+    @Body() dto: CreateMembershipDto,
+  ) {
+    return this.usersService.createMembership(id, dto);
+  }
+
+  @Patch(':id/role')
+  updateRole(@Param('id') id: string, @Body() dto: UpdateUserRoleDto) {
+    return this.usersService.updateRole(id, dto.role);
+  }
+
+  @Patch(':id/deactivate')
+  deactivate(@Param('id') id: string) {
+    return this.usersService.deactivate(id);
+  }
+
+  @Patch(':id/activate')
+  activate(@Param('id') id: string) {
+    return this.usersService.activate(id);
   }
 
   @Get(':id')
-  getById(@Param('id') id: string) {
-    return this.usersService.getById(id);
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(id);
   }
 }

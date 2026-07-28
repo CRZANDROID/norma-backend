@@ -14,10 +14,10 @@ alwaysApply: false
 
 - Tablas con `@@map("snake_case")`; campos con `@map` cuando aplique.
 - IDs: `cuid()`.
-- Uniques de negocio: `Client.slug`, `Source.code`, `User.authUserId`, `User.email`.
+- Uniques de negocio: `Client.slug`, `Source.code`, `User.email`.
 - Membership: `@@unique([userId, clientId])`.
 - Status con enum `EntityStatus` (`ACTIVE` | `INACTIVE`).
-- No reintroducir `passwordHash` en `User`.
+- Auth: `User.passwordHash` (bcrypt). No reintroducir `authUserId` / Supabase Auth.
 
 ## Dominio
 

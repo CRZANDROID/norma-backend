@@ -6,8 +6,8 @@
 |------|------------|-------|
 | API | NestJS + **Express** | No migrar a Fastify sin métricas |
 | ORM | Prisma 6 | Única vía a datos de negocio |
-| DB | PostgreSQL en Supabase | Migraciones con Prisma |
-| Auth | Supabase Auth | Nest valida Bearer; no guarda passwords |
+| DB | PostgreSQL en Supabase | Migraciones con Prisma; Supabase = hosting DB |
+| Auth | JWT propio (Nest) | `passwordHash` + `POST /auth/login`; Bearer en rutas |
 | Jobs (futuro) | Redis + BullMQ | Desde Sprint 5 |
 | IA (futuro) | OpenAI | Desde Sprint 7 |
 | Email (futuro) | Resend | Solo tras aprobación humana |
@@ -16,21 +16,22 @@
 
 ```text
 React (frontend)
-  → Supabase Auth (login / session / access token)
+  → POST /auth/login (email + password)
+  → accessToken (JWT Nest)
   → Authorization: Bearer <token>
-  → NestJS SupabaseAuthGuard (+ RolesGuard)
+  → NestJS JwtAuthGuard (+ RolesGuard)
   → Controller → Service → PrismaService
-  → PostgreSQL (Supabase)
+  → PostgreSQL (Supabase u otro)
 ```
 
 **Prohibido:** frontend → PostgREST/tablas de negocio para clients, sources, findings, users.
 
 Supabase se usa para:
 
-1. **Auth** (identidad, sesión, JWT)
-2. **Hosting de Postgres** (y más adelante Storage)
+1. **Hosting de Postgres** (y más adelante Storage)
+2. **No** para Auth de aplicación
 
-Prisma / Nest poseen las reglas de negocio y la autorización de tenant.
+Prisma / Nest poseen identidad de negocio, reglas y autorización de tenant.
 
 ## Forma del monolito
 
@@ -41,11 +42,10 @@ src/
   database/          # PrismaModule global
   health/
   modules/
-    auth/            # guards, sync user, /auth/me
+    auth/            # login JWT, guards, /auth/me
     clients/         # CRUD clientes + perfiles
     sources/         # CRUD fuentes
-    users/           # admin usuarios (Sprint 3)
-    alerts/          # legacy name; dominio real = findings
+    users/           # admin usuarios + memberships
   app.module.ts
   main.ts
 ```
@@ -72,16 +72,18 @@ Cuando crezca la complejidad, se puede separar presentation / application / doma
 
 | Pieza | Uso |
 |-------|-----|
-| `SupabaseAuthGuard` | Obligatoria en rutas de negocio |
+| `JwtAuthGuard` | Obligatoria en rutas de negocio |
 | `@Roles(...)` + `RolesGuard` | Mutaciones y admin |
-| `@CurrentUser()` | Usuario NORMA (no solo claim JWT) |
+| `@CurrentUser()` | Usuario NORMA (payload JWT → user en DB) |
+| `POST /auth/login` | Emite JWT |
 | `GET /auth/me` | Perfil + memberships para el front |
+| `POST /users` | Alta de usuarios (solo `ADMIN`; hash bcrypt) |
 
 Soft-status: `EntityStatus` (`ACTIVE` | `INACTIVE`). No hard-delete en el piloto.
 
 ## Modelo de datos (resumen)
 
-- `User` — `authUserId` (Supabase), email, role, status
+- `User` — email, `passwordHash`, role, status
 - `Client` — name, slug, status
 - `ClientMembership` — unique(userId, clientId)
 - `RegulatoryProfile` — keywords, categories, products (Json)
@@ -113,3 +115,4 @@ Variables: ver `.env.example`. Secretos nunca en Git.
 - [PRODUCT.md](./PRODUCT.md)
 - [SPRINTS.md](./SPRINTS.md)
 - [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md)
+- [postman-pruebas.md](./postman-pruebas.md)

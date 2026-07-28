@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../../database/prisma-client';
 
 export type AuthMembership = {
   clientId: string;
@@ -9,15 +9,13 @@ export type AuthMembership = {
 
 export type AuthUser = {
   id: string;
-  authUserId: string;
   email: string;
   name: string;
   role: UserRole;
   memberships: AuthMembership[];
 };
 
-export type JwtPayloadUser = {
-  authUserId: string;
+export type JwtPayload = {
+  sub: string;
   email: string;
-  name?: string;
 };

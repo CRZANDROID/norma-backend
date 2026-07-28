@@ -9,8 +9,8 @@ Antes de implementar, consulta `docs/PRODUCT.md`, `docs/ARCHITECTURE.md` y `docs
 
 ## Stack fijo
 
-- Backend: NestJS + Express + Prisma + PostgreSQL (Supabase)
-- Auth: Supabase Auth (Bearer JWT). Nest no guarda passwords.
+- Backend: NestJS + Express + Prisma + PostgreSQL (Supabase = DB)
+- Auth: JWT propio (`POST /auth/login`, bcrypt). Nest emite y valida Bearer.
 - Flujo: Frontend → NestJS → Prisma → Postgres. No PostgREST de negocio desde el front.
 
 ## Reglas
@@ -23,4 +23,5 @@ Antes de implementar, consulta `docs/PRODUCT.md`, `docs/ARCHITECTURE.md` y `docs
 
 ## Sprint actual
 
-CRUD admin (clients, profiles, sources, users). Brief: `docs/SPRINT-3-BACKEND.md`.
+Sprint 3 backend (CRUD admin) **completado**. Brief: `docs/SPRINT-3-BACKEND.md`.  
+Pendiente de sprint: pantallas front conectadas a la API real.
