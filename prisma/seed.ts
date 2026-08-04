@@ -136,8 +136,42 @@ async function main() {
     },
   });
 
+  await prisma.clientFiscalData.upsert({
+    where: { clientId: arca.id },
+    update: {
+      legalName: 'Arca Continental, S.A.B. de C.V.',
+      rfc: 'ACA800101AA1',
+      postalCode: '66260',
+      cfdi: 'G03',
+      taxRegime: '601',
+    },
+    create: {
+      clientId: arca.id,
+      legalName: 'Arca Continental, S.A.B. de C.V.',
+      rfc: 'ACA800101AA1',
+      postalCode: '66260',
+      cfdi: 'G03',
+      taxRegime: '601',
+    },
+  });
+
+  const existingContact = await prisma.clientContact.findFirst({
+    where: { clientId: arca.id, email: 'asuntos.regulatorios@arca.com' },
+  });
+  if (!existingContact) {
+    await prisma.clientContact.create({
+      data: {
+        clientId: arca.id,
+        name: 'Asuntos Regulatorios Arca',
+        phone: '+52 81 8151 1400',
+        email: 'asuntos.regulatorios@arca.com',
+        status: 'ACTIVE',
+      },
+    });
+  }
+
   console.log(
-    `Seed completed: Arca client, regulatory profile, pilot sources, admin ${seedEmail}`,
+    `Seed completed: Arca client (+ fiscal/contact), regulatory profile, pilot sources, admin ${seedEmail}`,
   );
 }
 

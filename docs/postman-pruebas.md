@@ -165,7 +165,7 @@ GET {{baseUrl}}/clients/{{clientId}}
 Authorization: Bearer {{accessToken}}
 ```
 
-Incluye `profiles` y `sources` (fuentes vinculadas).
+Incluye `profiles`, `sources` (fuentes vinculadas), `fiscalData` (o `null`) y `contacts`.
 
 ### POST `/clients` — ADMIN
 
@@ -179,12 +179,28 @@ Content-Type: application/json
   "slug": "cliente-demo",
   "email": "contacto@demo.com",
   "phone": "+52 55 1234 5678",
-  "sourceIds": ["{{sourceId}}"]
+  "sourceIds": ["{{sourceId}}"],
+  "fiscal": {
+    "legalName": "Cliente Demo S.A. de C.V.",
+    "rfc": "CDE010101AAA",
+    "postalCode": "06600",
+    "cfdi": "G03",
+    "taxRegime": "601"
+  },
+  "contacts": [
+    {
+      "name": "María López",
+      "phone": "+52 81 1234 5678",
+      "email": "maria.lopez@cliente.com"
+    }
+  ]
 }
 ```
 
 `slug`: solo `[a-z0-9-]`.  
-`sourceIds` (opcional): IDs de fuentes a vincular. La respuesta incluye `sources: [...]`.
+`sourceIds` (opcional): IDs de fuentes a vincular. La respuesta incluye `sources: [...]`.  
+`fiscal` (opcional): datos fiscales 1:1 (`legalName`, `rfc`, `postalCode`, `cfdi`, `taxRegime`).  
+`contacts` (opcional): lista de contactos a crear junto con el cliente. La respuesta incluye `contacts: [...]`.
 
 ### PATCH `/clients/:id` — ADMIN
 
@@ -197,12 +213,32 @@ Content-Type: application/json
   "name": "Cliente Demo Actualizado",
   "email": "nuevo@demo.com",
   "phone": "+52 55 9999 0000",
-  "sourceIds": ["{{sourceId}}"]
+  "sourceIds": ["{{sourceId}}"],
+  "fiscal": {
+    "legalName": "Cliente Demo S.A. de C.V.",
+    "rfc": "CDE010101AAA",
+    "postalCode": "06600",
+    "cfdi": "G03",
+    "taxRegime": "601"
+  },
+  "contacts": [
+    {
+      "name": "María López",
+      "phone": "+52 81 9999 0000",
+      "email": "maria@cliente.com"
+    },
+    {
+      "name": "Juan Pérez",
+      "phone": "+52 81 1111 2222"
+    }
+  ]
 }
 ```
 
 No se puede cambiar `slug` por este endpoint.  
-Si envías `sourceIds`, **reemplaza** el set completo de fuentes (manda `[]` para quitar todas). Si lo omites, no toca las vinculaciones.
+Si envías `sourceIds`, **reemplaza** el set completo de fuentes (manda `[]` para quitar todas). Si lo omites, no toca las vinculaciones.  
+Si envías `fiscal`, hace **upsert** de los datos fiscales. Si lo omites, no toca fiscales.  
+Si envías `contacts`, **reemplaza** el set completo de contactos (manda `[]` para quitar todos). Si lo omites, no toca contactos.
 
 ### PATCH `/clients/:id/deactivate` — ADMIN
 
@@ -215,6 +251,75 @@ Authorization: Bearer {{accessToken}}
 
 ```http
 PATCH {{baseUrl}}/clients/{{clientId}}/activate
+Authorization: Bearer {{accessToken}}
+```
+
+---
+
+## 4b. Contactos directos del cliente
+
+Lectura: autenticado con acceso al cliente.  
+Escritura / activate-deactivate: **ADMIN**.
+
+Variable sugerida: `contactId`.
+
+### GET `/clients/:clientId/contacts`
+
+Query: `status` opcional (`ACTIVE` \| `INACTIVE`).
+
+```http
+GET {{baseUrl}}/clients/{{clientId}}/contacts?status=ACTIVE
+Authorization: Bearer {{accessToken}}
+```
+
+### POST `/clients/:clientId/contacts` — ADMIN
+
+```http
+POST {{baseUrl}}/clients/{{clientId}}/contacts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "María López",
+  "phone": "+52 81 1234 5678",
+  "email": "maria.lopez@cliente.com"
+}
+```
+
+Guarda `id` → `{{contactId}}`.
+
+### GET `/contacts/:id`
+
+```http
+GET {{baseUrl}}/contacts/{{contactId}}
+Authorization: Bearer {{accessToken}}
+```
+
+### PATCH `/contacts/:id` — ADMIN
+
+```http
+PATCH {{baseUrl}}/contacts/{{contactId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "María López Actualizado",
+  "phone": "+52 81 9999 0000",
+  "email": "maria@cliente.com"
+}
+```
+
+### PATCH `/contacts/:id/deactivate` — ADMIN
+
+```http
+PATCH {{baseUrl}}/contacts/{{contactId}}/deactivate
+Authorization: Bearer {{accessToken}}
+```
+
+### PATCH `/contacts/:id/activate` — ADMIN
+
+```http
+PATCH {{baseUrl}}/contacts/{{contactId}}/activate
 Authorization: Bearer {{accessToken}}
 ```
 
@@ -498,10 +603,10 @@ Campos opcionales: `role`, `status` (`ACTIVE` \| `INACTIVE`).
 2. `POST /auth/login` (admin seed) → guardar `accessToken`
 3. `GET /auth/me` → guardar `userId`
 4. `GET /clients` → `clientId`
-5. `GET /clients/:id`
+5. `GET /clients/:id` (revisar `fiscalData`)
 6. `GET /clients/:clientId/profiles` → `profileId`
 7. `GET /sources` → `sourceId`
-8. CRUD admin: crear cliente / fuente / perfil → patch → deactivate → activate
+8. CRUD admin: crear cliente (+ fiscal) / fuente / perfil / contactos → patch → deactivate → activate
 9. `GET /users` → membership create → `PATCH /memberships/:id`
 10. Probar un endpoint ADMIN con rol ANALYST → debe fallar `403`
 11. Storage (si hay `SUPABASE_*`): `POST /storage/upload` → `GET /storage/signed-url` → `GET /storage/download`
@@ -562,6 +667,12 @@ En Postman: Send and Download si quieres guardar el binario.
 | PATCH | `/clients/:id` | Sí | ADMIN |
 | PATCH | `/clients/:id/deactivate` | Sí | ADMIN |
 | PATCH | `/clients/:id/activate` | Sí | ADMIN |
+| GET | `/clients/:clientId/contacts` | Sí | autenticado* |
+| POST | `/clients/:clientId/contacts` | Sí | ADMIN |
+| GET | `/contacts/:id` | Sí | autenticado* |
+| PATCH | `/contacts/:id` | Sí | ADMIN |
+| PATCH | `/contacts/:id/deactivate` | Sí | ADMIN |
+| PATCH | `/contacts/:id/activate` | Sí | ADMIN |
 | GET | `/clients/:clientId/profiles` | Sí | autenticado* |
 | POST | `/clients/:clientId/profiles` | Sí | ADMIN, ANALYST |
 | GET | `/profiles/:id` | Sí | autenticado* |

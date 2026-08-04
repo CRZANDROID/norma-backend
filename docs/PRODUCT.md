@@ -13,7 +13,7 @@ Equipos regulatorios revisan manualmente muchas fuentes (DOF, congresos, autorid
 ## Alcance del piloto (qué SÍ)
 
 - Backoffice autenticado (NestJS: email/password + JWT propio)
-- Multi-tenant por **cliente** (Arca primero)
+- Multi-tenant por **cliente** (Arca primero), con datos fiscales y contactos de soporte
 - Catálogo de **fuentes** (empezar con pocas representativas: DOF, Diputados, un congreso estatal)
 - **Perfil regulatorio** del cliente (keywords, categorías, portafolio)
 - Más adelante: ingesta, normalización, deduplicación, clasificación, semáforo 4 niveles, borrador ejecutivo, inbox de validación humana, email solo tras aprobación
@@ -62,3 +62,4 @@ Tablero: GitHub Project **NORMA — Piloto Arca**.
 - [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) — state machine docs + jobs S5
 - [HANDOFF.md](./HANDOFF.md) — estado actual y siguientes pasos (agentes)
 - [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) — contrato UI client↔fuentes
+- [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) — fiscales + contactos

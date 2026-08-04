@@ -12,12 +12,12 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | 1–2 | Hecho | Nest + Prisma + JWT propio (`POST /auth/login`) |
 | 3 CRUD admin | **API hecha** | clients, profiles, sources, users/memberships |
 | 3 extensión | **API hecha** | N:N **client ↔ sources** (`sourceIds` / `clientIds`) |
-| 3 front | Fuera de este repo | Wire UI → [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) |
-| 4 | **Hecho en código/verificado** | Sentry + Storage OK en local; PR #24 |
+| 3+ ajustes | **API hecha** | Datos fiscales 1:1 + contactos 1:N del cliente |
+| 3 front | Fuera de este repo | Wire UI → [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) + [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) |
+| 4 | **Hecho en código/verificado** | Sentry + Storage OK en local |
 | 5+ | Pendiente | Implementar colas según [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
 
-**Rama:** el WIP largo suele estar en checkout local (a veces `feature/sprint-2-supabase-auth`). Remoto S3 histórico: `feature/sprint-3-admin-crud`. **Antes de codear:** `git status` + alinear rama (`feature/sprint-4-*` recomendada para este paquete).
-
+**Rama típica:** `feature/client-fiscal-contacts` (ajustes de dominio cliente).
 ---
 
 ## 2. Stack fijo (no reinventar)
@@ -37,15 +37,20 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | Seed/e2e | [seed-and-tests.md](./seed-and-tests.md) |
 | Client↔sources | [client-sources.md](./client-sources.md) |
 | Front UI guide | [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) |
+| Front fiscal/contactos | [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) |
 | Jobs/docs contracts | [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
 | Sentry/Storage | [sentry-storage.md](./sentry-storage.md) |
+| Render | [render-deploy.md](./render-deploy.md) |
 
 ---
 
 ## 3. Qué ya está implementado (backend)
 
-### Auth / CRUD / client↔sources
-Ver secciones anteriores y Postman. Migraciones `client_sources` + `documents` existen; aplicar con `pnpm prisma:deploy` si falta en un ambiente.
+### Auth / CRUD / client↔sources / fiscales / contactos
+Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fiscal_contacts`. Aplicar con `pnpm prisma:deploy` si falta.
+
+- Fiscales 1:1: `fiscal` en create/PATCH client → respuesta `fiscalData` (`legalName`, `rfc`, `postalCode`, `cfdi`, `taxRegime`)
+- Contactos: `contacts[]` en create/PATCH client (**replace** en PATCH); además rutas `/clients/:clientId/contacts` + `/contacts/:id`
 
 ### Sprint 4
 
@@ -67,9 +72,8 @@ test/*e2e-spec.ts
 
 ## 4. Qué falta (prioridad)
 
-1. Merge PR #24 (`feature/sprint-4-stabilization`).
-2. **No** implementar Redis/BullMQ hasta empezar S5 usando el contrato de jobs.
-3. Frontend (otro repo): UI client↔sources según FRONTEND-CLIENT-SOURCES.md.
+1. **No** implementar Redis/BullMQ hasta empezar S5 usando el contrato de jobs.
+2. Frontend (otro repo): UI client↔sources + fiscales/contactos ([FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md), [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)).
 
 ---
 
@@ -89,9 +93,8 @@ pnpm test:e2e
 
 ## 6. Para el agente de FRONTEND
 
-Lee **[FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md)**.
-
-Resumen: `sourceIds` en create/PATCH client (replace); `clientIds` solo en create source; tipos TS + multi-select.
+1. Fuentes: **[FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md)** (`sourceIds` / `clientIds`).
+2. Fiscales + contactos: **[FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)**.
 
 ---
 
@@ -110,6 +113,6 @@ Resumen: `sourceIds` en create/PATCH client (replace); `clientIds` solo en creat
 
 ## 8. Plantilla siguiente agente
 
-> Lee `docs/HANDOFF.md`. Prioridad: verificar #13 o commit/push del WIP. S5 solo tras leer `DOCUMENT-JOB-CONTRACTS.md`. Front: `FRONTEND-CLIENT-SOURCES.md`.
+> Lee `docs/HANDOFF.md`. S5 solo tras leer `DOCUMENT-JOB-CONTRACTS.md`. Front: `FRONTEND-CLIENT-SOURCES.md` + `FRONTEND-CLIENT-FISCAL-CONTACTS.md`.
 
-**Última actualización:** 2026-08-04 — #13 cerrado (Sentry+Storage verificados); PR #24 abierto.
+**Última actualización:** 2026-08-04 — datos fiscales (CP, CFDI, régimen) + contactos de cliente.

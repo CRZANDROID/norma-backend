@@ -81,8 +81,47 @@ model Client {
   findings    Finding[]
   documents   Document[]
   clientSources ClientSource[]
+  fiscalData  ClientFiscalData?
+  contacts    ClientContact[]
 
   @@map("clients")
+}
+
+/// Datos fiscales del cliente (1:1). Campos operativos del Client quedan aparte.
+model ClientFiscalData {
+  id            String   @id @default(cuid())
+  clientId      String   @unique @map("client_id")
+  legalName     String   @map("legal_name")
+  rfc           String
+  postalCode    String   @map("postal_code")
+  /// CFDI use code (SAT catalog, e.g. G03)
+  cfdi          String
+  /// Tax regime code (SAT catalog, e.g. 601)
+  taxRegime     String   @map("tax_regime")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_fiscal_data")
+}
+
+/// Contactos directos del cliente (soporte / detalle operativo).
+model ClientContact {
+  id        String       @id @default(cuid())
+  clientId  String       @map("client_id")
+  name      String
+  phone     String
+  email     String?
+  status    EntityStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([status])
+  @@map("client_contacts")
 }
 
 model ClientMembership {
