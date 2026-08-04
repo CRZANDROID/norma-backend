@@ -1,4 +1,12 @@
-import { IsEmail, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
 
 export class CreateClientDto {
   @IsString()
@@ -18,4 +26,11 @@ export class CreateClientDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  /** IDs de fuentes a vincular al crear el cliente. */
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  sourceIds?: string[];
 }

@@ -61,6 +61,7 @@ model User {
   updatedAt    DateTime     @updatedAt @map("updated_at")
 
   memberships ClientMembership[]
+  documents   Document[]
 
   @@map("users")
 }
@@ -78,6 +79,8 @@ model Client {
   memberships ClientMembership[]
   profiles    RegulatoryProfile[]
   findings    Finding[]
+  documents   Document[]
+  clientSources ClientSource[]
 
   @@map("clients")
 }
@@ -133,9 +136,25 @@ model Source {
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
   findings Finding[]
+  clientSources ClientSource[]
 
   @@index([status])
   @@map("sources")
+}
+
+/// Relación N:N cliente ↔ fuente (no altera tablas clients/sources).
+model ClientSource {
+  id        String   @id @default(cuid())
+  clientId  String   @map("client_id")
+  sourceId  String   @map("source_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, sourceId])
+  @@index([sourceId])
+  @@map("client_sources")
 }
 
 model Finding {
@@ -157,4 +176,30 @@ model Finding {
   @@index([status])
   @@index([impact])
   @@map("findings")
+}
+
+/// Metadatos de archivos en Supabase Storage (infra para documentos futuros).
+/// El binario vive en el bucket; esta tabla guarda la referencia.
+model Document {
+  id           String       @id @default(cuid())
+  clientId     String?      @map("client_id")
+  uploadedById String?      @map("uploaded_by_id")
+  bucket       String
+  path         String
+  filename     String
+  mimeType     String?      @map("mime_type")
+  sizeBytes    Int?         @map("size_bytes")
+  status       EntityStatus @default(ACTIVE)
+  metadata     Json?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  client     Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  uploadedBy User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([bucket, path])
+  @@index([clientId])
+  @@index([uploadedById])
+  @@index([status])
+  @@map("documents")
 }

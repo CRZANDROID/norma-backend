@@ -14,6 +14,11 @@ export class ListSourcesQueryDto {
   @IsString()
   jurisdiction?: string;
 
+  /** Filtra fuentes vinculadas a este cliente. */
+  @IsOptional()
+  @IsString()
+  clientId?: string;
+
   @IsOptional()
   @IsString()
   q?: string;

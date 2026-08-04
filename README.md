@@ -1,6 +1,7 @@
 # NORMA — Backend
 
-API NestJS + Prisma + PostgreSQL (Supabase solo como base de datos) para el proyecto NORMA.
+API NestJS + Prisma + PostgreSQL (Supabase como DB + Storage) para el proyecto NORMA.
+Auth propia con JWT. Monitoreo de errores con Sentry.
 
 ## Requisitos
 
@@ -33,7 +34,8 @@ pnpm prisma:migrate
 pnpm start:dev
 ```
 
-API en `http://localhost:3000`
+API en `http://localhost:3000`  
+Swagger UI: `http://localhost:3000/docs`
 
 ### Health check
 
@@ -57,68 +59,39 @@ Si la DB aún no está configurada, el servidor arranca igual y `/health` respon
 
 ```
 src/
+  instrument.ts     # Sentry.init (importado primero desde main.ts)
   database/          # PrismaModule / PrismaService
   health/            # GET /health
   modules/
-    auth/            # login JWT, /auth/me
-    clients/         # CRUD clientes + perfiles
-    sources/         # CRUD fuentes
-    users/           # admin usuarios + memberships
+    auth/
+    clients/
+    alerts/
+    sources/
+    users/
+    storage/         # Upload / download / signed-url (Supabase Storage)
   app.module.ts
   main.ts
 prisma/
-  schema.prisma
+  schema.prisma      # Modelo ER (incluye Document como prep)
+docs/
+  seed-and-tests.md  # Seed + e2e + Swagger /docs
+  sentry-storage.md  # Setup Sentry + Storage
+  sql/               # SQL manual del bucket Storage
 ```
 
-## Rutas principales
-
-Auth: `Authorization: Bearer <accessToken>` (excepto `/health` y `POST /auth/login`).
-
-| Método | Ruta | Roles |
-|--------|------|-------|
-| `GET` | `/health` | — |
-| `POST` | `/auth/login` | público |
-| `GET` | `/auth/me` | autenticado |
-| `GET` | `/clients` | autenticado* |
-| `GET` | `/clients/:id` | autenticado* |
-| `POST` | `/clients` | ADMIN |
-| `PATCH` | `/clients/:id` | ADMIN |
-| `PATCH` | `/clients/:id/deactivate` | ADMIN |
-| `PATCH` | `/clients/:id/activate` | ADMIN |
-| `GET` | `/clients/:clientId/profiles` | autenticado* |
-| `POST` | `/clients/:clientId/profiles` | ADMIN, ANALYST |
-| `GET` | `/profiles/:id` | autenticado* |
-| `PATCH` | `/profiles/:id` | ADMIN, ANALYST |
-| `PATCH` | `/profiles/:id/deactivate` | ADMIN |
-| `PATCH` | `/profiles/:id/activate` | ADMIN |
-| `GET` | `/sources` | ADMIN, ANALYST, VIEWER |
-| `GET` | `/sources/:id` | ADMIN, ANALYST, VIEWER |
-| `POST` | `/sources` | ADMIN |
-| `PATCH` | `/sources/:id` | ADMIN |
-| `PATCH` | `/sources/:id/deactivate` | ADMIN |
-| `PATCH` | `/sources/:id/activate` | ADMIN |
-| `POST` | `/users` | ADMIN |
-| `GET` | `/users` | ADMIN |
-| `GET` | `/users/:id` | ADMIN |
-| `PATCH` | `/users/:id/role` | ADMIN |
-| `PATCH` | `/users/:id/deactivate` | ADMIN |
-| `PATCH` | `/users/:id/activate` | ADMIN |
-| `POST` | `/users/:id/memberships` | ADMIN |
-| `PATCH` | `/memberships/:id` | ADMIN |
-
-\*No-ADMIN: solo clientes/perfiles de memberships `ACTIVE`.
-
-Guía Postman: [docs/postman-pruebas.md](docs/postman-pruebas.md).
+Swagger UI: `http://localhost:3000/docs` (Authorize con JWT de `POST /auth/login`).
 
 ## Scripts
 
 | Script | Descripción |
 |--------|-------------|
 | `pnpm start:dev` | API en modo desarrollo |
+| `pnpm test:e2e` | Smoke e2e (auth, permisos, CRUD) — requiere `.env` + DB + seed |
 | `pnpm prisma:generate` | Genera Prisma Client |
 | `pnpm prisma:migrate` | Migraciones en desarrollo |
 | `pnpm prisma:studio` | UI de Prisma Studio |
 | `pnpm prisma:deploy` | Aplica migraciones (staging/prod) |
+| `pnpm prisma:seed` | Seed Arca + fuentes + admin |
 
 ## Ambientes
 
@@ -140,11 +113,16 @@ Guía Postman: [docs/postman-pruebas.md](docs/postman-pruebas.md).
 | `JWT_EXPIRES_IN` | `8h` | según política |
 | `AUTH_SEED_EMAIL` | admin de desarrollo | opcional (solo seed) |
 | `AUTH_SEED_PASSWORD` | password de desarrollo | opcional (solo seed) |
+| `SENTRY_DSN` | vacío / DSN de prueba | DSN del ambiente |
+| `SUPABASE_URL` | Project URL | Project URL del ambiente |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role local | service_role del ambiente |
+| `SUPABASE_STORAGE_BUCKET` | `documents` | bucket del ambiente |
 
 Reglas:
 - Nunca subir `.env` a Git.
 - Staging y Production deben usar bases separadas cuando sea posible.
 - Migraciones en staging/prod: `pnpm prisma:deploy`.
+- Detalle de Sentry + Storage: [docs/sentry-storage.md](docs/sentry-storage.md).
 
 ### Tablero
 
@@ -152,16 +130,5 @@ GitHub Project: [NORMA — Piloto Arca](https://github.com/users/CRZANDROID/proj
 
 ## Modelo ER
 
-Modelo administrativo: usuarios con auth propia (email/password + JWT), roles, membresías, clientes, perfiles regulatorios, fuentes y hallazgos.  
+Modelo administrativo: usuarios con auth propia (email/password + JWT), roles, membresías, clientes, perfiles regulatorios, fuentes, hallazgos y metadatos de documentos (prep para Storage).  
 El semáforo operativo del piloto usa 4 niveles: verde, amarillo, naranja y rojo.
-
-## Documentación para agentes y colaboradores
-
-| Archivo | Contenido |
-|---------|-----------|
-| [AGENTS.md](./AGENTS.md) | Índice de entrada para cualquier agente |
-| [docs/PRODUCT.md](./docs/PRODUCT.md) | Producto, alcance, actores |
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Stack, Auth, multi-tenant |
-| [docs/SPRINTS.md](./docs/SPRINTS.md) | Plan semanal 1–8 |
-| [docs/SPRINT-3-BACKEND.md](./docs/SPRINT-3-BACKEND.md) | Contrato CRUD admin |
-| `.cursor/rules/` | Reglas Cursor (core, NestJS, Prisma) |

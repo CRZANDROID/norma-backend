@@ -5,11 +5,11 @@ alwaysApply: true
 
 # NORMA — Core
 
-Antes de implementar, consulta `docs/PRODUCT.md`, `docs/ARCHITECTURE.md` y `docs/SPRINTS.md`.
+Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `docs/PRODUCT.md`, `docs/ARCHITECTURE.md` y `docs/SPRINTS.md`.
 
 ## Stack fijo
 
-- Backend: NestJS + Express + Prisma + PostgreSQL (Supabase = DB)
+- Backend: NestJS + Express + Prisma + PostgreSQL (Supabase = DB + Storage)
 - Auth: JWT propio (`POST /auth/login`, bcrypt). Nest emite y valida Bearer.
 - Flujo: Frontend → NestJS → Prisma → Postgres. No PostgREST de negocio desde el front.
 
@@ -17,11 +17,14 @@ Antes de implementar, consulta `docs/PRODUCT.md`, `docs/ARCHITECTURE.md` y `docs
 
 - Soft-status `ACTIVE`/`INACTIVE`; no hard-delete en el piloto.
 - Multi-tenant por `Client` + `ClientMembership`. `ADMIN` ve todo.
+- Clientes ↔ fuentes: N:N (`client_sources`). UI guide: `docs/FRONTEND-CLIENT-SOURCES.md`.
 - No agregar Redis/OpenAI/Resend/scrapers fuera del sprint que los consume.
 - Conventional Commits; ramas `main` / `dev` / `feature/*`.
 - Secretos solo en `.env` (nunca commit).
 
-## Sprint actual
+## Sprint / foco actual
 
-Sprint 3 backend (CRUD admin) **completado**. Brief: `docs/SPRINT-3-BACKEND.md`.  
-Pendiente de sprint: pantallas front conectadas a la API real.
+- Backend S3 CRUD + client↔sources: **hecho** (API).
+- Sprint 4: Swagger `/docs` + e2e + contratos jobs (doc) hechos; verificar Sentry/Storage (#13) con secrets reales.
+- Frontend: wire selección fuentes — `docs/FRONTEND-CLIENT-SOURCES.md`.
+- Siguiente backend grande: S5 workers según `docs/DOCUMENT-JOB-CONTRACTS.md`.

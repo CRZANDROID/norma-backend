@@ -58,3 +58,7 @@ Tablero: GitHub Project **NORMA — Piloto Arca**.
 - [SPRINTS.md](./SPRINTS.md) — plan semanal
 - [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md) — brief CRUD admin (backend)
 - [postman-pruebas.md](./postman-pruebas.md) — guía de pruebas de endpoints
+- [seed-and-tests.md](./seed-and-tests.md) — seed + e2e + Swagger `/docs`
+- [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) — state machine docs + jobs S5
+- [HANDOFF.md](./HANDOFF.md) — estado actual y siguientes pasos (agentes)
+- [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) — contrato UI client↔fuentes

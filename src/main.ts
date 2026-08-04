@@ -1,7 +1,11 @@
+// Debe ir primero para que Sentry instrumente el resto del proceso.
+import './instrument';
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { setupSwagger } from './common/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,6 +24,8 @@ async function bootstrap() {
     origin: corsOrigin.split(',').map((o) => o.trim()),
     credentials: true,
   });
+
+  setupSwagger(app);
 
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);

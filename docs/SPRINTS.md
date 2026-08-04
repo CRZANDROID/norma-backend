@@ -10,7 +10,7 @@ Piloto inicial: Arca Continental + pocas fuentes representativas.
 | 1 | Fundaciones | Repos, Nest/React, Prisma, health, tablero | Hecho |
 | 2 | Identidad | Auth JWT propia, guards, schema admin, `/auth/me`, login | Hecho |
 | 3 | CRUD admin | Clients, profiles, sources, users + pantallas | **Backend hecho**; front pendiente |
-| 4 | Estabilización | Swagger, validación, errores, seed/tests, Sentry, Storage | Pendiente |
+| 4 | Estabilización | Swagger, validación, e2e, Sentry, Storage, contratos jobs | **Docs/código listos**; falta verify manual #13 |
 | 5 | Ingesta | Redis/BullMQ + conectores piloto | Pendiente |
 | 6 | Documentos | Registro, storage, extract/normalize/dedup | Pendiente |
 | 7 | IA | OpenAI client, clasificación, relevancia, semáforo | Pendiente |
@@ -54,21 +54,24 @@ Issue frontend (pendiente):
 - `S3: Admin screens connected to real API` (Frontend, P0)
 
 **Entregable backend:** API admin real (clients, profiles, sources, users) con AuthZ.  
-**Entregable sprint completo:** panel admin con datos reales (no mocks) — depende del front.
+**Extensión (API hecha):** vínculo N:N cliente↔fuentes — [client-sources.md](./client-sources.md), UI: [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md).  
+**Entregable sprint completo:** panel admin con datos reales — front; falta UI de selección de fuentes.
 
 Detalle backend: [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md)  
-Pruebas: [postman-pruebas.md](./postman-pruebas.md)
+Pruebas: [postman-pruebas.md](./postman-pruebas.md)  
+**Continuidad agentes:** [HANDOFF.md](./HANDOFF.md)
 
 ---
 
 ## Sprint 4 — Estabilización e infraestructura ligera
 
-- Swagger/OpenAPI, ValidationPipe, exception filter, logging
-- Índices, seed documentado, tests auth/permisos/CRUD smoke
-- Sentry + prueba mínima Supabase Storage
-- Contratos de documentos / jobs de ingesta (doc)
+- [x] Swagger/OpenAPI en `/docs` + ValidationPipe
+- [x] Índices, seed documentado, tests auth/permisos/CRUD smoke (`pnpm test:e2e`)
+- [~] Sentry + Storage (código listo; checklist manual en [sentry-storage.md](./sentry-storage.md))
+- [x] Contratos de documentos / jobs de ingesta — [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md)
 
-**Entregable:** plataforma admin estable lista para ingesta.
+**Entregable:** plataforma admin estable lista para ingesta.  
+Estado vivo: [HANDOFF.md](./HANDOFF.md).
 
 ---
 
