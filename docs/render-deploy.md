@@ -16,8 +16,12 @@ Flujo correcto: **build en el build step** → **arrancar JS compilado**.
 |-------|--------|
 | Runtime | Node |
 | Build Command | `yarn install && yarn render:build` |
-| Start Command | `yarn start:prod` |
+| Start Command | `yarn start:prod` (o `yarn start`) |
 | Health Check Path | `/health` |
+
+Si el build no genera `dist/main.js`, el deploy falla a propósito en `render:build` (check post-build).
+
+**Importante:** el Build Command debe incluir `yarn render:build` (o al menos `yarn build`). Si solo haces `yarn` / `yarn install`, el start no encuentra `dist/main.js`.
 
 Si prefieres npm (el repo usa `pnpm` en local; Render a menudo usa yarn/npm):
 
