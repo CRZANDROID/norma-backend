@@ -114,14 +114,14 @@ pnpm prisma:deploy
 
 | Check | Cómo |
 |-------|------|
-| [ ] `SENTRY_DSN` en `.env` (staging/prod) | Forzar un 500 y ver Issue en Sentry |
-| [ ] Bucket `documents` creado | SQL `docs/sql/...` o UI Supabase |
-| [ ] `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | `.env` (nunca commit) |
-| [ ] Upload con JWT ADMIN/ANALYST | `POST /storage/upload` form-data `file` |
-| [ ] Signed-url + download | `GET /storage/signed-url` y `GET /storage/download` |
-| [ ] Sin key → `503` en `/storage/*` | Quitar key y confirmar |
+| [x] `SENTRY_DSN` en `.env` (staging/prod) | `GET /debug/sentry-test` → Issue en Sentry |
+| [x] Bucket `documents` creado | SQL `docs/sql/...` o UI Supabase |
+| [x] `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | `.env` (nunca commit) |
+| [x] Upload con JWT ADMIN/ANALYST | `POST /storage/upload` form-data `file` |
+| [x] Signed-url + download | `GET /storage/signed-url` y `GET /storage/download` |
+| [ ] Sin key → `503` en `/storage/*` | Quitar key y confirmar (opcional) |
 
-Cuando la fila esté completa en un ambiente, cerrar issue #13 en GitHub.
+**Cerrado #13** en local el 2026-08-04 (upload/signed-url/download OK + Sentry OK).
 
 ---
 

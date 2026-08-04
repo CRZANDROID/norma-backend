@@ -67,7 +67,7 @@ Pruebas: [postman-pruebas.md](./postman-pruebas.md)
 
 - [x] Swagger/OpenAPI en `/docs` + ValidationPipe
 - [x] Índices, seed documentado, tests auth/permisos/CRUD smoke (`pnpm test:e2e`)
-- [~] Sentry + Storage (código listo; checklist manual en [sentry-storage.md](./sentry-storage.md))
+- [x] Sentry + Storage (verificado en local; [sentry-storage.md](./sentry-storage.md))
 - [x] Contratos de documentos / jobs de ingesta — [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md)
 
 **Entregable:** plataforma admin estable lista para ingesta.  
