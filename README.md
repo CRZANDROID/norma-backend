@@ -85,7 +85,9 @@ Swagger UI: `http://localhost:3000/docs` (Authorize con JWT de `POST /auth/login
 
 | Script | Descripción |
 |--------|-------------|
-| `pnpm start:dev` | API en modo desarrollo |
+| `pnpm start:dev` | API en modo desarrollo (watch) |
+| `pnpm start` / `start:prod` | `node dist/main` (requiere `pnpm build` antes) |
+| `pnpm render:build` | generate + build + migrate deploy (PaaS) |
 | `pnpm test:e2e` | Smoke e2e (auth, permisos, CRUD) — requiere `.env` + DB + seed |
 | `pnpm prisma:generate` | Genera Prisma Client |
 | `pnpm prisma:migrate` | Migraciones en desarrollo |
@@ -123,6 +125,7 @@ Reglas:
 - Staging y Production deben usar bases separadas cuando sea posible.
 - Migraciones en staging/prod: `pnpm prisma:deploy`.
 - Detalle de Sentry + Storage: [docs/sentry-storage.md](docs/sentry-storage.md).
+- Deploy en Render: [docs/render-deploy.md](docs/render-deploy.md) (**Start Command** = `yarn start:prod`, no `yarn start` / `nest start`).
 
 ### Tablero
 

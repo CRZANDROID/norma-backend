@@ -27,7 +27,8 @@ async function bootstrap() {
 
   setupSwagger(app);
 
-  const port = config.get<number>('PORT', 3000);
-  await app.listen(port);
+  // Render (y otros PaaS) inyectan PORT; hay que escuchar en 0.0.0.0.
+  const port = Number(process.env.PORT ?? config.get<string>('PORT') ?? 3000);
+  await app.listen(port, '0.0.0.0');
 }
 bootstrap();
