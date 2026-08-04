@@ -8,11 +8,15 @@ import { EntityStatus, Prisma } from '../../database/prisma-client';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
 import { assertClientAccess, isAdmin } from './client-access.util';
+import type { CreateClientContactDto } from './dto/create-client-contact.dto';
 import { CreateClientDto } from './dto/create-client.dto';
+import type { FiscalDataDto } from './dto/fiscal-data.dto';
 import { ListClientsQueryDto } from './dto/list-clients.query.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
-const clientWithSources = {
+const clientDetailInclude = {
+  fiscalData: true,
+  contacts: { orderBy: { name: 'asc' as const } },
   profiles: { orderBy: { name: 'asc' as const } },
   clientSources: {
     include: {
@@ -22,8 +26,21 @@ const clientWithSources = {
   },
 } satisfies Prisma.ClientInclude;
 
-type ClientWithSources = Prisma.ClientGetPayload<{
-  include: typeof clientWithSources;
+const clientListInclude = {
+  fiscalData: true,
+  contacts: { orderBy: { name: 'asc' as const } },
+  clientSources: {
+    include: { source: true },
+    orderBy: { createdAt: 'asc' as const },
+  },
+} satisfies Prisma.ClientInclude;
+
+type ClientDetail = Prisma.ClientGetPayload<{
+  include: typeof clientDetailInclude;
+}>;
+
+type ClientListItem = Prisma.ClientGetPayload<{
+  include: typeof clientListInclude;
 }>;
 
 @Injectable()
@@ -52,9 +69,7 @@ export class ClientsService {
 
     const clients = await this.prisma.client.findMany({
       where,
-      include: {
-        clientSources: { include: { source: true }, orderBy: { createdAt: 'asc' } },
-      },
+      include: clientListInclude,
       orderBy: { name: 'asc' },
     });
 
@@ -64,7 +79,7 @@ export class ClientsService {
   async findOne(user: AuthUser, id: string) {
     const client = await this.prisma.client.findUnique({
       where: { id },
-      include: clientWithSources,
+      include: clientDetailInclude,
     });
 
     if (!client) {
@@ -78,6 +93,7 @@ export class ClientsService {
   async create(dto: CreateClientDto) {
     const sourceIds = dto.sourceIds ?? [];
     await this.assertSourcesExist(sourceIds);
+    const contactRows = this.toContactRows(dto.contacts);
 
     try {
       const client = await this.prisma.client.create({
@@ -91,8 +107,14 @@ export class ClientsService {
                 create: sourceIds.map((sourceId) => ({ sourceId })),
               }
             : undefined,
+          fiscalData: dto.fiscal
+            ? { create: this.toFiscalCreateData(dto.fiscal) }
+            : undefined,
+          contacts: contactRows.length
+            ? { create: contactRows }
+            : undefined,
         },
-        include: clientWithSources,
+        include: clientDetailInclude,
       });
       return this.shapeClient(client);
     } catch (error) {
@@ -120,6 +142,28 @@ export class ClientsService {
         }
       }
 
+      if (dto.fiscal !== undefined) {
+        const fiscal = this.toFiscalCreateData(dto.fiscal);
+        await tx.clientFiscalData.upsert({
+          where: { clientId: id },
+          create: { clientId: id, ...fiscal },
+          update: fiscal,
+        });
+      }
+
+      if (dto.contacts !== undefined) {
+        await tx.clientContact.deleteMany({ where: { clientId: id } });
+        const contactRows = this.toContactRows(dto.contacts);
+        if (contactRows.length > 0) {
+          await tx.clientContact.createMany({
+            data: contactRows.map((row) => ({
+              clientId: id,
+              ...row,
+            })),
+          });
+        }
+      }
+
       return tx.client.update({
         where: { id },
         data: {
@@ -127,7 +171,7 @@ export class ClientsService {
           email: dto.email,
           phone: dto.phone,
         },
-        include: clientWithSources,
+        include: clientDetailInclude,
       });
     });
 
@@ -160,20 +204,34 @@ export class ClientsService {
     return client;
   }
 
-  private shapeClient(
-    client:
-      | ClientWithSources
-      | Prisma.ClientGetPayload<{
-          include: {
-            clientSources: { include: { source: true } };
-          };
-        }>,
-  ) {
+  private shapeClient(client: ClientDetail | ClientListItem) {
     const { clientSources, ...rest } = client;
     return {
       ...rest,
       sources: clientSources.map((link) => link.source),
     };
+  }
+
+  private toFiscalCreateData(fiscal: FiscalDataDto) {
+    return {
+      legalName: fiscal.legalName.trim(),
+      rfc: fiscal.rfc.trim().toUpperCase(),
+      postalCode: fiscal.postalCode.trim(),
+      cfdi: fiscal.cfdi.trim().toUpperCase(),
+      taxRegime: fiscal.taxRegime.trim(),
+    };
+  }
+
+  private toContactRows(contacts?: CreateClientContactDto[]) {
+    if (!contacts?.length) {
+      return [];
+    }
+
+    return contacts.map((c) => ({
+      name: c.name.trim(),
+      phone: c.phone.trim(),
+      email: c.email?.trim(),
+    }));
   }
 
   private async assertSourcesExist(sourceIds: string[]) {

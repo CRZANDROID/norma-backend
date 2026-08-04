@@ -5,7 +5,11 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateClientContactDto } from './create-client-contact.dto';
+import { FiscalDataDto } from './fiscal-data.dto';
 
 export class UpdateClientDto {
   @IsOptional()
@@ -30,4 +34,23 @@ export class UpdateClientDto {
   @ArrayUnique()
   @IsString({ each: true })
   sourceIds?: string[];
+
+  /**
+   * Si se envía, hace upsert de los datos fiscales 1:1.
+   * Omítelo para no tocar fiscales.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FiscalDataDto)
+  fiscal?: FiscalDataDto;
+
+  /**
+   * Si se envía, reemplaza el set completo de contactos del cliente.
+   * Omítelo para no tocar contactos. `[]` elimina todos.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateClientContactDto)
+  contacts?: CreateClientContactDto[];
 }

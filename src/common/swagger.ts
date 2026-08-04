@@ -21,6 +21,7 @@ export function setupSwagger(app: INestApplication): void {
     .addTag('auth', 'Login y perfil')
     .addTag('clients', 'Clientes y multi-tenant')
     .addTag('profiles', 'Perfiles regulatorios')
+    .addTag('contacts', 'Contactos directos de clientes')
     .addTag('sources', 'Catálogo de fuentes')
     .addTag('users', 'Admin de usuarios')
     .addTag('memberships', 'Membresías usuario↔cliente')
