@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -10,6 +11,20 @@ import { assertClientAccess, isAdmin } from './client-access.util';
 import { CreateClientDto } from './dto/create-client.dto';
 import { ListClientsQueryDto } from './dto/list-clients.query.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+
+const clientWithSources = {
+  profiles: { orderBy: { name: 'asc' as const } },
+  clientSources: {
+    include: {
+      source: true,
+    },
+    orderBy: { createdAt: 'asc' as const },
+  },
+} satisfies Prisma.ClientInclude;
+
+type ClientWithSources = Prisma.ClientGetPayload<{
+  include: typeof clientWithSources;
+}>;
 
 @Injectable()
 export class ClientsService {
@@ -35,16 +50,21 @@ export class ClientsService {
       ];
     }
 
-    return this.prisma.client.findMany({
+    const clients = await this.prisma.client.findMany({
       where,
+      include: {
+        clientSources: { include: { source: true }, orderBy: { createdAt: 'asc' } },
+      },
       orderBy: { name: 'asc' },
     });
+
+    return clients.map((c) => this.shapeClient(c));
   }
 
   async findOne(user: AuthUser, id: string) {
     const client = await this.prisma.client.findUnique({
       where: { id },
-      include: { profiles: { orderBy: { name: 'asc' } } },
+      include: clientWithSources,
     });
 
     if (!client) {
@@ -52,19 +72,29 @@ export class ClientsService {
     }
 
     assertClientAccess(user, client.id);
-    return client;
+    return this.shapeClient(client);
   }
 
   async create(dto: CreateClientDto) {
+    const sourceIds = dto.sourceIds ?? [];
+    await this.assertSourcesExist(sourceIds);
+
     try {
-      return await this.prisma.client.create({
+      const client = await this.prisma.client.create({
         data: {
           name: dto.name,
           slug: dto.slug,
           email: dto.email,
           phone: dto.phone,
+          clientSources: sourceIds.length
+            ? {
+                create: sourceIds.map((sourceId) => ({ sourceId })),
+              }
+            : undefined,
         },
+        include: clientWithSources,
       });
+      return this.shapeClient(client);
     } catch (error) {
       this.rethrowUniqueConflict(error, 'Client slug already exists');
     }
@@ -73,14 +103,35 @@ export class ClientsService {
   async update(id: string, dto: UpdateClientDto) {
     await this.ensureExists(id);
 
-    return this.prisma.client.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        email: dto.email,
-        phone: dto.phone,
-      },
+    if (dto.sourceIds !== undefined) {
+      await this.assertSourcesExist(dto.sourceIds);
+    }
+
+    const client = await this.prisma.$transaction(async (tx) => {
+      if (dto.sourceIds !== undefined) {
+        await tx.clientSource.deleteMany({ where: { clientId: id } });
+        if (dto.sourceIds.length > 0) {
+          await tx.clientSource.createMany({
+            data: dto.sourceIds.map((sourceId) => ({
+              clientId: id,
+              sourceId,
+            })),
+          });
+        }
+      }
+
+      return tx.client.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          email: dto.email,
+          phone: dto.phone,
+        },
+        include: clientWithSources,
+      });
     });
+
+    return this.shapeClient(client);
   }
 
   async deactivate(id: string) {
@@ -107,6 +158,38 @@ export class ClientsService {
       throw new NotFoundException('Client not found');
     }
     return client;
+  }
+
+  private shapeClient(
+    client:
+      | ClientWithSources
+      | Prisma.ClientGetPayload<{
+          include: {
+            clientSources: { include: { source: true } };
+          };
+        }>,
+  ) {
+    const { clientSources, ...rest } = client;
+    return {
+      ...rest,
+      sources: clientSources.map((link) => link.source),
+    };
+  }
+
+  private async assertSourcesExist(sourceIds: string[]) {
+    if (sourceIds.length === 0) return;
+
+    const found = await this.prisma.source.findMany({
+      where: { id: { in: sourceIds } },
+      select: { id: true },
+    });
+    const foundIds = new Set(found.map((s) => s.id));
+    const missing = sourceIds.filter((id) => !foundIds.has(id));
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Source(s) not found: ${missing.join(', ')}`,
+      );
+    }
   }
 
   private rethrowUniqueConflict(error: unknown, message: string): never {

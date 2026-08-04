@@ -1,5 +1,6 @@
 import { SourceType } from '../../../database/prisma-client';
 import {
+  ArrayUnique,
   IsArray,
   IsEnum,
   IsObject,
@@ -48,4 +49,11 @@ export class CreateSourceDto {
   @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;
+
+  /** Clientes a vincular al crear la fuente (la edición de vínculos va en clientes). */
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  clientIds?: string[];
 }

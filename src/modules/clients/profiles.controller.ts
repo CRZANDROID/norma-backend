@@ -8,6 +8,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { UserRole } from '../../database/prisma-client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
@@ -19,12 +26,16 @@ import { ListProfilesQueryDto } from './dto/list-profiles.query.dto';
 import { UpdateRegulatoryProfileDto } from './dto/update-regulatory-profile.dto';
 import { ProfilesService } from './profiles.service';
 
+@ApiTags('profiles')
+@ApiBearerAuth('bearer')
+@ApiUnauthorizedResponse()
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
   @Get('clients/:clientId/profiles')
+  @ApiOperation({ summary: 'Listar perfiles de un cliente' })
   findByClient(
     @CurrentUser() user: AuthUser,
     @Param('clientId') clientId: string,
@@ -36,6 +47,8 @@ export class ProfilesController {
   @Post('clients/:clientId/profiles')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({ summary: 'Crear perfil regulatorio' })
+  @ApiForbiddenResponse()
   create(
     @CurrentUser() user: AuthUser,
     @Param('clientId') clientId: string,
@@ -47,6 +60,8 @@ export class ProfilesController {
   @Patch('profiles/:id/deactivate')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Soft-deactivate perfil' })
+  @ApiForbiddenResponse()
   deactivate(@Param('id') id: string) {
     return this.profilesService.deactivate(id);
   }
@@ -54,6 +69,8 @@ export class ProfilesController {
   @Patch('profiles/:id/activate')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Soft-activate perfil' })
+  @ApiForbiddenResponse()
   activate(@Param('id') id: string) {
     return this.profilesService.activate(id);
   }
@@ -61,6 +78,8 @@ export class ProfilesController {
   @Patch('profiles/:id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({ summary: 'Actualizar perfil' })
+  @ApiForbiddenResponse()
   update(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -70,6 +89,7 @@ export class ProfilesController {
   }
 
   @Get('profiles/:id')
+  @ApiOperation({ summary: 'Detalle de perfil' })
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.profilesService.findOne(user, id);
   }

@@ -4,4 +4,5 @@ allowBuilds:
   '@prisma/engines': true
   prisma: true
   bcrypt: set this to true or false
-  esbuild: true
+  esbuild: set this to true or false
+  '@scarf/scarf': true

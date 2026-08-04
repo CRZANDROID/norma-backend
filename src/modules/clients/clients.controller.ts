@@ -8,6 +8,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { UserRole } from '../../database/prisma-client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
@@ -19,12 +26,16 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { ListClientsQueryDto } from './dto/list-clients.query.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
+@ApiTags('clients')
+@ApiBearerAuth('bearer')
+@ApiUnauthorizedResponse()
 @Controller('clients')
 @UseGuards(JwtAuthGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar clientes (filtro membership si no ADMIN)' })
   findAll(
     @CurrentUser() user: AuthUser,
     @Query() query: ListClientsQueryDto,
@@ -35,6 +46,8 @@ export class ClientsController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Crear cliente (opcional sourceIds)' })
+  @ApiForbiddenResponse()
   create(@Body() dto: CreateClientDto) {
     return this.clientsService.create(dto);
   }
@@ -42,6 +55,8 @@ export class ClientsController {
   @Patch(':id/deactivate')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Soft-deactivate cliente' })
+  @ApiForbiddenResponse()
   deactivate(@Param('id') id: string) {
     return this.clientsService.deactivate(id);
   }
@@ -49,6 +64,8 @@ export class ClientsController {
   @Patch(':id/activate')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Soft-activate cliente' })
+  @ApiForbiddenResponse()
   activate(@Param('id') id: string) {
     return this.clientsService.activate(id);
   }
@@ -56,11 +73,16 @@ export class ClientsController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Actualizar cliente (sourceIds reemplaza vínculos)',
+  })
+  @ApiForbiddenResponse()
   update(@Param('id') id: string, @Body() dto: UpdateClientDto) {
     return this.clientsService.update(id, dto);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Detalle cliente + profiles + sources' })
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.clientsService.findOne(user, id);
   }
