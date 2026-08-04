@@ -1,13 +1,17 @@
-import { SourceType } from '../../../database/prisma-client';
+import {
+  SourceCategory,
+  SourcePlatform,
+} from '../../../database/prisma-client';
 import {
   IsArray,
   IsEnum,
-  IsObject,
   IsOptional,
   IsString,
   IsUrl,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
+import { IsSectionPaths } from './section-paths';
 
 export class UpdateSourceDto {
   @IsOptional()
@@ -16,31 +20,30 @@ export class UpdateSourceDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(SourceType)
-  type?: SourceType;
+  @IsEnum(SourceCategory)
+  category?: SourceCategory;
 
   @IsOptional()
+  @IsEnum(SourcePlatform)
+  platform?: SourcePlatform;
+
+  /** `null` limpia la URL. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsUrl({ require_protocol: true })
-  url?: string;
+  url?: string | null;
 
   @IsOptional()
   @IsString()
-  section?: string;
+  frequency?: string | null;
 
   @IsOptional()
-  @IsString()
-  jurisdiction?: string;
-
-  @IsOptional()
-  @IsString()
-  frequency?: string;
+  @IsArray()
+  @IsSectionPaths()
+  sections?: string[][];
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   keywordsGuide?: string[];
-
-  @IsOptional()
-  @IsObject()
-  config?: Record<string, unknown>;
 }

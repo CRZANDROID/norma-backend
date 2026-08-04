@@ -37,17 +37,20 @@ enum FindingStatus {
   DISMISSED
 }
 
-enum SourceType {
-  CONGRESS_STATE
-  CONGRESS_FEDERAL
-  DOF
-  AUTHORITY
+enum SourceCategory {
+  OFFICIAL
   MEDIA
-  TRANSCRIPT
-  MANUAL
-  API
-  FEED
-  WEBHOOK
+  SOCIAL
+}
+
+enum SourcePlatform {
+  WEB
+  YOUTUBE
+  X
+  TIKTOK
+  FACEBOOK
+  INSTAGRAM
+  OTHER
 }
 
 model User {
@@ -160,24 +163,26 @@ model RegulatoryProfile {
 }
 
 model Source {
-  id             String       @id @default(cuid())
-  name           String
-  code           String       @unique
-  type           SourceType
-  url            String?
-  section        String?
-  jurisdiction   String?
-  frequency      String?
-  keywordsGuide  String[]     @default([]) @map("keywords_guide")
-  config         Json?
-  status         EntityStatus @default(ACTIVE)
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id            String         @id @default(cuid())
+  name          String
+  code          String         @unique
+  category      SourceCategory
+  platform      SourcePlatform
+  url           String?
+  frequency     String?
+  /// Paths de secciones a revisar, p.ej. [["Comunicados","Normatividad","Alertas sanitarias"]]
+  sections      Json           @default("[]")
+  keywordsGuide String[]       @default([]) @map("keywords_guide")
+  status        EntityStatus   @default(ACTIVE)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  findings Finding[]
+  findings      Finding[]
   clientSources ClientSource[]
 
   @@index([status])
+  @@index([category])
+  @@index([platform])
   @@map("sources")
 }
 

@@ -8,6 +8,7 @@ import { EntityStatus, Prisma } from '../../database/prisma-client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateSourceDto } from './dto/create-source.dto';
 import { ListSourcesQueryDto } from './dto/list-sources.query.dto';
+import { normalizeSections } from './dto/section-paths';
 import { UpdateSourceDto } from './dto/update-source.dto';
 
 const sourceWithClients = {
@@ -34,15 +35,12 @@ export class SourcesService {
       where.status = query.status;
     }
 
-    if (query.type) {
-      where.type = query.type;
+    if (query.category) {
+      where.category = query.category;
     }
 
-    if (query.jurisdiction?.trim()) {
-      where.jurisdiction = {
-        equals: query.jurisdiction.trim(),
-        mode: 'insensitive',
-      };
+    if (query.platform) {
+      where.platform = query.platform;
     }
 
     if (query.clientId?.trim()) {
@@ -88,16 +86,12 @@ export class SourcesService {
         data: {
           name: dto.name,
           code: dto.code,
-          type: dto.type,
+          category: dto.category,
+          platform: dto.platform,
           url: dto.url,
-          section: dto.section,
-          jurisdiction: dto.jurisdiction,
           frequency: dto.frequency,
+          sections: normalizeSections(dto.sections ?? []) as Prisma.InputJsonValue,
           keywordsGuide: dto.keywordsGuide ?? [],
-          config:
-            dto.config === undefined
-              ? Prisma.JsonNull
-              : (dto.config as Prisma.InputJsonValue),
           clientSources: clientIds.length
             ? {
                 create: clientIds.map((clientId) => ({ clientId })),
@@ -117,15 +111,14 @@ export class SourcesService {
 
     const data: Prisma.SourceUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.category !== undefined) data.category = dto.category;
+    if (dto.platform !== undefined) data.platform = dto.platform;
     if (dto.url !== undefined) data.url = dto.url;
-    if (dto.section !== undefined) data.section = dto.section;
-    if (dto.jurisdiction !== undefined) data.jurisdiction = dto.jurisdiction;
     if (dto.frequency !== undefined) data.frequency = dto.frequency;
-    if (dto.keywordsGuide !== undefined) data.keywordsGuide = dto.keywordsGuide;
-    if (dto.config !== undefined) {
-      data.config = dto.config as Prisma.InputJsonValue;
+    if (dto.sections !== undefined) {
+      data.sections = normalizeSections(dto.sections) as Prisma.InputJsonValue;
     }
+    if (dto.keywordsGuide !== undefined) data.keywordsGuide = dto.keywordsGuide;
 
     const source = await this.prisma.source.update({
       where: { id },
@@ -162,9 +155,10 @@ export class SourcesService {
   }
 
   private shapeSource(source: SourceWithClients) {
-    const { clientSources, ...rest } = source;
+    const { clientSources, sections, ...rest } = source;
     return {
       ...rest,
+      sections: normalizeSections(sections),
       clients: clientSources.map((link) => link.client),
     };
   }

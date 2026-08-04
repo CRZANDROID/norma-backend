@@ -1,4 +1,8 @@
-import { EntityStatus, SourceType } from '../../../database/prisma-client';
+import {
+  EntityStatus,
+  SourceCategory,
+  SourcePlatform,
+} from '../../../database/prisma-client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class ListSourcesQueryDto {
@@ -7,12 +11,12 @@ export class ListSourcesQueryDto {
   status?: EntityStatus;
 
   @IsOptional()
-  @IsEnum(SourceType)
-  type?: SourceType;
+  @IsEnum(SourceCategory)
+  category?: SourceCategory;
 
   @IsOptional()
-  @IsString()
-  jurisdiction?: string;
+  @IsEnum(SourcePlatform)
+  platform?: SourcePlatform;
 
   /** Filtra fuentes vinculadas a este cliente. */
   @IsOptional()

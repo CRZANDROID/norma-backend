@@ -64,7 +64,8 @@ Enums clave:
 
 - `UserRole`: `ADMIN` | `ANALYST` | `VIEWER` | `CLIENT_USER`
 - `EntityStatus`: `ACTIVE` | `INACTIVE`
-- `SourceType`: `CONGRESS_STATE` | `CONGRESS_FEDERAL` | `DOF` | `AUTHORITY` | `MEDIA` | `TRANSCRIPT` | `MANUAL` | `API` | `FEED` | `WEBHOOK`
+- `SourceCategory`: `OFFICIAL` | `MEDIA` | `SOCIAL`
+- `SourcePlatform`: `WEB` | `YOUTUBE` | `X` | `TIKTOK` | `FACEBOOK` | `INSTAGRAM` | `OTHER`
 
 ### 3.3 Seed — ya cargado
 
@@ -452,7 +453,9 @@ El perfil regulatorio define **qué le importa al cliente** (keywords, categorí
 
 ### 7.4 Sources
 
-Las fuentes son el catálogo de orígenes de información (DOF, congresos, etc.). En S3 solo se **administran**; los conectores/scrapers llegan en Sprint 5. El campo `config` (JSON) es placeholder para esos conectores.
+Las fuentes son el catálogo de orígenes de información (oficiales, medios, redes). En S3 se **administran**; los conectores/scrapers llegan en Sprint 5.
+
+Handoff front (breaking): [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md).
 
 ---
 
@@ -462,10 +465,8 @@ Las fuentes son el catálogo de orígenes de información (DOF, congresos, etc.)
 |--|--|
 | **Auth** | Bearer |
 | **Roles lectura** | `ADMIN`, `ANALYST`, `VIEWER` |
-| **Query** | `status?`, `type?`, `jurisdiction?`, `q?` |
+| **Query** | `status?`, `category?`, `platform?`, `clientId?`, `q?` |
 | **Response** | `200` → `Source[]` |
-
-**Por qué:** la pantalla **Fuentes** del front necesita el catálogo real (incluido el seed). Filtros por `type` / `jurisdiction` / `status` preparan la operación cuando haya decenas de congresos; no hace falta esperar a tener 32 fuentes para diseñar el contrato.
 
 **Item ejemplo:**
 
@@ -474,16 +475,16 @@ Las fuentes son el catálogo de orígenes de información (DOF, congresos, etc.)
   "id": "clx...",
   "name": "Diario Oficial de la Federación",
   "code": "dof",
-  "type": "DOF",
+  "category": "OFFICIAL",
+  "platform": "WEB",
   "url": "https://www.dof.gob.mx/",
-  "section": null,
-  "jurisdiction": "federal",
   "frequency": "daily",
+  "sections": [["Comunicados", "Normatividad"], ["Avisos"]],
   "keywordsGuide": ["COFEPRIS", "NOM"],
-  "config": null,
   "status": "ACTIVE",
   "createdAt": "...",
-  "updatedAt": "..."
+  "updatedAt": "...",
+  "clients": []
 }
 ```
 
@@ -496,8 +497,6 @@ Las fuentes son el catálogo de orígenes de información (DOF, congresos, etc.)
 | **Auth** | Bearer (lectura) |
 | **Response** | `200` → `Source` |
 | **Errors** | `404` |
-
-**Por qué:** detalle/edición de una fuente y revisión de `config` antes de implementar el conector.
 
 ---
 
@@ -515,32 +514,31 @@ Las fuentes son el catálogo de orígenes de información (DOF, congresos, etc.)
 {
   "name": "Diario Oficial de la Federación",
   "code": "dof",
-  "type": "DOF",
+  "category": "OFFICIAL",
+  "platform": "WEB",
   "url": "https://www.dof.gob.mx/",
-  "section": null,
-  "jurisdiction": "federal",
   "frequency": "daily",
+  "sections": [["Comunicados", "Normatividad", "Alertas sanitarias"]],
   "keywordsGuide": ["COFEPRIS", "etiquetado"],
-  "config": {
-    "connector": "dof",
-    "notes": "placeholder para Sprint 5"
-  }
+  "clientIds": []
 }
 ```
 
 | Campo | Tipo | Requerido | Notas |
 |-------|------|-----------|-------|
 | `name` | string | sí | |
-| `code` | string | sí | único, kebab-case; clave estable para jobs |
-| `type` | `SourceType` | sí | enum Prisma |
-| `url` | string | no | URL |
-| `section` | string | no | |
-| `jurisdiction` | string | no | ej. `federal`, `JAL` |
+| `code` | string | sí | único, kebab-case |
+| `category` | `SourceCategory` | sí | |
+| `platform` | `SourcePlatform` | sí | |
+| `url` | string | no | con protocolo |
 | `frequency` | string | no | ej. `daily` |
+| `sections` | `string[][]` | no | paths de secciones a revisar |
 | `keywordsGuide` | string[] | no | guía humana / futura IA |
-| `config` | object | no | JSON libre; **no** ejecutar scrapers en S3 |
+| `clientIds` | string[] | no | solo en create |
 
-**Por qué:** el seed cubre 3 fuentes piloto, pero el admin debe poder agregar más sin migraciones. `code` estable es crítico: los workers de Sprint 5 referenciarán `code` o `id` de forma predecible. Solo `ADMIN` crea fuentes porque un alta incorrecta contaminaría el pipeline de monitoreo.
+**Eliminados:** `type`, `section`, `jurisdiction`, `config`.
+
+**Por qué:** el admin debe poder catalogar orígenes por categoría/plataforma y declarar secciones jerárquicas sin migraciones de schema por cada sitio.
 
 ---
 
@@ -549,10 +547,10 @@ Las fuentes son el catálogo de orígenes de información (DOF, congresos, etc.)
 | | |
 |--|--|
 | **Roles** | `@Roles(ADMIN)` |
-| **Body** | Parcial (preferir no cambiar `code`; si se cambia → unicidad) |
+| **Body** | Parcial (no `code`, no `clientIds`). `url: null` limpia la URL |
 | **Response** | `200` → `Source` |
 
-**Por qué:** URLs, frecuencias y keywords guide cambian. Actualizar `config` permite preparar el conector sin redeploy del schema.
+**Por qué:** URLs, frecuencias, secciones y keywords guide cambian con la operación.
 
 ---
 

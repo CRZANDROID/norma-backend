@@ -1,5 +1,10 @@
 import * as bcrypt from 'bcryptjs';
-import { PrismaClient, SourceType, UserRole } from '../generated/prisma';
+import {
+  PrismaClient,
+  SourceCategory,
+  SourcePlatform,
+  UserRole,
+} from '../generated/prisma';
 
 const prisma = new PrismaClient();
 
@@ -65,28 +70,31 @@ async function main() {
     {
       code: 'dof',
       name: 'Diario Oficial de la Federación',
-      type: SourceType.DOF,
+      category: SourceCategory.OFFICIAL,
+      platform: SourcePlatform.WEB,
       url: 'https://www.dof.gob.mx/',
-      jurisdiction: 'federal',
       frequency: 'daily',
+      sections: [['Comunicados', 'Normatividad'], ['Avisos']],
       keywordsGuide: ['COFEPRIS', 'NOM', 'etiquetado', 'IEPS', 'bebidas'],
     },
     {
       code: 'diputados-gaceta',
       name: 'Gaceta Parlamentaria - Cámara de Diputados',
-      type: SourceType.CONGRESS_FEDERAL,
+      category: SourceCategory.OFFICIAL,
+      platform: SourcePlatform.WEB,
       url: 'https://gaceta.diputados.gob.mx/',
-      jurisdiction: 'federal',
       frequency: 'daily',
+      sections: [['Gaceta', 'Iniciativas']],
       keywordsGuide: ['Ley General de Salud', 'bebidas azucaradas', 'etiquetado'],
     },
     {
       code: 'jalisco-congreso',
       name: 'Congreso de Jalisco',
-      type: SourceType.CONGRESS_STATE,
+      category: SourceCategory.OFFICIAL,
+      platform: SourcePlatform.WEB,
       url: 'https://www.congresojal.gob.mx/',
-      jurisdiction: 'JAL',
       frequency: 'daily',
+      sections: [['Comunicados'], ['Sesiones']],
       keywordsGuide: ['bebidas', 'salud', 'publicidad', 'residuos'],
     },
   ];

@@ -57,7 +57,8 @@ describe('Admin CRUD smoke (e2e)', () => {
       .send({
         name: `Fuente E2E ${suffix}`,
         code: sourceCode,
-        type: 'MEDIA',
+        category: 'MEDIA',
+        platform: 'WEB',
         url: 'https://example.com/e2e',
       })
       .expect(201);
@@ -65,10 +66,12 @@ describe('Admin CRUD smoke (e2e)', () => {
     sourceId = res.body.id as string;
     expect(res.body).toMatchObject({
       code: sourceCode,
-      type: 'MEDIA',
+      category: 'MEDIA',
+      platform: 'WEB',
       status: 'ACTIVE',
     });
     expect(res.body.clients).toEqual([]);
+    expect(res.body.sections).toEqual([]);
   });
 
   it('creates a client linked to that source', async () => {
