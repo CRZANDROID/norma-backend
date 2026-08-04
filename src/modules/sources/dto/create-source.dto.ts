@@ -1,15 +1,18 @@
-import { SourceType } from '../../../database/prisma-client';
+import {
+  SourceCategory,
+  SourcePlatform,
+} from '../../../database/prisma-client';
 import {
   ArrayUnique,
   IsArray,
   IsEnum,
-  IsObject,
   IsOptional,
   IsString,
   IsUrl,
   Matches,
   MinLength,
 } from 'class-validator';
+import { IsSectionPaths } from './section-paths';
 
 export class CreateSourceDto {
   @IsString()
@@ -22,8 +25,11 @@ export class CreateSourceDto {
   })
   code!: string;
 
-  @IsEnum(SourceType)
-  type!: SourceType;
+  @IsEnum(SourceCategory)
+  category!: SourceCategory;
+
+  @IsEnum(SourcePlatform)
+  platform!: SourcePlatform;
 
   @IsOptional()
   @IsUrl({ require_protocol: true })
@@ -31,24 +37,17 @@ export class CreateSourceDto {
 
   @IsOptional()
   @IsString()
-  section?: string;
-
-  @IsOptional()
-  @IsString()
-  jurisdiction?: string;
-
-  @IsOptional()
-  @IsString()
   frequency?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsSectionPaths()
+  sections?: string[][];
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   keywordsGuide?: string[];
-
-  @IsOptional()
-  @IsObject()
-  config?: Record<string, unknown>;
 
   /** Clientes a vincular al crear la fuente (la edición de vínculos va en clientes). */
   @IsOptional()

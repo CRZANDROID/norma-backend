@@ -7,7 +7,8 @@ export {
   Prisma,
   UserRole,
   EntityStatus,
-  SourceType,
+  SourceCategory,
+  SourcePlatform,
   ImpactLevel,
   FindingStatus,
 } from '../../generated/prisma';

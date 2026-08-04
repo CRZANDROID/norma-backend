@@ -28,7 +28,7 @@ Relacionado:
 
 | Pieza | Rol |
 |-------|-----|
-| `Source` | Catálogo de orígenes (`code`, `type`, `url`, `config`) |
+| `Source` | Catálogo de orígenes (`code`, `category`, `platform`, `url`, `sections`) |
 | `client_sources` | Qué fuentes monitorear por cliente |
 | `Document` | Metadatos Storage (`bucket`, `path`, `filename`, `clientId?`, `status` EntityStatus) |
 | `POST /storage/*` | Upload/download/signed-url **sin** crear fila `documents` aún |

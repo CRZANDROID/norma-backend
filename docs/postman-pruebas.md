@@ -407,14 +407,13 @@ Escritura: **ADMIN**.
 
 ### GET `/sources`
 
-Query opcionales: `status`, `type`, `jurisdiction`, `clientId`, `q`.
+Query opcionales: `status`, `category`, `platform`, `clientId`, `q`.
 
-`type` posibles:
-
-`CONGRESS_STATE` | `CONGRESS_FEDERAL` | `DOF` | `AUTHORITY` | `MEDIA` | `TRANSCRIPT` | `MANUAL` | `API` | `FEED` | `WEBHOOK`
+`category`: `OFFICIAL` | `MEDIA` | `SOCIAL`  
+`platform`: `WEB` | `YOUTUBE` | `X` | `TIKTOK` | `FACEBOOK` | `INSTAGRAM` | `OTHER`
 
 ```http
-GET {{baseUrl}}/sources?status=ACTIVE&type=DOF&q=diario
+GET {{baseUrl}}/sources?status=ACTIVE&category=OFFICIAL&q=diario
 Authorization: Bearer {{accessToken}}
 ```
 
@@ -426,7 +425,7 @@ Authorization: Bearer {{accessToken}}
 ```
 
 Seed: `dof`, `diputados-gaceta`, `jalisco-congreso`. Guarda un `id` → `{{sourceId}}`.  
-La respuesta incluye `clients: [...]` (clientes vinculados).
+La respuesta incluye `clients: [...]` y `sections: string[][]`.
 
 ### GET `/sources/:id`
 
@@ -445,15 +444,12 @@ Content-Type: application/json
 {
   "name": "Fuente prueba Postman",
   "code": "fuente-postman",
-  "type": "MEDIA",
+  "category": "MEDIA",
+  "platform": "WEB",
   "url": "https://example.com/noticias",
-  "section": "regulatorio",
-  "jurisdiction": "federal",
   "frequency": "daily",
+  "sections": [["Regulatorio", "Alertas"]],
   "keywordsGuide": ["COFEPRIS", "NOM"],
-  "config": {
-    "selector": ".article"
-  },
   "clientIds": ["{{clientId}}"]
 }
 ```
@@ -471,6 +467,7 @@ Content-Type: application/json
 {
   "name": "Fuente actualizada",
   "frequency": "weekly",
+  "sections": [["Comunicados", "Normatividad", "Alertas sanitarias"]],
   "keywordsGuide": ["etiquetado"]
 }
 ```
