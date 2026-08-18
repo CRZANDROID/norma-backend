@@ -14,9 +14,12 @@ Equipos regulatorios revisan manualmente muchas fuentes (DOF, congresos, autorid
 
 - Backoffice autenticado (NestJS: email/password + JWT propio)
 - Multi-tenant por **cliente** (Arca primero), con datos fiscales y contactos de soporte
-- Catálogo de **fuentes** (empezar con pocas representativas: DOF, Diputados, un congreso estatal)
+- Catálogo de **fuentes** con entidad federativa: federales (DOF, Diputados) + 32 congresos locales en catálogo (piloto crawlea Jalisco)
 - **Perfil regulatorio** del cliente (keywords, categorías, portafolio)
-- Más adelante: ingesta, normalización, deduplicación, clasificación, semáforo 4 niveles, borrador ejecutivo, inbox de validación humana, email solo tras aprobación
+- Config de **semáforo y canales** por cliente (acciones por nivel; correo por defecto; WhatsApp como opción, sin envío)
+- **Asistente de catálogo** (`POST /ai/ask`): el modelo responde sobre clientes, perfiles y fuentes ya registrados
+- **Crawl piloto** de fuentes `ACTIVE` (DOF, Diputados, Jalisco) a crudo (`POST /jobs/crawl`)
+- Más adelante: normalización, deduplicación, clasificación, borrador ejecutivo, inbox de validación humana, email solo tras aprobación
 
 ## Fuera de alcance (por ahora)
 
@@ -24,8 +27,8 @@ Equipos regulatorios revisan manualmente muchas fuentes (DOF, congresos, autorid
 - Fastify (se mantiene Express en NestJS)
 - Supabase Auth / identidad externalizada (Postgres en Supabase sí; auth es de Nest)
 - Consultas de negocio desde el frontend directo a tablas Supabase
-- Integrar OpenAI, Redis, BullMQ, Resend “por checklist” antes de que aporten valor
-- Desplegar los 32 congresos desde el día uno
+- Clasificar normas con OpenAI (Sprint 7) ni Resend “por checklist”
+- 32 scrapers distintos el día uno (el catálogo sí existe; el crawl piloto es 2–3 fuentes)
 
 ## Actores
 
@@ -63,3 +66,8 @@ Tablero: GitHub Project **NORMA — Piloto Arca**.
 - [HANDOFF.md](./HANDOFF.md) — estado actual y siguientes pasos (agentes)
 - [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) — contrato UI client↔fuentes
 - [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) — fiscales + contactos
+- [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) — canales y semáforo (config)
+- [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md) — jurisdicción + disparador
+- [state-congresses.md](./state-congresses.md) — catálogo 32 entidades
+- [openai-catalog.md](./openai-catalog.md) — `POST /ai/ask`
+- [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) — contrato UI del asistente

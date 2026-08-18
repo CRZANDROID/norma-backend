@@ -1,7 +1,10 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   OnModuleInit,
   ServiceUnavailableException,
@@ -20,6 +23,7 @@ export type UploadedObject = {
 
 @Injectable()
 export class StorageService implements OnModuleInit {
+  private readonly logger = new Logger(StorageService.name);
   private client: SupabaseClient | null = null;
   private bucket: string = 'documents';
   private configured = false;
@@ -41,6 +45,69 @@ export class StorageService implements OnModuleInit {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     this.configured = true;
+  }
+
+  isConfigured(): boolean {
+    return this.configured;
+  }
+
+  /**
+   * Sube bytes a un path explícito (crawl). Si no hay Supabase, escribe en
+   * `data/crawl/` para no bloquear el piloto local.
+   */
+  async putObject(params: {
+    path: string;
+    buffer: Buffer;
+    contentType: string;
+    upsert?: boolean;
+  }): Promise<UploadedObject> {
+    const objectPath = this.normalizePath(params.path);
+    if (!params.buffer?.length) {
+      throw new BadRequestException('Archivo vacío');
+    }
+
+    if (this.configured && this.client) {
+      const { error } = await this.client.storage
+        .from(this.bucket)
+        .upload(objectPath, params.buffer, {
+          contentType: params.contentType || 'application/octet-stream',
+          upsert: params.upsert ?? false,
+        });
+
+      if (error && !/already exists|duplicate/i.test(error.message)) {
+        throw new InternalServerErrorException(
+          `Error al subir a Storage: ${error.message}`,
+        );
+      }
+
+      const { data: publicData } = this.client.storage
+        .from(this.bucket)
+        .getPublicUrl(objectPath);
+
+      return {
+        bucket: this.bucket,
+        path: objectPath,
+        filename: objectPath.split('/').pop() || 'file',
+        mimeType: params.contentType || null,
+        sizeBytes: params.buffer.length,
+        publicUrl: publicData?.publicUrl ?? null,
+      };
+    }
+
+    const localRoot = join(process.cwd(), 'data', 'crawl');
+    const localPath = join(localRoot, ...objectPath.split('/'));
+    await mkdir(dirname(localPath), { recursive: true });
+    await writeFile(localPath, params.buffer);
+    this.logger.log(`crawl artifact local path=${localPath}`);
+
+    return {
+      bucket: 'local',
+      path: objectPath,
+      filename: objectPath.split('/').pop() || 'file',
+      mimeType: params.contentType || null,
+      sizeBytes: params.buffer.length,
+      publicUrl: null,
+    };
   }
 
   private ensureClient(): SupabaseClient {

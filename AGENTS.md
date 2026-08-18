@@ -9,8 +9,11 @@ Instrucciones de entrada para cualquier agente (Cursor u otro) que trabaje en es
 3. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — stack, flujo Auth→Nest→Prisma, multi-tenant
 4. [docs/SPRINTS.md](docs/SPRINTS.md) — sprint actual y dependencias
 5. Si tocas CRUD admin: [docs/SPRINT-3-BACKEND.md](docs/SPRINT-3-BACKEND.md)
-6. Si el trabajo es **UI client↔sources** (otro repo): [docs/FRONTEND-CLIENT-SOURCES.md](docs/FRONTEND-CLIENT-SOURCES.md)
-7. Antes de S5 (colas/conectores): [docs/DOCUMENT-JOB-CONTRACTS.md](docs/DOCUMENT-JOB-CONTRACTS.md)
+6. Si el trabajo es **UI client↔sources** (otro repo): [docs/FRONTEND-CLIENT-SOURCES.md](docs/FRONTEND-CLIENT-SOURCES.md) y [docs/FRONTEND-SOURCES-V2.md](docs/FRONTEND-SOURCES-V2.md)
+7. Entrega consolidada front + `.env`: [docs/ENTREGA-FRONT-ENV.md](docs/ENTREGA-FRONT-ENV.md)
+8. Crawl S5: [docs/jobs-crawl.md](docs/jobs-crawl.md) y contratos [docs/DOCUMENT-JOB-CONTRACTS.md](docs/DOCUMENT-JOB-CONTRACTS.md)
+9. Entrega/semáforo (config): [docs/FRONTEND-CLIENT-DELIVERY.md](docs/FRONTEND-CLIENT-DELIVERY.md)
+10. Asistente de catálogo: [docs/openai-catalog.md](docs/openai-catalog.md)
 
 Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
 
@@ -23,11 +26,13 @@ Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
 - `ADMIN` = backoffice total; no-ADMIN filtrar por `ClientMembership`.
 - Frontend **no** lee tablas de negocio por PostgREST.
 - Clientes pueden tener muchas fuentes (`client_sources`); ver [docs/client-sources.md](docs/client-sources.md).
+- Fuentes estatales: `jurisdiction` + `stateCode`. Crawl schedule: `schedule` (no `frequency`).
 
 ## Estructura relevante
 
 ```text
-src/modules/{auth,clients,sources,users,storage}/
+src/modules/{auth,clients,sources,users,storage,ai}/
+src/jobs/                 # Redis/BullMQ source.crawl
 src/common/swagger.ts
 prisma/schema.prisma
 test/*e2e-spec.ts

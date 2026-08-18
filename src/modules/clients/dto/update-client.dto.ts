@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateClientContactDto } from './create-client-contact.dto';
+import { DeliveryConfigDto } from './delivery-config.dto';
 import { FiscalDataDto } from './fiscal-data.dto';
 
 export class UpdateClientDto {
@@ -53,4 +54,13 @@ export class UpdateClientDto {
   @ValidateNested({ each: true })
   @Type(() => CreateClientContactDto)
   contacts?: CreateClientContactDto[];
+
+  /**
+   * Si se envía, hace upsert de la config de entrega/semáforo.
+   * Omítelo para no tocarla.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DeliveryConfigDto)
+  delivery?: DeliveryConfigDto;
 }

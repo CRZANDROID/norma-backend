@@ -8,8 +8,9 @@
 | ORM | Prisma 6 | Única vía a datos de negocio |
 | DB | PostgreSQL en Supabase | Migraciones con Prisma; Supabase = hosting DB |
 | Auth | JWT propio (Nest) | `passwordHash` + `POST /auth/login`; Bearer en rutas |
-| Jobs (futuro) | Redis + BullMQ | Desde Sprint 5 |
-| IA (futuro) | OpenAI | Desde Sprint 7 |
+| Jobs | Redis + BullMQ | Cola `source.crawl`; worker en el proceso Nest ([jobs-crawl.md](./jobs-crawl.md)) |
+| IA catálogo | OpenAI | `POST /ai/ask` — solo datos admin; no clasifica |
+| IA (futuro) | OpenAI | Clasificación y semáforo desde Sprint 7 |
 | Email (futuro) | Resend | Solo tras aprobación humana |
 
 ## Flujo canónico
@@ -43,9 +44,12 @@ src/
   health/
   modules/
     auth/            # login JWT, guards, /auth/me
-    clients/         # CRUD clientes + perfiles
-    sources/         # CRUD fuentes
+    clients/         # CRUD clientes + perfiles + delivery
+    sources/         # CRUD fuentes (estado + disparador)
     users/           # admin usuarios + memberships
+    storage/         # upload / signed-url / download
+    ai/              # POST /ai/ask (catálogo)
+  jobs/              # BullMQ source.crawl + conectores
   app.module.ts
   main.ts
 ```
@@ -87,8 +91,10 @@ Soft-status: `EntityStatus` (`ACTIVE` | `INACTIVE`). No hard-delete en el piloto
 - `Client` — name, slug, status
 - `ClientMembership` — unique(userId, clientId)
 - `RegulatoryProfile` — keywords, categories, products (Json)
-- `Source` — code, type, url, config (Json), status
+- `Source` — code, category, platform, jurisdiction, stateCode, schedule (hora/días/zona), status
+- `ClientDeliveryConfig` — canales email/WhatsApp + acciones por nivel de semáforo (config; no envía)
 - `Finding` — impacto (GREEN…RED), status; CRUD inbox más adelante
+- `JobRun` — ejecución de crawl (`idempotencyKey`, status, errorCode)
 
 Fuente de verdad del schema: `prisma/schema.prisma`.
 

@@ -13,9 +13,12 @@ import { CreateClientDto } from './dto/create-client.dto';
 import type { FiscalDataDto } from './dto/fiscal-data.dto';
 import { ListClientsQueryDto } from './dto/list-clients.query.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { shapeDeliveryConfig, toDeliveryWriteData } from './delivery.util';
+import { shapeSchedule } from '../../common/dto/schedule.dto';
 
 const clientDetailInclude = {
   fiscalData: true,
+  deliveryConfig: true,
   contacts: { orderBy: { name: 'asc' as const } },
   profiles: { orderBy: { name: 'asc' as const } },
   clientSources: {
@@ -28,6 +31,7 @@ const clientDetailInclude = {
 
 const clientListInclude = {
   fiscalData: true,
+  deliveryConfig: true,
   contacts: { orderBy: { name: 'asc' as const } },
   clientSources: {
     include: { source: true },
@@ -113,6 +117,14 @@ export class ClientsService {
           contacts: contactRows.length
             ? { create: contactRows }
             : undefined,
+          deliveryConfig: {
+            create: toDeliveryWriteData({
+              emailEnabled: dto.delivery?.emailEnabled,
+              whatsappEnabled: dto.delivery?.whatsappEnabled,
+              schedule: dto.delivery?.schedule,
+              impactActions: dto.delivery?.impactActions,
+            }),
+          },
         },
         include: clientDetailInclude,
       });
@@ -164,6 +176,35 @@ export class ClientsService {
         }
       }
 
+      if (dto.delivery !== undefined) {
+        const existing = await tx.clientDeliveryConfig.findUnique({
+          where: { clientId: id },
+        });
+        const delivery = toDeliveryWriteData({
+          emailEnabled: dto.delivery.emailEnabled,
+          whatsappEnabled: dto.delivery.whatsappEnabled,
+          schedule: dto.delivery.schedule,
+          impactActions: dto.delivery.impactActions,
+          fallback: existing
+            ? {
+                emailEnabled: existing.emailEnabled,
+                whatsappEnabled: existing.whatsappEnabled,
+                schedule: {
+                  time: existing.deliveryTime,
+                  timezone: existing.deliveryTimezone,
+                  weekdays: existing.deliveryWeekdays,
+                },
+                impactActions: existing.impactActions,
+              }
+            : undefined,
+        });
+        await tx.clientDeliveryConfig.upsert({
+          where: { clientId: id },
+          create: { clientId: id, ...delivery },
+          update: delivery,
+        });
+      }
+
       return tx.client.update({
         where: { id },
         data: {
@@ -205,10 +246,28 @@ export class ClientsService {
   }
 
   private shapeClient(client: ClientDetail | ClientListItem) {
-    const { clientSources, ...rest } = client;
+    const { clientSources, deliveryConfig, ...rest } = client;
     return {
       ...rest,
-      sources: clientSources.map((link) => link.source),
+      deliveryConfig: deliveryConfig
+        ? shapeDeliveryConfig(deliveryConfig)
+        : null,
+      sources: clientSources.map((link) => {
+        const {
+          scheduleTime,
+          scheduleTimezone,
+          scheduleWeekdays,
+          ...source
+        } = link.source;
+        return {
+          ...source,
+          schedule: shapeSchedule({
+            time: scheduleTime,
+            timezone: scheduleTimezone,
+            weekdays: scheduleWeekdays,
+          }),
+        };
+      }),
     };
   }
 

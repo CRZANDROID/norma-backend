@@ -325,6 +325,34 @@ Authorization: Bearer {{accessToken}}
 
 ---
 
+## 4c. Entrega y semáforo (config por cliente)
+
+Lectura: autenticado con acceso al cliente.  
+Escritura: **ADMIN**. No envía correo ni WhatsApp; solo guarda la config.
+
+`GET /clients/:id` incluye `deliveryConfig`. También:
+
+```http
+GET {{baseUrl}}/clients/{{clientId}}/delivery
+Authorization: Bearer {{accessToken}}
+```
+
+```http
+PATCH {{baseUrl}}/clients/{{clientId}}/delivery
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "emailEnabled": true,
+  "whatsappEnabled": false,
+  "schedule": { "time": "07:00", "timezone": "America/Mexico_City", "weekdays": [1, 2, 3, 4, 5] }
+}
+```
+
+`weekdays`: 1=lunes … 7=domingo. `impactActions` (opcional) debe traer los 4 niveles si se envía.
+
+---
+
 ## 5. Regulatory profiles
 
 Lectura: autenticado con acceso al cliente.  
@@ -407,25 +435,28 @@ Escritura: **ADMIN**.
 
 ### GET `/sources`
 
-Query opcionales: `status`, `category`, `platform`, `clientId`, `q`.
+Query opcionales: `status`, `category`, `platform`, `jurisdiction`, `stateCode`, `clientId`, `q`.
 
 `category`: `OFFICIAL` | `MEDIA` | `SOCIAL`  
-`platform`: `WEB` | `YOUTUBE` | `X` | `TIKTOK` | `FACEBOOK` | `INSTAGRAM` | `OTHER`
+`platform`: `WEB` | `YOUTUBE` | `X` | `TIKTOK` | `FACEBOOK` | `INSTAGRAM` | `OTHER`  
+`jurisdiction`: `FEDERAL` | `STATE`  
+`stateCode`: ISO 3166-2:MX (`JAL`, `CMX`, …)
 
 ```http
 GET {{baseUrl}}/sources?status=ACTIVE&category=OFFICIAL&q=diario
 Authorization: Bearer {{accessToken}}
 ```
 
-Filtrar por cliente:
+Filtrar por cliente o entidad:
 
 ```http
 GET {{baseUrl}}/sources?clientId={{clientId}}
+GET {{baseUrl}}/sources?jurisdiction=STATE&stateCode=JAL
 Authorization: Bearer {{accessToken}}
 ```
 
-Seed: `dof`, `diputados-gaceta`, `jalisco-congreso`. Guarda un `id` → `{{sourceId}}`.  
-La respuesta incluye `clients: [...]` y `sections: string[][]`.
+Seed: `dof`, `diputados-gaceta` (FEDERAL) + 32 congresos (`jalisco-congreso` ACTIVE).  
+La respuesta incluye `clients`, `sections`, `jurisdiction`, `stateCode` y `schedule` (`time` / `timezone` / `weekdays`). Ya no hay `frequency`.
 
 ### GET `/sources/:id`
 
@@ -447,15 +478,18 @@ Content-Type: application/json
   "category": "MEDIA",
   "platform": "WEB",
   "url": "https://example.com/noticias",
-  "frequency": "daily",
+  "jurisdiction": "FEDERAL",
+  "schedule": { "time": "07:00", "weekdays": [1, 2, 3, 4, 5] },
   "sections": [["Regulatorio", "Alertas"]],
   "keywordsGuide": ["COFEPRIS", "NOM"],
+  "searchFocus": ["salud", "alimentos"],
   "clientIds": ["{{clientId}}"]
 }
 ```
 
 `code`: kebab-case `[a-z0-9-]`. `url` con protocolo (`https://...`).  
-`clientIds` (opcional): vincula la fuente a clientes **solo al crear**. Para cambiar vínculos después, usa `PATCH /clients/:id` con `sourceIds`.
+`clientIds` (opcional): vincula la fuente a clientes **solo al crear**. Para cambiar vínculos después, usa `PATCH /clients/:id` con `sourceIds`.  
+`searchFocus` y `keywordsGuide` son `string[]`; `[]` es vacío válido (no mandar `null` ni un string).
 
 ### PATCH `/sources/:id` — ADMIN
 
@@ -466,9 +500,10 @@ Content-Type: application/json
 
 {
   "name": "Fuente actualizada",
-  "frequency": "weekly",
+  "schedule": { "time": "08:00" },
   "sections": [["Comunicados", "Normatividad", "Alertas sanitarias"]],
-  "keywordsGuide": ["etiquetado"]
+  "keywordsGuide": ["etiquetado"],
+  "searchFocus": []
 }
 ```
 
@@ -607,6 +642,62 @@ Campos opcionales: `role`, `status` (`ACTIVE` \| `INACTIVE`).
 9. `GET /users` → membership create → `PATCH /memberships/:id`
 10. Probar un endpoint ADMIN con rol ANALYST → debe fallar `403`
 11. Storage (si hay `SUPABASE_*`): `POST /storage/upload` → `GET /storage/signed-url` → `GET /storage/download`
+12. `GET /ai/status` → si `configured`, `POST /ai/ask` con una pregunta sobre Arca
+13. `GET /jobs/status` → si `configured`, `POST /jobs/crawl` `{ "sourceCode": "dof" }` y `GET /jobs/runs`
+
+---
+
+## 9b. Asistente de catálogo (OpenAI)
+
+Lectura. No clasifica normas. Sin `OPENAI_API_KEY` → `POST /ai/ask` responde `503`. Detalle: [openai-catalog.md](./openai-catalog.md).
+
+### GET `/ai/status`
+
+```http
+GET {{baseUrl}}/ai/status
+Authorization: Bearer {{accessToken}}
+```
+
+### POST `/ai/ask`
+
+```http
+POST {{baseUrl}}/ai/ask
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "question": "¿Qué fuentes tiene Arca Continental y cuáles están activas?"
+}
+```
+
+Opcional: `"clientId": "{{clientId}}"` para acotar al cliente.
+
+---
+
+## 9c. Jobs de crawl (Redis / BullMQ)
+
+Trae HTML crudo. No extrae ni clasifica. Sin `REDIS_URL` → `POST /jobs/crawl` responde `503`. Detalle: [jobs-crawl.md](./jobs-crawl.md).
+
+### GET `/jobs/status`
+
+```http
+GET {{baseUrl}}/jobs/status
+Authorization: Bearer {{accessToken}}
+```
+
+### POST `/jobs/crawl`
+
+```http
+POST {{baseUrl}}/jobs/crawl
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "sourceCode": "dof"
+}
+```
+
+Solo `ADMIN`. También: `POST /jobs/crawl/all` y `GET /jobs/runs`.
 
 ---
 
@@ -618,7 +709,7 @@ Campos opcionales: `role`, `status` (`ACTIVE` \| `INACTIVE`).
 | `403` | Rol insuficiente (ej. ANALYST en ruta ADMIN) |
 | `400` | Body inválido (`forbidNonWhitelisted`: no mandes campos extra) |
 | `404` | ID inexistente o sin acceso al recurso |
-| `503` | Storage sin `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` |
+| `503` | Storage sin `SUPABASE_*`, OpenAI sin `OPENAI_API_KEY`, o jobs sin `REDIS_URL` |
 
 Token expirado: vuelve a hacer el login de la sección 1.
 
@@ -692,5 +783,11 @@ En Postman: Send and Download si quieres guardar el binario.
 | POST | `/storage/upload` | Sí | ADMIN, ANALYST |
 | GET | `/storage/download` | Sí | ADMIN, ANALYST, VIEWER |
 | GET | `/storage/signed-url` | Sí | ADMIN, ANALYST, VIEWER |
+| GET | `/ai/status` | Sí | autenticado |
+| POST | `/ai/ask` | Sí | autenticado |
+| GET | `/jobs/status` | Sí | autenticado |
+| GET | `/jobs/runs` | Sí | ADMIN, ANALYST |
+| POST | `/jobs/crawl` | Sí | ADMIN |
+| POST | `/jobs/crawl/all` | Sí | ADMIN |
 
 \*CLIENT_USER solo ve clientes/perfiles de sus memberships activos.

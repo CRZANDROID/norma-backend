@@ -1,0 +1,13 @@
+id,name,code,category,platform,url,frequency,sections,keywords_guide,status,created_at,updated_at
+seed-src-diputados-gaceta,Cámara de Diputados,diputados-gaceta,OFFICIAL,WEB,https://gaceta.diputados.gob.mx,daily,"[[""Gaceta Parlamentaria"",""Iniciativas""]]","{Iniciativas,reformas,adiciones,derogaciones}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-senado-gaceta,Senado de la República,senado-gaceta,OFFICIAL,WEB,https://www.senado.gob.mx/65/gaceta_del_senado,daily,"[[""Gaceta del Senado"",""Iniciativas""]]","{Iniciativas,minutas,dictámenes}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-dof,DOF,dof,OFFICIAL,WEB,https://www.dof.gob.mx,daily,"[[""Edición del día""]]","{Acuerdos,decretos,NOM,lineamientos}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-cofepris-web,COFEPRIS,cofepris-web,OFFICIAL,WEB,https://www.gob.mx/cofepris,daily,"[[""Comunicados""],[""Normatividad""],[""Alertas Sanitarias""]]","{Alertas,comunicados,criterios,guías}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-conamer,CONAMER,conamer,OFFICIAL,WEB,https://www.conamer.gob.mx,daily,"[[""Anteproyectos""],[""MIR""]]","{Anteproyectos,consultas públicas}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-gobmx-youtube,Gobierno de México,gobmx-youtube,OFFICIAL,YOUTUBE,https://www.youtube.com/@GobiernodeMexico,weekdays,"[[""Conferencia Mañanera""]]","{Anuncios regulatorios,política pública}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-presidencia-web,Presidencia,presidencia-web,OFFICIAL,WEB,https://www.gob.mx/presidencia,daily,"[[""Comunicados""]]","{Boletines oficiales}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-el-universal,El Universal,el-universal,MEDIA,WEB,https://www.eluniversal.com.mx,daily,"[[""Nación""],[""Cartera""]]","{Noticias regulatorias,económicas,legislativas}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-el-financiero,El Financiero,el-financiero,MEDIA,WEB,https://www.elfinanciero.com.mx,daily,"[[""Economía""],[""Empresas""]]","{Economía,regulación}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-expansion,Expansión,expansion,MEDIA,WEB,https://expansion.mx,daily,"[[""Empresas""],[""Economía""]]","{Empresas,regulación}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-cofepris-x,COFEPRIS,cofepris-x,SOCIAL,X,https://x.com/COFEPRIS,daily,"[[""Timeline""]]","{Alertas,comunicados}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z
+seed-src-salud-x,Secretaría de Salud,salud-x,SOCIAL,X,https://x.com/SSalud_mx,daily,"[[""Timeline""]]","{Anuncios oficiales}",ACTIVE,2026-08-10T00:00:00.000Z,2026-08-10T00:00:00.000Z

@@ -11,7 +11,7 @@ Piloto inicial: Arca Continental + pocas fuentes representativas.
 | 2 | Identidad | Auth JWT propia, guards, schema admin, `/auth/me`, login | Hecho |
 | 3 | CRUD admin | Clients, profiles, sources, users + pantallas | **Backend hecho**; front pendiente |
 | 4 | Estabilización | Swagger, validación, e2e, Sentry, Storage, contratos jobs | **Docs/código listos**; falta verify manual #13 |
-| 5 | Ingesta | Redis/BullMQ + conectores piloto | Pendiente |
+| 5 | Ingesta | Redis/BullMQ + conectores piloto | **Backend hecho** |
 | 6 | Documentos | Registro, storage, extract/normalize/dedup | Pendiente |
 | 7 | IA | OpenAI client, clasificación, relevancia, semáforo | Pendiente |
 | 8 | Entrega piloto | Borrador ejecutivo, inbox humano, email tras OK | Pendiente |
@@ -75,12 +75,17 @@ Estado vivo: [HANDOFF.md](./HANDOFF.md).
 
 ---
 
+**Pre-S5 (modelo, hecho en backend):** entidad federativa + disparador en fuentes, catálogo de 32 congresos (INACTIVE salvo Jalisco), config de semáforo/canales por cliente. Ver [HANDOFF.md](./HANDOFF.md).
+
+**Bloque 1 (hecho):** asistente de catálogo `POST /ai/ask` — [openai-catalog.md](./openai-catalog.md). No es clasificación S7.
+
 ## Sprint 5 — Motor de ingesta piloto
 
-- Redis + BullMQ (workers, retries, scheduler)
-- Conectores: DOF, Diputados, un congreso estatal
+- [x] Redis + BullMQ (workers, retries, scheduler)
+- [x] Conectores: DOF, Diputados, Congreso de Jalisco
+- [x] Tabla `job_runs` + `POST /jobs/crawl`
 
-**Entregable:** jobs que traen resultados crudos por fuente.
+**Entregable:** jobs que traen resultados crudos por fuente. Detalle: [jobs-crawl.md](./jobs-crawl.md).
 
 ---
 

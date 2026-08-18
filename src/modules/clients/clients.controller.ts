@@ -48,7 +48,7 @@ export class ClientsController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({
     summary:
-      'Crear cliente (opcional sourceIds, fiscal y contacts)',
+      'Crear cliente (opcional sourceIds, fiscal, contacts y delivery)',
   })
   @ApiForbiddenResponse()
   create(@Body() dto: CreateClientDto) {
@@ -78,7 +78,7 @@ export class ClientsController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({
     summary:
-      'Actualizar cliente (sourceIds/contacts replace; fiscal upsert)',
+      'Actualizar cliente (sourceIds/contacts replace; fiscal/delivery upsert)',
   })
   @ApiForbiddenResponse()
   update(@Param('id') id: string, @Body() dto: UpdateClientDto) {
@@ -87,7 +87,7 @@ export class ClientsController {
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Detalle cliente + profiles + sources + fiscalData + contacts',
+    summary: 'Detalle cliente + profiles + sources + fiscalData + contacts + deliveryConfig',
   })
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.clientsService.findOne(user, id);

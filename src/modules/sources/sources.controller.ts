@@ -34,7 +34,10 @@ export class SourcesController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.ANALYST, UserRole.VIEWER)
-  @ApiOperation({ summary: 'Listar fuentes (filtro clientId opcional)' })
+  @ApiOperation({
+    summary:
+      'Listar fuentes (filtros clientId, jurisdiction, stateCode opcionales)',
+  })
   findAll(@Query() query: ListSourcesQueryDto) {
     return this.sourcesService.findAll(query);
   }

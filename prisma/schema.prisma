@@ -37,6 +37,22 @@ enum FindingStatus {
   DISMISSED
 }
 
+enum JobRunStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+enum JobErrorCode {
+  NETWORK
+  PARSE
+  AUTH
+  RATE_LIMIT
+  UNKNOWN
+}
+
 enum SourceCategory {
   OFFICIAL
   MEDIA
@@ -51,6 +67,48 @@ enum SourcePlatform {
   FACEBOOK
   INSTAGRAM
   OTHER
+}
+
+/// FEDERAL = DOF / Congreso de la Unión; STATE = congreso de una entidad.
+enum SourceJurisdiction {
+  FEDERAL
+  STATE
+}
+
+/// ISO 3166-2:MX sin prefijo (31 estados + CDMX).
+enum MexicanState {
+  AGU
+  BCN
+  BCS
+  CAM
+  CHP
+  CHH
+  CMX
+  COA
+  COL
+  DUR
+  GUA
+  GRO
+  HID
+  JAL
+  MEX
+  MIC
+  MOR
+  NAY
+  NLE
+  OAX
+  PUE
+  QUE
+  ROO
+  SLP
+  SIN
+  SON
+  TAB
+  TAM
+  TLA
+  VER
+  YUC
+  ZAC
 }
 
 model User {
@@ -83,9 +141,10 @@ model Client {
   profiles    RegulatoryProfile[]
   findings    Finding[]
   documents   Document[]
-  clientSources ClientSource[]
-  fiscalData  ClientFiscalData?
-  contacts    ClientContact[]
+  clientSources   ClientSource[]
+  fiscalData      ClientFiscalData?
+  contacts        ClientContact[]
+  deliveryConfig  ClientDeliveryConfig?
 
   @@map("clients")
 }
@@ -163,27 +222,61 @@ model RegulatoryProfile {
 }
 
 model Source {
-  id            String         @id @default(cuid())
+  id            String             @id @default(cuid())
   name          String
-  code          String         @unique
+  code          String             @unique
   category      SourceCategory
   platform      SourcePlatform
   url           String?
-  frequency     String?
-  /// Paths de secciones a revisar, p.ej. [["Comunicados","Normatividad","Alertas sanitarias"]]
+  jurisdiction  SourceJurisdiction @default(FEDERAL)
+  /// Obligatorio si jurisdiction = STATE; vacío si FEDERAL.
+  stateCode     MexicanState?      @map("state_code")
+  /// Hora local HH:mm del rastreo (S5 scheduler).
+  scheduleTime     String   @default("07:00") @map("schedule_time")
+  scheduleTimezone String   @default("America/Mexico_City") @map("schedule_timezone")
+  /// ISO-8601 weekday: 1=lunes … 7=domingo. Default días hábiles.
+  scheduleWeekdays Int[]    @default([1, 2, 3, 4, 5]) @map("schedule_weekdays")
+  /// Paths de secciones a revisar, p.ej. [["Gaceta"],["Iniciativas"]]
   sections      Json           @default("[]")
   keywordsGuide String[]       @default([]) @map("keywords_guide")
+  /// Qué debe buscar NORMA (matriz operativa). Mismo shape que keywordsGuide.
+  searchFocus   String[]       @default([]) @map("search_focus")
+  /// Observaciones de catálogo (prioridad, matices por entidad).
+  notes         String?
   status        EntityStatus   @default(ACTIVE)
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
   findings      Finding[]
   clientSources ClientSource[]
+  jobRuns       JobRun[]
+  documents     Document[]
 
   @@index([status])
   @@index([category])
   @@index([platform])
+  @@index([jurisdiction])
+  @@index([stateCode])
   @@map("sources")
+}
+
+/// Config de entrega y semáforo por cliente (1:1). No envía email/WhatsApp todavía.
+model ClientDeliveryConfig {
+  id               String   @id @default(cuid())
+  clientId         String   @unique @map("client_id")
+  emailEnabled     Boolean  @default(true) @map("email_enabled")
+  whatsappEnabled  Boolean  @default(false) @map("whatsapp_enabled")
+  deliveryTime     String   @default("07:00") @map("delivery_time")
+  deliveryTimezone String   @default("America/Mexico_City") @map("delivery_timezone")
+  deliveryWeekdays Int[]    @default([1, 2, 3, 4, 5]) @map("delivery_weekdays")
+  /// Acciones por nivel GREEN|YELLOW|ORANGE|RED (JSON validado en Nest).
+  impactActions    Json     @map("impact_actions")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_delivery_configs")
 }
 
 /// Relación N:N cliente ↔ fuente (no altera tablas clients/sources).
@@ -222,11 +315,39 @@ model Finding {
   @@map("findings")
 }
 
+/// Ejecución auditable de un job de ingesta (idempotencia por clave).
+model JobRun {
+  id                 String        @id @default(cuid())
+  idempotencyKey     String        @unique @map("idempotency_key")
+  type               String        @default("source.crawl")
+  sourceId           String?       @map("source_id")
+  sourceCode         String?       @map("source_code")
+  triggeredBy        String        @map("triggered_by")
+  requestedByUserId  String?       @map("requested_by_user_id")
+  status             JobRunStatus  @default(QUEUED)
+  attempt            Int           @default(0)
+  errorCode          JobErrorCode? @map("error_code")
+  message            String?
+  result             Json?
+  startedAt          DateTime?     @map("started_at")
+  finishedAt         DateTime?     @map("finished_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  source Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([sourceId])
+  @@index([sourceCode])
+  @@index([status])
+  @@map("job_runs")
+}
+
 /// Metadatos de archivos en Supabase Storage (infra para documentos futuros).
 /// El binario vive en el bucket; esta tabla guarda la referencia.
 model Document {
   id           String       @id @default(cuid())
   clientId     String?      @map("client_id")
+  sourceId     String?      @map("source_id")
   uploadedById String?      @map("uploaded_by_id")
   bucket       String
   path         String
@@ -239,10 +360,12 @@ model Document {
   updatedAt    DateTime     @updatedAt @map("updated_at")
 
   client     Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  source     Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   uploadedBy User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@unique([bucket, path])
   @@index([clientId])
+  @@index([sourceId])
   @@index([uploadedById])
   @@index([status])
   @@map("documents")

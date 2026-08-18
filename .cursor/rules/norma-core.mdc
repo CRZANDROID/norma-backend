@@ -18,7 +18,9 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 - Soft-status `ACTIVE`/`INACTIVE`; no hard-delete en el piloto.
 - Multi-tenant por `Client` + `ClientMembership`. `ADMIN` ve todo.
 - Clientes ↔ fuentes: N:N (`client_sources`). UI guide: `docs/FRONTEND-CLIENT-SOURCES.md`.
-- No agregar Redis/OpenAI/Resend/scrapers fuera del sprint que los consume.
+- No agregar Resend/scrapers extra fuera del sprint que los consume.
+- Redis/BullMQ de crawl (`POST /jobs/crawl`) está permitido; extract/normalize = Sprint 6.
+- OpenAI de catálogo (`POST /ai/ask`) está permitido; clasificación de normas = Sprint 7.
 - Conventional Commits; ramas `main` / `dev` / `feature/*`.
 - Secretos solo en `.env` (nunca commit).
 
@@ -26,5 +28,8 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 
 - Backend S3 CRUD + client↔sources: **hecho** (API).
 - Sprint 4: Swagger `/docs` + e2e + contratos jobs (doc) hechos; verificar Sentry/Storage (#13) con secrets reales.
-- Frontend: wire selección fuentes — `docs/FRONTEND-CLIENT-SOURCES.md`.
-- Siguiente backend grande: S5 workers según `docs/DOCUMENT-JOB-CONTRACTS.md`.
+- Frontend: wire fuentes (estado + disparador) y delivery — `docs/FRONTEND-SOURCES-V2.md`, `docs/FRONTEND-CLIENT-DELIVERY.md`.
+- Pre-S5 modelo: **hecho** (entidad federativa, schedule, 32 congresos catálogo, delivery/semáforo).
+- Bloque 1 OpenAI ask: **hecho** (`POST /ai/ask`).
+- Sprint 5 crawl: **hecho** (Redis/BullMQ, `job_runs`, conectores DOF/Diputados/Jalisco).
+- Siguiente backend: S6 extract/normalize según `docs/DOCUMENT-JOB-CONTRACTS.md`.
