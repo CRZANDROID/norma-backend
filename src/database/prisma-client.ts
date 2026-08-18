@@ -9,6 +9,10 @@ export {
   EntityStatus,
   SourceCategory,
   SourcePlatform,
+  SourceJurisdiction,
+  MexicanState,
   ImpactLevel,
   FindingStatus,
+  JobRunStatus,
+  JobErrorCode,
 } from '../../generated/prisma';

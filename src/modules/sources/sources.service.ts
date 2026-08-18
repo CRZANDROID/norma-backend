@@ -5,11 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EntityStatus, Prisma } from '../../database/prisma-client';
+import {
+  resolveSchedule,
+  shapeSchedule,
+} from '../../common/dto/schedule.dto';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateSourceDto } from './dto/create-source.dto';
 import { ListSourcesQueryDto } from './dto/list-sources.query.dto';
 import { normalizeSections } from './dto/section-paths';
 import { UpdateSourceDto } from './dto/update-source.dto';
+import { resolveSourceJurisdiction } from './source-jurisdiction.util';
 
 const sourceWithClients = {
   clientSources: {
@@ -41,6 +46,14 @@ export class SourcesService {
 
     if (query.platform) {
       where.platform = query.platform;
+    }
+
+    if (query.jurisdiction) {
+      where.jurisdiction = query.jurisdiction;
+    }
+
+    if (query.stateCode) {
+      where.stateCode = query.stateCode;
     }
 
     if (query.clientId?.trim()) {
@@ -81,6 +94,13 @@ export class SourcesService {
     const clientIds = dto.clientIds ?? [];
     await this.assertClientsExist(clientIds);
 
+    const { jurisdiction, stateCode } = resolveSourceJurisdiction({
+      jurisdiction: dto.jurisdiction,
+      stateCode: dto.stateCode,
+      hasStateCode: dto.stateCode !== undefined,
+    });
+    const schedule = resolveSchedule(dto.schedule);
+
     try {
       const source = await this.prisma.source.create({
         data: {
@@ -89,9 +109,15 @@ export class SourcesService {
           category: dto.category,
           platform: dto.platform,
           url: dto.url,
-          frequency: dto.frequency,
+          jurisdiction,
+          stateCode,
+          scheduleTime: schedule.time,
+          scheduleTimezone: schedule.timezone,
+          scheduleWeekdays: schedule.weekdays,
           sections: normalizeSections(dto.sections ?? []) as Prisma.InputJsonValue,
           keywordsGuide: dto.keywordsGuide ?? [],
+          searchFocus: dto.searchFocus,
+          notes: dto.notes,
           clientSources: clientIds.length
             ? {
                 create: clientIds.map((clientId) => ({ clientId })),
@@ -107,18 +133,46 @@ export class SourcesService {
   }
 
   async update(id: string, dto: UpdateSourceDto) {
-    await this.ensureExists(id);
+    const existing = await this.ensureExists(id);
 
     const data: Prisma.SourceUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.category !== undefined) data.category = dto.category;
     if (dto.platform !== undefined) data.platform = dto.platform;
     if (dto.url !== undefined) data.url = dto.url;
-    if (dto.frequency !== undefined) data.frequency = dto.frequency;
     if (dto.sections !== undefined) {
       data.sections = normalizeSections(dto.sections) as Prisma.InputJsonValue;
     }
     if (dto.keywordsGuide !== undefined) data.keywordsGuide = dto.keywordsGuide;
+    if (dto.searchFocus !== undefined) data.searchFocus = dto.searchFocus;
+    if (dto.notes !== undefined) data.notes = dto.notes;
+
+    const touchesJurisdiction =
+      dto.jurisdiction !== undefined || dto.stateCode !== undefined;
+    if (touchesJurisdiction) {
+      const resolved = resolveSourceJurisdiction({
+        jurisdiction: dto.jurisdiction,
+        stateCode: dto.stateCode,
+        hasStateCode: dto.stateCode !== undefined,
+        existing: {
+          jurisdiction: existing.jurisdiction,
+          stateCode: existing.stateCode,
+        },
+      });
+      data.jurisdiction = resolved.jurisdiction;
+      data.stateCode = resolved.stateCode;
+    }
+
+    if (dto.schedule !== undefined) {
+      const schedule = resolveSchedule(dto.schedule, {
+        time: existing.scheduleTime,
+        timezone: existing.scheduleTimezone,
+        weekdays: existing.scheduleWeekdays,
+      });
+      data.scheduleTime = schedule.time;
+      data.scheduleTimezone = schedule.timezone;
+      data.scheduleWeekdays = schedule.weekdays;
+    }
 
     const source = await this.prisma.source.update({
       where: { id },
@@ -155,10 +209,22 @@ export class SourcesService {
   }
 
   private shapeSource(source: SourceWithClients) {
-    const { clientSources, sections, ...rest } = source;
+    const {
+      clientSources,
+      sections,
+      scheduleTime,
+      scheduleTimezone,
+      scheduleWeekdays,
+      ...rest
+    } = source;
     return {
       ...rest,
       sections: normalizeSections(sections),
+      schedule: shapeSchedule({
+        time: scheduleTime,
+        timezone: scheduleTimezone,
+        weekdays: scheduleWeekdays,
+      }),
       clients: clientSources.map((link) => link.client),
     };
   }

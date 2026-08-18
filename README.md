@@ -69,6 +69,8 @@ src/
     sources/
     users/
     storage/         # Upload / download / signed-url (Supabase Storage)
+    ai/              # POST /ai/ask
+  jobs/              # Redis/BullMQ source.crawl
   app.module.ts
   main.ts
 prisma/
@@ -119,6 +121,8 @@ Swagger UI: `http://localhost:3000/docs` (Authorize con JWT de `POST /auth/login
 | `SUPABASE_URL` | Project URL | Project URL del ambiente |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role local | service_role del ambiente |
 | `SUPABASE_STORAGE_BUCKET` | `documents` | bucket del ambiente |
+| `OPENAI_API_KEY` | vacío / key de prueba | key del ambiente |
+| `OPENAI_MODEL` | `gpt-4o-mini` | modelo del ambiente |
 
 Reglas:
 - Nunca subir `.env` a Git.

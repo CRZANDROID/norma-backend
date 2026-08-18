@@ -1,12 +1,57 @@
 import * as bcrypt from 'bcryptjs';
 import {
+  MexicanState,
   PrismaClient,
   SourceCategory,
+  SourceJurisdiction,
   SourcePlatform,
   UserRole,
 } from '../generated/prisma';
+import { MATRIX_EXTRA_SOURCES } from './data/matrix-extra-sources';
+import { CONGRESS_KEYWORDS, STATE_CONGRESSES } from './data/state-congresses';
 
 const prisma = new PrismaClient();
+
+const DEFAULT_SCHEDULE = {
+  scheduleTime: '07:00',
+  scheduleTimezone: 'America/Mexico_City',
+  scheduleWeekdays: [1, 2, 3, 4, 5],
+};
+
+const DEFAULT_IMPACT_ACTIONS = [
+  {
+    impact: 'GREEN',
+    notifyInbox: true,
+    sendEmail: false,
+    sendWhatsapp: false,
+    requireHumanApproval: false,
+    suggestedAction: 'Registrar como contexto',
+  },
+  {
+    impact: 'YELLOW',
+    notifyInbox: true,
+    sendEmail: true,
+    sendWhatsapp: false,
+    requireHumanApproval: true,
+    suggestedAction: 'Dar seguimiento',
+  },
+  {
+    impact: 'ORANGE',
+    notifyInbox: true,
+    sendEmail: true,
+    sendWhatsapp: false,
+    requireHumanApproval: true,
+    suggestedAction: 'Elaborar nota y monitorear avance',
+  },
+  {
+    impact: 'RED',
+    notifyInbox: true,
+    sendEmail: true,
+    sendWhatsapp: true,
+    requireHumanApproval: true,
+    suggestedAction: 'Alertar de inmediato y preparar nota ejecutiva',
+  },
+];
 
 async function main() {
   const arca = await prisma.client.upsert({
@@ -66,44 +111,149 @@ async function main() {
     },
   });
 
-  const sources = [
+  const federalSources = [
     {
       code: 'dof',
       name: 'Diario Oficial de la Federación',
-      category: SourceCategory.OFFICIAL,
-      platform: SourcePlatform.WEB,
       url: 'https://www.dof.gob.mx/',
-      frequency: 'daily',
-      sections: [['Comunicados', 'Normatividad'], ['Avisos']],
-      keywordsGuide: ['COFEPRIS', 'NOM', 'etiquetado', 'IEPS', 'bebidas'],
+      sections: [
+        ['Secretaría de Salud'],
+        ['COFEPRIS'],
+        ['Economía'],
+        ['SHCP'],
+        ['PROFECO'],
+        ['SEMARNAT'],
+        ['CONAGUA'],
+        ['SEP'],
+        ['Presidencia'],
+      ],
+      keywordsGuide: [
+        'COFEPRIS',
+        'NOM',
+        'etiquetado',
+        'aditivos',
+        'colorantes',
+        'edulcorantes',
+        'bebidas',
+        'alimentos',
+        'publicidad',
+        'IEPS',
+        'envases',
+        'residuos',
+        'agua',
+      ],
+      searchFocus:
+        'Decretos, acuerdos, NOM, proyectos de NOM, reformas, lineamientos, criterios regulatorios o avisos oficiales',
+      notes: 'Matriz operativa #5. Reportar si genera obligación, restricción o plazo.',
+      scheduleWeekdays: [1, 2, 3, 4, 5],
+      status: 'ACTIVE' as const,
     },
     {
       code: 'diputados-gaceta',
       name: 'Gaceta Parlamentaria - Cámara de Diputados',
-      category: SourceCategory.OFFICIAL,
-      platform: SourcePlatform.WEB,
       url: 'https://gaceta.diputados.gob.mx/',
-      frequency: 'daily',
-      sections: [['Gaceta', 'Iniciativas']],
-      keywordsGuide: ['Ley General de Salud', 'bebidas azucaradas', 'etiquetado'],
-    },
-    {
-      code: 'jalisco-congreso',
-      name: 'Congreso de Jalisco',
-      category: SourceCategory.OFFICIAL,
-      platform: SourcePlatform.WEB,
-      url: 'https://www.congresojal.gob.mx/',
-      frequency: 'daily',
-      sections: [['Comunicados'], ['Sesiones']],
-      keywordsGuide: ['bebidas', 'salud', 'publicidad', 'residuos'],
+      sections: [
+        ['Iniciativas'],
+        ['Dictámenes'],
+        ['Proposiciones'],
+        ['Minutas'],
+        ['Orden del día'],
+      ],
+      keywordsGuide: [
+        'Ley General de Salud',
+        'IEPS',
+        'etiquetado',
+        'COFEPRIS',
+        'PROFECO',
+        'bebidas azucaradas',
+        'ultraprocesados',
+      ],
+      searchFocus:
+        'Nuevas iniciativas federales o dictámenes relacionados con salud, alimentos, bebidas, IEPS, etiquetado, publicidad, escuelas, residuos o consumidores',
+      notes: 'Matriz operativa #2.',
+      scheduleWeekdays: [1, 2, 3, 4, 5],
+      status: 'ACTIVE' as const,
     },
   ];
 
-  for (const source of sources) {
+  for (const source of federalSources) {
+    const { scheduleWeekdays, status, ...rest } = source;
     await prisma.source.upsert({
       where: { code: source.code },
-      update: { ...source, status: 'ACTIVE' },
-      create: { ...source, status: 'ACTIVE' },
+      update: {
+        ...rest,
+        category: SourceCategory.OFFICIAL,
+        platform: SourcePlatform.WEB,
+        jurisdiction: SourceJurisdiction.FEDERAL,
+        stateCode: null,
+        scheduleTime: DEFAULT_SCHEDULE.scheduleTime,
+        scheduleTimezone: DEFAULT_SCHEDULE.scheduleTimezone,
+        scheduleWeekdays,
+        status,
+      },
+      create: {
+        ...rest,
+        category: SourceCategory.OFFICIAL,
+        platform: SourcePlatform.WEB,
+        jurisdiction: SourceJurisdiction.FEDERAL,
+        scheduleTime: DEFAULT_SCHEDULE.scheduleTime,
+        scheduleTimezone: DEFAULT_SCHEDULE.scheduleTimezone,
+        scheduleWeekdays,
+        status,
+      },
+    });
+  }
+
+  for (const extra of MATRIX_EXTRA_SOURCES) {
+    const { scheduleWeekdays, status, ...rest } = extra;
+    await prisma.source.upsert({
+      where: { code: extra.code },
+      update: {
+        ...rest,
+        category: SourceCategory.OFFICIAL,
+        platform: SourcePlatform.WEB,
+        jurisdiction: SourceJurisdiction.FEDERAL,
+        stateCode: null,
+        scheduleTime: DEFAULT_SCHEDULE.scheduleTime,
+        scheduleTimezone: DEFAULT_SCHEDULE.scheduleTimezone,
+        scheduleWeekdays,
+        status,
+      },
+      create: {
+        ...rest,
+        category: SourceCategory.OFFICIAL,
+        platform: SourcePlatform.WEB,
+        jurisdiction: SourceJurisdiction.FEDERAL,
+        scheduleTime: DEFAULT_SCHEDULE.scheduleTime,
+        scheduleTimezone: DEFAULT_SCHEDULE.scheduleTimezone,
+        scheduleWeekdays,
+        status,
+      },
+    });
+  }
+
+  for (const congress of STATE_CONGRESSES) {
+    const payload = {
+      name: congress.name,
+      category: SourceCategory.OFFICIAL,
+      platform: SourcePlatform.WEB,
+      url: congress.url,
+      jurisdiction: SourceJurisdiction.STATE,
+      stateCode: congress.stateCode as MexicanState,
+      scheduleTime: DEFAULT_SCHEDULE.scheduleTime,
+      scheduleTimezone: DEFAULT_SCHEDULE.scheduleTimezone,
+      scheduleWeekdays: congress.weekdays,
+      sections: congress.sections,
+      keywordsGuide: CONGRESS_KEYWORDS,
+      searchFocus: congress.searchFocus,
+      notes: congress.notes,
+      status: congress.active ? ('ACTIVE' as const) : ('INACTIVE' as const),
+    };
+
+    await prisma.source.upsert({
+      where: { code: congress.code },
+      update: payload,
+      create: { code: congress.code, ...payload },
     });
   }
 
@@ -163,6 +313,27 @@ async function main() {
     },
   });
 
+  await prisma.clientDeliveryConfig.upsert({
+    where: { clientId: arca.id },
+    update: {
+      emailEnabled: true,
+      whatsappEnabled: false,
+      deliveryTime: DEFAULT_SCHEDULE.scheduleTime,
+      deliveryTimezone: DEFAULT_SCHEDULE.scheduleTimezone,
+      deliveryWeekdays: [...DEFAULT_SCHEDULE.scheduleWeekdays],
+      impactActions: DEFAULT_IMPACT_ACTIONS,
+    },
+    create: {
+      clientId: arca.id,
+      emailEnabled: true,
+      whatsappEnabled: false,
+      deliveryTime: DEFAULT_SCHEDULE.scheduleTime,
+      deliveryTimezone: DEFAULT_SCHEDULE.scheduleTimezone,
+      deliveryWeekdays: [...DEFAULT_SCHEDULE.scheduleWeekdays],
+      impactActions: DEFAULT_IMPACT_ACTIONS,
+    },
+  });
+
   const existingContact = await prisma.clientContact.findFirst({
     where: { clientId: arca.id, email: 'asuntos.regulatorios@arca.com' },
   });
@@ -179,7 +350,7 @@ async function main() {
   }
 
   console.log(
-    `Seed completed: Arca client (+ fiscal/contact), regulatory profile, pilot sources, admin ${seedEmail}`,
+    `Seed completed: Arca (+ fiscal/contact/delivery), DOF+Diputados ACTIVE, Senado/mañanera/COFEPRIS/PROFECO INACTIVE, 32 congresos, admin ${seedEmail}`,
   );
 }
 

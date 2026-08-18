@@ -26,6 +26,8 @@ Controller → Service → PrismaService
 - Usar `@CurrentUser()` para el usuario NORMA.
 - Mutaciones de catálogo (clients/sources/users): `ADMIN`.
 - Profiles: `ADMIN` + `ANALYST` según `docs/SPRINT-3-BACKEND.md`.
+- `POST /ai/ask`: lectura de catálogo; no muta datos.
+- `POST /jobs/crawl`: solo `ADMIN`; 503 sin Redis.
 - No-ADMIN: filtrar por memberships activas.
 - Login: `POST /auth/login` → Bearer JWT Nest (no Supabase Auth).
 
@@ -38,7 +40,8 @@ Controller → Service → PrismaService
 | 404 | No existe |
 | 409 | slug/code/membership duplicado |
 | 400 | Body inválido |
+| 503 | Storage sin Supabase, OpenAI sin key, o jobs sin Redis |
 
 ## Módulos
 
-Implementar en `src/modules/{clients,sources,users}/`. No inventar prefix `/api` si el resto vive en raíz.
+Implementar en `src/modules/{clients,sources,users,ai}/` o `src/jobs/`. No inventar prefix `/api` si el resto vive en raíz.

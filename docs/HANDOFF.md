@@ -1,4 +1,4 @@
-# HANDOFF — Estado NORMA Backend (2026-08-04)
+# HANDOFF — Estado NORMA Backend (2026-08-18)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
 Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de trabajo.
@@ -13,11 +13,15 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | 3 CRUD admin | **API hecha** | clients, profiles, sources, users/memberships |
 | 3 extensión | **API hecha** | N:N **client ↔ sources** (`sourceIds` / `clientIds`) |
 | 3+ ajustes | **API hecha** | Datos fiscales 1:1 + contactos 1:N del cliente |
-| 3 front | Fuera de este repo | Wire UI → [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) + [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) |
+| Pre-S5 modelo | **API hecha** | Entidad federativa, disparador, catálogo 32 congresos, delivery/semáforo |
+| Bloque 1 OpenAI | **API hecha** | `GET /ai/status` + `POST /ai/ask` (catálogo; no clasifica) |
+| 5 crawl | **Hecho** | Redis/BullMQ + `job_runs` + conectores DOF/Diputados/Jalisco |
+| 3 front | Fuera de este repo | Wire UI → [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) + [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) + [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) + [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) |
 | 4 | **Hecho en código/verificado** | Sentry + Storage OK en local |
-| 5+ | Pendiente | Implementar colas según [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
+| 6+ | Pendiente | Extract/normalize según [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
 
-**Rama típica:** `feature/client-fiscal-contacts` (ajustes de dominio cliente).
+**Siguiente en este repo:** Sprint 6 (registro documental / extract) según [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md). Crawl: [jobs-crawl.md](./jobs-crawl.md).
+
 ---
 
 ## 2. Stack fijo (no reinventar)
@@ -38,7 +42,14 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | Client↔sources | [client-sources.md](./client-sources.md) |
 | Front UI guide | [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) |
 | Front fiscal/contactos | [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) |
+| Front delivery/semáforo | [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) |
+| Fuentes v2 (estado + schedule) | [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md) |
+| Congresos estatales | [state-congresses.md](./state-congresses.md) |
 | Jobs/docs contracts | [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
+| OpenAI catálogo | [openai-catalog.md](./openai-catalog.md) |
+| Front AI ask | [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) |
+| Jobs crawl S5 | [jobs-crawl.md](./jobs-crawl.md) |
+| **Entrega front + .env** | **[ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md)** |
 | Sentry/Storage | [sentry-storage.md](./sentry-storage.md) |
 | Render | [render-deploy.md](./render-deploy.md) |
 
@@ -46,24 +57,29 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 
 ## 3. Qué ya está implementado (backend)
 
-### Auth / CRUD / client↔sources / fiscales / contactos
-Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fiscal_contacts`. Aplicar con `pnpm prisma:deploy` si falta.
+### Auth / CRUD / client↔sources / fiscales / contactos / delivery
+Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fiscal_contacts`, `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`. Aplicar con `pnpm prisma:deploy` si falta.
 
-- Fiscales 1:1: `fiscal` en create/PATCH client → respuesta `fiscalData` (`legalName`, `rfc`, `postalCode`, `cfdi`, `taxRegime`)
-- Contactos: `contacts[]` en create/PATCH client (**replace** en PATCH); además rutas `/clients/:clientId/contacts` + `/contacts/:id`
+- Fiscales 1:1: `fiscal` en create/PATCH client → respuesta `fiscalData`
+- Contactos: `contacts[]` en create/PATCH client (**replace** en PATCH); rutas `/clients/:clientId/contacts`
+- Fuentes: `jurisdiction` + `stateCode`; `schedule`; `searchFocus` / `notes` (matriz VCGA)
+- Delivery 1:1: `deliveryConfig` con `suggestedAction` por nivel (registrar / seguir / nota / alertar)
+- Asistente de catálogo: `GET /ai/status`, `POST /ai/ask` (OpenAI; 503 sin `OPENAI_API_KEY`)
+- Crawl S5: Redis/BullMQ cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, tabla `job_runs` (503 sin `REDIS_URL`). Admin reencola FAILED/QUEUED huérfanos; el scheduler no reintenta FAILED el mismo día.
 
 ### Sprint 4
 
 | Issue | Estado |
 |-------|--------|
 | #11 Swagger + validation | **Hecho** — `/docs`, ValidationPipe |
-| #12 Seed + indexes + e2e | **Hecho** — `pnpm test:e2e` (16 tests) |
+| #12 Seed + indexes + e2e | **Hecho** — `pnpm test:e2e` |
 | #13 Sentry + Storage | **Cerrado** — Sentry + upload/signed-url/download verificados en local |
 | #14 Document/job contracts | **Hecho (doc)** — [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
 
 ### Módulos
 ```text
-src/modules/{auth,clients,sources,users,storage}/
+src/modules/{auth,clients,sources,users,storage,ai}/
+src/jobs/            # BullMQ source.crawl
 src/common/swagger.ts
 test/*e2e-spec.ts
 ```
@@ -72,8 +88,9 @@ test/*e2e-spec.ts
 
 ## 4. Qué falta (prioridad)
 
-1. **No** implementar Redis/BullMQ hasta empezar S5 usando el contrato de jobs.
-2. Frontend (otro repo): UI client↔sources + fiscales/contactos ([FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md), [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)).
+1. **Sprint 6:** extract / normalize / dedup sobre el crudo de S5 ([DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md)).
+2. Frontend (otro repo): UI fuentes + delivery/semáforo + client↔sources + caja `POST /ai/ask`.
+3. Redis en staging/prod (`REDIS_URL`) para que el scheduler crawlee a las 07:00.
 
 ---
 
@@ -87,14 +104,20 @@ pnpm start:dev
 pnpm test:e2e
 ```
 
-`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`.
+`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY`. Para crawl: `REDIS_URL=redis://127.0.0.1:6379` (Redis debe estar escuchando). Windows sin Docker: `redis-server --bind 127.0.0.1 --port 6379`.
 
 ---
 
 ## 6. Para el agente de FRONTEND
 
-1. Fuentes: **[FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md)** (`sourceIds` / `clientIds`).
-2. Fiscales + contactos: **[FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)**.
+Documento único (bloques 0–2 + checklist UI + `.env`): **[ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md)**.
+
+1. Fuentes: **[FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md)** (`jurisdiction`, `stateCode`, `schedule`; ya no `frequency`).
+2. Vínculos: **[FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md)**.
+3. Fiscales + contactos: **[FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)**.
+4. Entrega / semáforo (config, no inbox): **[FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md)**.
+5. Asistente de catálogo: **[FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md)**.
+6. Crawl (botón ADMIN): [jobs-crawl.md](./jobs-crawl.md) / sección 2.5 de la entrega.
 
 ---
 
@@ -107,12 +130,12 @@ pnpm test:e2e
 | 12 | Seed/tests | Cerrar si `pnpm test:e2e` OK |
 | 13 | Sentry+Storage | CLOSED — verificado local |
 | 14 | Document contracts | Cerrar — doc entregada |
-| 15–16 | S5 workers/connectors | Siguiente implementación |
+| 15–16 | S5 workers/connectors | **Hecho** — [jobs-crawl.md](./jobs-crawl.md) |
 
 ---
 
 ## 8. Plantilla siguiente agente
 
-> Lee `docs/HANDOFF.md`. S5 solo tras leer `DOCUMENT-JOB-CONTRACTS.md`. Front: `FRONTEND-CLIENT-SOURCES.md` + `FRONTEND-CLIENT-FISCAL-CONTACTS.md`.
+> Lee `docs/HANDOFF.md` §4. S6 extract según `DOCUMENT-JOB-CONTRACTS.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md`.
 
-**Última actualización:** 2026-08-04 — datos fiscales (CP, CFDI, régimen) + contactos de cliente.
+**Última actualización:** 2026-08-18 — S5 Redis/BullMQ + conectores DOF/Diputados/Jalisco + `job_runs`.

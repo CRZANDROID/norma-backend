@@ -1,8 +1,8 @@
 # Contratos de documentos y jobs de ingesta (Sprint 4 → 5)
 
 **Issue:** `S4: Document contracts for documents and ingestion jobs` (#14)  
-**Estado:** documento de contrato (sin implementar workers ni scrapers).  
-**Objetivo:** alinear Sprint 5 (Redis/BullMQ + conectores) y Sprint 6 (registry documental) sin improvisar payloads.
+**Estado:** contrato + **S5 implementado** (`src/jobs/`, cola `source.crawl`, tabla `job_runs`).  
+**Operación S5:** [jobs-crawl.md](./jobs-crawl.md).
 
 Relacionado:
 
@@ -97,9 +97,9 @@ Cola: Redis + BullMQ (nombres tentativos). Un job = una unidad de trabajo audita
 
 ### 4.1 `source.crawl` — conectar y traer crudo
 
-**Producer:** scheduler (cron por `Source.frequency`) o `ADMIN` trigger manual.  
+**Producer:** scheduler (hora `Source.scheduleTime` + `scheduleWeekdays` + `scheduleTimezone`) o `ADMIN` trigger manual.  
 **Consumer:** worker de conectores (`dof`, `diputados-gaceta`, `jalisco-congreso`, …).  
-**Filtro de alcance:** opcionalmente limitar a sources `ACTIVE` que tengan ≥1 `client_sources` ACTIVE (vía clients ACTIVE).
+**Filtro de alcance:** sources `ACTIVE` (el catálogo incluye 32 congresos estatales; el piloto crawlea las ACTIVE). Opcionalmente exigir ≥1 `client_sources`.
 
 #### Payload
 
@@ -225,12 +225,10 @@ clients/{clientId}/...   // si query clientId
 
 ---
 
-## 7. Qué NO hacer en Sprint 4
+## 7. Qué NO hacer en Sprint 4 (histórico)
 
-- No implementar Redis/BullMQ todavía (S5).
-- No scrapers reales.
-- No CRUD completo de `Document` ni cambiar el enum en prod sin migración S6.
-- No acoplar findings al crawl hasta tener normalización.
+- Contratos listos; la implementación de Redis/BullMQ es Sprint 5 (hecho: [jobs-crawl.md](./jobs-crawl.md)).
+- No extract/normalize (S6) ni clasificación (S7) en el worker de crawl.
 
 ---
 
@@ -245,10 +243,13 @@ clients/{clientId}/...   // si query clientId
 
 ---
 
-## 9. Checklist al implementar S5
+## 9. Checklist Sprint 5
 
-1. Crear cola `source.crawl` con tipos TypeScript compartidos (paquete o `src/jobs/types.ts`).
-2. Scheduler lee `Source` ACTIVE (+ opcional join `client_sources`).
-3. Worker escribe artifacts en Storage + log de job.
-4. Persistir resultado (`ok` / failure) en tabla `job_runs` (crear en S5) o logs estructurados temporales.
-5. Respetar `idempotencyKey`.
+1. [x] Cola `source.crawl` con tipos en `src/jobs/types.ts`
+2. [x] Scheduler lee `Source` ACTIVE (`scheduleTime` / `scheduleWeekdays` / `scheduleTimezone`)
+3. [x] Worker escribe artifacts (Supabase Storage o `data/crawl/`) + `job_runs`
+4. [x] Tabla `job_runs` (migración `20260818150000_job_runs`)
+5. [x] `idempotencyKey` (`{code}:{fecha}:scheduled` | `:admin`)
+6. [x] Conectores piloto DOF, Diputados, Jalisco (GET crudo; HTTP genérico para otras ACTIVE)
+
+**Siguiente:** Sprint 6 extract/normalize/dedup. No clasificar en este worker.

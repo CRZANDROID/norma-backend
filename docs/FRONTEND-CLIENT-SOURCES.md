@@ -3,7 +3,9 @@
 **Audiencia:** agente o dev del repo `norma-frontend`.  
 **Backend:** ya implementado. **No hace falta esperar más API** para esta feature (salvo que la DB no tenga la migración `client_sources` aplicada).
 
-Contexto general: [HANDOFF.md](./HANDOFF.md) · detalle API: [client-sources.md](./client-sources.md) · pruebas: [postman-pruebas.md](./postman-pruebas.md)
+Foco de hoy (front): **vincular clientes ↔ fuentes** y, con Redis en el backend, **disparar crawl** sobre esas fuentes. El front **no** lleva `REDIS_URL`: Nest es el único que habla con Redis.
+
+Contexto general: [HANDOFF.md](./HANDOFF.md) · shape de fuente (estado + disparador): [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md) · detalle API: [client-sources.md](./client-sources.md) · crawl: [jobs-crawl.md](./jobs-crawl.md) · env: [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) · pruebas: [postman-pruebas.md](./postman-pruebas.md)
 
 ---
 
@@ -117,18 +119,67 @@ POST /sources
 {
   "name": "DOF mirror",
   "code": "dof-mirror",
-  "type": "DOF",
+  "category": "OFFICIAL",
+  "platform": "WEB",
   "url": "https://www.dof.gob.mx/",
+  "jurisdiction": "FEDERAL",
   "clientIds": ["clxxx_arca"]
 }
 ```
+
+No mandar `type` ni `frequency` (el API responde `400`). Shape completo: [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md).
+
+---
+
+## Redis en el backend (para probar crawl)
+
+El vínculo cliente↔fuente alimenta el rastreo. Para **probar** `POST /jobs/crawl` hace falta Redis en **Nest**, no en el browser.
+
+| Dónde | Variable | Valor local |
+|-------|----------|-------------|
+| `norma-backend/.env` | `REDIS_URL` | `redis://127.0.0.1:6379` |
+| `norma-frontend/.env` | — | **no** copies `REDIS_URL` |
+
+No hay usuario ni password en local. `127.0.0.1:6379` es el puerto por defecto de Redis.
+
+Arrancar Redis (una terminal aparte, **antes** de Nest):
+
+```bash
+redis-server --bind 127.0.0.1 --port 6379
+```
+
+(Si tienes Docker: `docker run --rm -p 6379:6379 redis:7-alpine`.)
+
+Luego reinicia `pnpm start:dev`. Comprueba con JWT:
+
+```http
+GET /jobs/status
+Authorization: Bearer ...
+```
+
+Esperado: `"configured": true`, `"redis": "up"`. Si falta `REDIS_URL` o Redis está apagado → `configured: false` y `POST /jobs/crawl` → `503`.
+
+### Contrato crawl (solo ADMIN; demo de fuentes ACTIVE)
+
+| Método | Ruta | Body |
+|--------|------|------|
+| `GET` | `/jobs/status` | — |
+| `POST` | `/jobs/crawl` | `{ "sourceCode": "dof" }` o `{ "sourceId": "..." }` |
+| `POST` | `/jobs/crawl/all` | — |
+| `GET` | `/jobs/runs?sourceCode=dof&limit=20` | — |
+
+UI sugerida (detalle fuente o pantalla de operación): banner si `configured: false`; botón **Rastrear ahora** en fuentes `ACTIVE` → `POST /jobs/crawl`. No pintar el HTML crudo (eso es S6).
+
+Detalle: [jobs-crawl.md](./jobs-crawl.md) · entrega: [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) §2.5.
 
 ---
 
 ## Fuera de alcance de esta UI
 
-- Scrapers / jobs (S5)
+- Extraer / normalizar documentos (Sprint 6) y clasificación / inbox (Sprint 7–8)
 - Storage `/storage/*` (S4 infra; otra pantalla si hace falta)
+- Enviar correo o WhatsApp
+- Poner `REDIS_URL` / `OPENAI_API_KEY` / `DATABASE_URL` en el `.env` del front
 - Cambiar `slug` del cliente o `code` de fuente vía forms existentes (respetar reglas actuales del API)
 
 ---
@@ -138,8 +189,9 @@ POST /sources
 - [ ] Create client con selección de fuentes
 - [ ] Edit client: agregar/quitar fuentes y persistir vía `sourceIds` (replace)
 - [ ] Create source con selección de clientes (`clientIds`)
-- [ ] Tipos TS alineados a respuesta API (`sources` / `clients`)
-- [ ] Errores API (`400`/`403`) mostrados con el patrón `mapApiError` existente
+- [ ] Tipos TS alineados a respuesta API (`sources` / `clients`; fuente con `jurisdiction` + `schedule`, no `frequency`/`type`)
+- [ ] Errores API (`400`/`403`/`503`) mostrados con el patrón `mapApiError` existente
 - [ ] Probar contra Nest local (`VITE_API_URL=http://localhost:3000`, mocks off)
+- [ ] Con Redis up en backend: `GET /jobs/status` → configured; botón rastrear → `POST /jobs/crawl`
 
 Cuando termines, actualiza el issue/proyecto y menciona en el PR que el contrato viene de `docs/FRONTEND-CLIENT-SOURCES.md` en `norma-backend`.

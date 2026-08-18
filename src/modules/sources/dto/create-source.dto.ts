@@ -1,7 +1,10 @@
 import {
+  MexicanState,
   SourceCategory,
+  SourceJurisdiction,
   SourcePlatform,
 } from '../../../database/prisma-client';
+import { Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
@@ -11,7 +14,9 @@ import {
   IsUrl,
   Matches,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { ScheduleDto } from '../../../common/dto/schedule.dto';
 import { IsSectionPaths } from './section-paths';
 
 export class CreateSourceDto {
@@ -36,8 +41,18 @@ export class CreateSourceDto {
   url?: string;
 
   @IsOptional()
-  @IsString()
-  frequency?: string;
+  @IsEnum(SourceJurisdiction)
+  jurisdiction?: SourceJurisdiction;
+
+  /** Obligatorio si jurisdiction = STATE. */
+  @IsOptional()
+  @IsEnum(MexicanState)
+  stateCode?: MexicanState;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ScheduleDto)
+  schedule?: ScheduleDto;
 
   @IsOptional()
   @IsArray()
@@ -48,6 +63,16 @@ export class CreateSourceDto {
   @IsArray()
   @IsString({ each: true })
   keywordsGuide?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  searchFocus?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  notes?: string;
 
   /** Clientes a vincular al crear la fuente (la edición de vínculos va en clientes). */
   @IsOptional()

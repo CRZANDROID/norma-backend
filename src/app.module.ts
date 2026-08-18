@@ -10,6 +10,8 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 import { SourcesModule } from './modules/sources/sources.module';
 import { UsersModule } from './modules/users/users.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { AiModule } from './modules/ai/ai.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { StorageModule } from './modules/storage/storage.module';
     SourcesModule,
     UsersModule,
     StorageModule,
+    AiModule,
+    JobsModule,
   ],
   providers: [
     {
