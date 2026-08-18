@@ -116,7 +116,7 @@ export class SourcesService {
           scheduleWeekdays: schedule.weekdays,
           sections: normalizeSections(dto.sections ?? []) as Prisma.InputJsonValue,
           keywordsGuide: dto.keywordsGuide ?? [],
-          searchFocus: dto.searchFocus,
+          searchFocus: dto.searchFocus ?? [],
           notes: dto.notes,
           clientSources: clientIds.length
             ? {

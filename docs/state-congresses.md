@@ -6,7 +6,7 @@ Las alertas se clasifican y entregan **por entidad federativa**. El modelo de `S
 |-------|-------------|
 | `jurisdiction` | `FEDERAL` (DOF, Diputados, Senado…) o `STATE` |
 | `stateCode` | ISO 3166-2:MX sin prefijo (`JAL`, `CMX`, …). Obligatorio si `STATE`; vacío si `FEDERAL` |
-| `searchFocus` | Qué debe buscar NORMA (matriz VCGA) |
+| `searchFocus` | `string[]` — qué debe buscar NORMA (matriz VCGA); `[]` vacío válido |
 | `notes` | Observaciones de catálogo (prioridad, matices) |
 
 Lista de códigos: `AGU BCN BCS CAM CHP CHH CMX COA COL DUR GUA GRO HID JAL MEX MIC MOR NAY NLE OAX PUE QUE ROO SLP SIN SON TAB TAM TLA VER YUC ZAC`.

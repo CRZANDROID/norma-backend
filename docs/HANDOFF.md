@@ -58,11 +58,11 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 ## 3. Qué ya está implementado (backend)
 
 ### Auth / CRUD / client↔sources / fiscales / contactos / delivery
-Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fiscal_contacts`, `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`. Aplicar con `pnpm prisma:deploy` si falta.
+Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fiscal_contacts`, `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`, `search_focus_array`. Aplicar con `pnpm prisma:deploy` si falta.
 
 - Fiscales 1:1: `fiscal` en create/PATCH client → respuesta `fiscalData`
 - Contactos: `contacts[]` en create/PATCH client (**replace** en PATCH); rutas `/clients/:clientId/contacts`
-- Fuentes: `jurisdiction` + `stateCode`; `schedule`; `searchFocus` / `notes` (matriz VCGA)
+- Fuentes: `jurisdiction` + `stateCode`; `schedule`; `searchFocus` (`string[]`, igual que `keywordsGuide`) / `notes` (matriz VCGA)
 - Delivery 1:1: `deliveryConfig` con `suggestedAction` por nivel (registrar / seguir / nota / alertar)
 - Asistente de catálogo: `GET /ai/status`, `POST /ai/ask` (OpenAI; 503 sin `OPENAI_API_KEY`)
 - Crawl S5: Redis/BullMQ cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, tabla `job_runs` (503 sin `REDIS_URL`). Admin reencola FAILED/QUEUED huérfanos; el scheduler no reintenta FAILED el mismo día.
@@ -138,4 +138,4 @@ Documento único (bloques 0–2 + checklist UI + `.env`): **[ENTREGA-FRONT-ENV.m
 
 > Lee `docs/HANDOFF.md` §4. S6 extract según `DOCUMENT-JOB-CONTRACTS.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md`.
 
-**Última actualización:** 2026-08-18 — S5 Redis/BullMQ + conectores DOF/Diputados/Jalisco + `job_runs`.
+**Última actualización:** 2026-08-18 — `searchFocus` es `string[]` (igual que `keywordsGuide`; `[]` válido). S5 Redis/BullMQ + conectores DOF/Diputados/Jalisco + `job_runs`.

@@ -64,10 +64,9 @@ export class UpdateSourceDto {
   keywordsGuide?: string[];
 
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MinLength(3)
-  searchFocus?: string | null;
+  @IsArray()
+  @IsString({ each: true })
+  searchFocus?: string[];
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)

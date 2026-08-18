@@ -24,6 +24,7 @@ alwaysApply: false
 - Hallazgos = modelo `Finding` (no volver a crecer `Alert` legacy).
 - `Source.config` y `RegulatoryProfile.products` son JSON; no scrapers aquí.
 - `Source.jurisdiction` + `stateCode` (null si FEDERAL).
+- `Source.keywordsGuide` y `Source.searchFocus` son `String[]` (`[]` = vacío).
 - Disparador de crawl: `scheduleTime` / `scheduleWeekdays` / `scheduleTimezone` (no `frequency`).
 - Entrega/semáforo: `ClientDeliveryConfig` 1:1 (config; no envía email/WhatsApp).
 - Crawl: `JobRun` con `idempotencyKey` único; no hard-delete.

@@ -239,8 +239,8 @@ model Source {
   /// Paths de secciones a revisar, p.ej. [["Gaceta"],["Iniciativas"]]
   sections      Json           @default("[]")
   keywordsGuide String[]       @default([]) @map("keywords_guide")
-  /// Qué debe buscar NORMA (matriz operativa).
-  searchFocus   String?        @map("search_focus")
+  /// Qué debe buscar NORMA (matriz operativa). Mismo shape que keywordsGuide.
+  searchFocus   String[]       @default([]) @map("search_focus")
   /// Observaciones de catálogo (prioridad, matices por entidad).
   notes         String?
   status        EntityStatus   @default(ACTIVE)

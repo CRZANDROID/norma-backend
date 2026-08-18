@@ -18,6 +18,14 @@ const DEFAULT_SCHEDULE = {
   scheduleWeekdays: [1, 2, 3, 4, 5],
 };
 
+/** Texto de matriz VCGA → string[] (mismo shape que keywordsGuide). */
+function toSearchFocus(value: string): string[] {
+  return value
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
 const DEFAULT_IMPACT_ACTIONS = [
   {
     impact: 'GREEN',
@@ -177,11 +185,13 @@ async function main() {
   ];
 
   for (const source of federalSources) {
-    const { scheduleWeekdays, status, ...rest } = source;
+    const { scheduleWeekdays, status, searchFocus, ...rest } = source;
+    const searchFocusList = toSearchFocus(searchFocus);
     await prisma.source.upsert({
       where: { code: source.code },
       update: {
         ...rest,
+        searchFocus: searchFocusList,
         category: SourceCategory.OFFICIAL,
         platform: SourcePlatform.WEB,
         jurisdiction: SourceJurisdiction.FEDERAL,
@@ -193,6 +203,7 @@ async function main() {
       },
       create: {
         ...rest,
+        searchFocus: searchFocusList,
         category: SourceCategory.OFFICIAL,
         platform: SourcePlatform.WEB,
         jurisdiction: SourceJurisdiction.FEDERAL,
@@ -205,11 +216,13 @@ async function main() {
   }
 
   for (const extra of MATRIX_EXTRA_SOURCES) {
-    const { scheduleWeekdays, status, ...rest } = extra;
+    const { scheduleWeekdays, status, searchFocus, ...rest } = extra;
+    const searchFocusList = toSearchFocus(searchFocus);
     await prisma.source.upsert({
       where: { code: extra.code },
       update: {
         ...rest,
+        searchFocus: searchFocusList,
         category: SourceCategory.OFFICIAL,
         platform: SourcePlatform.WEB,
         jurisdiction: SourceJurisdiction.FEDERAL,
@@ -221,6 +234,7 @@ async function main() {
       },
       create: {
         ...rest,
+        searchFocus: searchFocusList,
         category: SourceCategory.OFFICIAL,
         platform: SourcePlatform.WEB,
         jurisdiction: SourceJurisdiction.FEDERAL,
@@ -245,7 +259,7 @@ async function main() {
       scheduleWeekdays: congress.weekdays,
       sections: congress.sections,
       keywordsGuide: CONGRESS_KEYWORDS,
-      searchFocus: congress.searchFocus,
+      searchFocus: toSearchFocus(congress.searchFocus),
       notes: congress.notes,
       status: congress.active ? ('ACTIVE' as const) : ('INACTIVE' as const),
     };

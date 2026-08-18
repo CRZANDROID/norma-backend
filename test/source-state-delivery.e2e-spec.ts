@@ -35,7 +35,7 @@ describe('Source state + client delivery (e2e)', () => {
       status: 'ACTIVE',
       url: 'https://www.congresojal.gob.mx/',
     });
-    expect(jal.searchFocus).toBeTruthy();
+    expect(jal.searchFocus.length).toBeGreaterThan(0);
     expect(jal.notes).toMatch(/Alta prioridad/i);
     expect(jal.schedule).toMatchObject({
       time: '07:00',
@@ -162,6 +162,53 @@ describe('Source state + client delivery (e2e)', () => {
       .expect(200);
     await request(app.getHttpServer())
       .patch(`/sources/${source.body.id}/deactivate`)
+      .set(auth())
+      .expect(200);
+  });
+
+  it('accepts empty searchFocus and keywordsGuide arrays', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/sources')
+      .set(auth())
+      .send({
+        name: `Fuente tags vacíos ${suffix}`,
+        code: `tags-empty-${suffix}`,
+        category: 'SOCIAL',
+        platform: 'X',
+        url: 'https://x.com/example',
+        jurisdiction: 'FEDERAL',
+        stateCode: null,
+        searchFocus: [],
+        keywordsGuide: [],
+      })
+      .expect(201);
+
+    expect(created.body.searchFocus).toEqual([]);
+    expect(created.body.keywordsGuide).toEqual([]);
+
+    const patched = await request(app.getHttpServer())
+      .patch(`/sources/${created.body.id}`)
+      .set(auth())
+      .send({
+        searchFocus: ['salud', 'alimentos'],
+        keywordsGuide: ['COFEPRIS'],
+      })
+      .expect(200);
+
+    expect(patched.body.searchFocus).toEqual(['salud', 'alimentos']);
+    expect(patched.body.keywordsGuide).toEqual(['COFEPRIS']);
+
+    const cleared = await request(app.getHttpServer())
+      .patch(`/sources/${created.body.id}`)
+      .set(auth())
+      .send({ searchFocus: [], keywordsGuide: [] })
+      .expect(200);
+
+    expect(cleared.body.searchFocus).toEqual([]);
+    expect(cleared.body.keywordsGuide).toEqual([]);
+
+    await request(app.getHttpServer())
+      .patch(`/sources/${created.body.id}/deactivate`)
       .set(auth())
       .expect(200);
   });

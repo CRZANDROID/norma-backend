@@ -482,12 +482,14 @@ Content-Type: application/json
   "schedule": { "time": "07:00", "weekdays": [1, 2, 3, 4, 5] },
   "sections": [["Regulatorio", "Alertas"]],
   "keywordsGuide": ["COFEPRIS", "NOM"],
+  "searchFocus": ["salud", "alimentos"],
   "clientIds": ["{{clientId}}"]
 }
 ```
 
 `code`: kebab-case `[a-z0-9-]`. `url` con protocolo (`https://...`).  
-`clientIds` (opcional): vincula la fuente a clientes **solo al crear**. Para cambiar vínculos después, usa `PATCH /clients/:id` con `sourceIds`.
+`clientIds` (opcional): vincula la fuente a clientes **solo al crear**. Para cambiar vínculos después, usa `PATCH /clients/:id` con `sourceIds`.  
+`searchFocus` y `keywordsGuide` son `string[]`; `[]` es vacío válido (no mandar `null` ni un string).
 
 ### PATCH `/sources/:id` — ADMIN
 
@@ -500,7 +502,8 @@ Content-Type: application/json
   "name": "Fuente actualizada",
   "schedule": { "time": "08:00" },
   "sections": [["Comunicados", "Normatividad", "Alertas sanitarias"]],
-  "keywordsGuide": ["etiquetado"]
+  "keywordsGuide": ["etiquetado"],
+  "searchFocus": []
 }
 ```
 

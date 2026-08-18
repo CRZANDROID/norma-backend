@@ -25,7 +25,7 @@ Contratos detallados (si hace falta el shape completo):
 - Fuentes: `jurisdiction` (`FEDERAL` | `STATE`) + `stateCode` (ISO 3166-2:MX). FEDERAL ⇒ `stateCode` null.
 - Disparador de rastreo: `schedule: { time, timezone, weekdays }` (1=lunes … 7=domingo). **Se eliminó `frequency`** (mandarlo → 400).
 - Catálogo seed: 32 congresos (solo **Jalisco** `ACTIVE` para crawl piloto) + federales `dof` y `diputados-gaceta`. INACTIVE: Senado, mañanera, COFEPRIS, PROFECO.
-- Campos de matriz: `searchFocus`, `notes`.
+- Campos de matriz: `searchFocus` (`string[]`, igual que `keywordsGuide`; `[]` vacío válido), `notes`.
 - Entrega 1:1 por cliente: canales email/WhatsApp (WhatsApp **no envía**), horario de entrega, 4 acciones de semáforo (`suggestedAction`).
 - Rutas: `GET/PATCH /clients/:id/delivery`. `delivery` también anidado en create/PATCH de cliente.
 
@@ -49,7 +49,7 @@ Migraciones a aplicar si el entorno aún no las tiene:
 pnpm prisma:deploy && pnpm prisma:seed
 ```
 
-Incluye: `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`.
+Incluye: `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`, `search_focus_array`.
 
 ---
 
@@ -64,7 +64,7 @@ Prioridad: **wire lo que ya existe en API**. No inventar PostgREST ni pantallas 
 | `frequency` | `schedule: { time, timezone, weekdays }` |
 | jurisdicción string libre | `jurisdiction` + `stateCode` |
 
-- Types/forms de fuente: `jurisdiction`, `stateCode`, `schedule`, `searchFocus`, `notes`.
+- Types/forms de fuente: `jurisdiction`, `stateCode`, `schedule`, `searchFocus` (`string[]`), `keywordsGuide` (`string[]`), `notes`. No mandar `searchFocus` como string ni `null`; vacío = `[]`.
 - Lista: filtros `?jurisdiction=` y `?stateCode=`. Operación diaria: `?status=ACTIVE` (no pintar 31 congresos INACTIVE como “monitoreando”).
 - UI: Federal vs Estatal; si estatal, selector de las 32 entidades (mostrar nombre, mandar código `JAL`, `CMX`, …).
 - Disparador: hora + checkboxes de días, no combo “daily/weekly”.

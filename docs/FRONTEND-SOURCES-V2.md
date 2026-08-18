@@ -1,6 +1,7 @@
 # Frontend handoff — Sources (jurisdicción + disparador)
 
-**Breaking change:** desaparece `frequency` (string libre). Entran `jurisdiction`, `stateCode` y `schedule`.
+**Breaking change:** desaparece `frequency` (string libre). Entran `jurisdiction`, `stateCode` y `schedule`.  
+`searchFocus` es `string[]` (igual que `keywordsGuide`); `[]` es vacío válido.
 
 ## Shape `Source`
 
@@ -25,7 +26,7 @@
     ["Dictámenes"]
   ],
   "keywordsGuide": ["bebidas", "salud"],
-  "searchFocus": "Bebidas, alimentos, publicidad, salud, residuos, agua, comercio",
+  "searchFocus": ["Bebidas", "alimentos", "publicidad", "salud", "residuos", "agua", "comercio"],
   "notes": "Alta prioridad por tamaño económico y actividad legislativa",
   "status": "ACTIVE",
   "createdAt": "...",
@@ -63,8 +64,8 @@ Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profec
 | `stateCode` | no | sí (`null` limpia) | vacío si FEDERAL |
 | `schedule` | no | sí | `{ time, timezone?, weekdays? }` — `time` HH:mm |
 | `sections` | no | sí | `string[][]` |
-| `keywordsGuide` | no | sí | `string[]` |
-| `searchFocus` | no | sí (`null` limpia) | qué debe buscar NORMA |
+| `keywordsGuide` | no | sí | `string[]` — `[]` vacío válido |
+| `searchFocus` | no | sí | `string[]` — qué debe buscar NORMA; `[]` vacío válido |
 | `notes` | no | sí (`null` limpia) | observaciones de catálogo |
 | `clientIds` | no (opcional) | **no** | solo create |
 
@@ -91,7 +92,8 @@ Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profec
   "stateCode": "NLE",
   "schedule": { "time": "07:00", "weekdays": [1, 2, 3, 4, 5] },
   "sections": [["Comunicados"]],
-  "keywordsGuide": ["salud"]
+  "keywordsGuide": ["salud"],
+  "searchFocus": []
 }
 ```
 
@@ -100,9 +102,13 @@ Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profec
 ```json
 {
   "schedule": { "time": "08:00" },
-  "url": null
+  "url": null,
+  "searchFocus": [],
+  "keywordsGuide": []
 }
 ```
+
+`searchFocus` y `keywordsGuide` son el mismo tipo (`string[]`). Omitir = no tocar; `[]` = vaciar. No mandar `null`.
 
 El seed carga **32 congresos** (solo Jalisco `ACTIVE`). Ver [state-congresses.md](./state-congresses.md).
 
@@ -117,5 +123,6 @@ El seed carga **32 congresos** (solo Jalisco `ACTIVE`). Ver [state-congresses.md
 
 - [ ] Quitar `frequency` de types/forms
 - [ ] Añadir `jurisdiction`, `stateCode`, `schedule`
+- [ ] `searchFocus` y `keywordsGuide` como `string[]` (aceptan `[]`)
 - [ ] Filtros STATE / entidad
 - [ ] No mostrar los 31 INACTIVE como “monitoreando” (usar `status=ACTIVE` en operación)

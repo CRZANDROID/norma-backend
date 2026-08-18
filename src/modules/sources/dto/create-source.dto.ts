@@ -65,9 +65,9 @@ export class CreateSourceDto {
   keywordsGuide?: string[];
 
   @IsOptional()
-  @IsString()
-  @MinLength(3)
-  searchFocus?: string;
+  @IsArray()
+  @IsString({ each: true })
+  searchFocus?: string[];
 
   @IsOptional()
   @IsString()

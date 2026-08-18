@@ -6,7 +6,7 @@ export type ConnectorSource = {
   code: string;
   name: string;
   url: string | null;
-  searchFocus: string | null;
+  searchFocus: string[];
   notes: string | null;
   sections: Prisma.JsonValue;
 };
