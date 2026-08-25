@@ -46,7 +46,7 @@ Lee fuentes `ACTIVE` cada minuto. Encola si el día (ISO 1=lunes…7=domingo) es
 | `diputados-gaceta` | Gaceta Diputados |
 | `jalisco-congreso` | Congreso de Jalisco |
 
-Otras `ACTIVE` con URL usan el conector HTTP genérico (GET de `Source.url`). Errores se loguean con `sourceId` / `sourceCode` y `errorCode` (`NETWORK` retryable; `PARSE`/`AUTH` no).
+Otras `ACTIVE` con URL usan el conector HTTP genérico (GET de `Source.url`). Si la URL es un `frameset` / cáscara sin texto (p. ej. Gaceta Diputados: `gp_hoy.html`), el crawl sigue los frames **mismo host** y guarda el panel con más texto visible. Si HTTPS falla por cadena TLS incompleta (algunos `.gob.mx`, p. ej. BCS), se reintenta esa misma URL. Errores se loguean con `sourceId` / `sourceCode` y `errorCode` (`NETWORK` retryable; `PARSE`/`AUTH` no).
 
 Si un crawl falla con **Respuesta demasiado grande**, el body crudo superó `CRAWL_MAX_BYTES`. Sube el tope en `.env` o apunta `Source.url` a una sección más liviana (gaceta / iniciativas), no solo la home. Tras cambiar el tope, vuelve a **Rastrear ahora** (ADMIN): el scheduler no reintenta `FAILED` el mismo día.
 
@@ -76,7 +76,7 @@ Auth: Bearer JWT. Trigger: solo `ADMIN`.
 
 o `{ "sourceId": "..." }`. Clave del día: `{code}:{fecha}:admin`. Reintentos BullMQ: 3, backoff exponencial.
 
-Si un crawl **falla**, el job se queda en Redis como failed. **Rastrear todas** (admin) borra ese job y vuelve a encolar; el scheduler **no** reintenta FAILED el mismo día (evita pegarle al origen cada minuto). Un `QUEUED` huérfano (Redis ya no tiene el job waiting) también se reencola.
+Si un crawl **falla**, el job se queda en Redis como failed. **Rastrear ahora / todas** (admin) reencola FAILED y también un SUCCESS del mismo día (p. ej. tras un arreglo de conector). El scheduler **no** reintenta FAILED ni SUCCESS el mismo día (evita pegarle al origen cada minuto). Un `QUEUED` huérfano (Redis ya no tiene el job waiting) también se reencola.
 
 ### `POST /jobs/crawl/all`
 

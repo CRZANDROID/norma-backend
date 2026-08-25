@@ -1,5 +1,6 @@
 import { CrawlError } from '../types';
 import { fetchPage, pageFilename } from './fetch-page';
+import { followContentFrames } from './resolve-frames';
 import type { ConnectorFetch, ConnectorSource, SourceConnector } from './types';
 
 export class HttpPageConnector implements SourceConnector {
@@ -18,7 +19,10 @@ export class HttpPageConnector implements SourceConnector {
       );
     }
 
-    const page = await fetchPage(url);
+    const page = await followContentFrames(
+      await fetchPage(url),
+      (frameUrl, referer) => fetchPage(frameUrl, { referer }),
+    );
     return {
       page,
       filename: pageFilename(page.contentType),

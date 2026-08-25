@@ -161,7 +161,10 @@ export class CrawlProducer implements OnModuleDestroy {
       where: { idempotencyKey },
     });
 
-    if (existing?.status === 'SUCCESS' || existing?.status === 'SKIPPED') {
+    if (
+      (existing?.status === 'SUCCESS' || existing?.status === 'SKIPPED') &&
+      params.triggeredBy !== 'admin'
+    ) {
       return {
         enqueued: false,
         skipped: true,

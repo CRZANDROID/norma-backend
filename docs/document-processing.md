@@ -17,7 +17,7 @@ crawl SUCCESS (page.html|page.pdf)
   → READY_FOR_AI  |  DEDUPED + canonicalDocumentId
 ```
 
-`meta.json` se ignora (`DISCARDED`). HTML vacío, captcha o texto < 80 caracteres → `FAILED` (`lastError`), sin normalize.
+`meta.json` se ignora (`DISCARDED`). HTML vacío, captcha o texto < 80 caracteres → `FAILED` (`lastError`), sin normalize. Sitios con `frameset` (Gaceta Diputados) se resuelven en el crawl S5, no aquí.
 
 Fuentes piloto: `dof`, `diputados-gaceta`, `jalisco-congreso`.
 

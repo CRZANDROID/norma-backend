@@ -33,6 +33,15 @@ describe('extractVisibleHtmlText', () => {
     const text = extractVisibleHtmlText('<p>A&nbsp;&amp;&nbsp;B</p>');
     expect(collapseWhitespace(text)).toBe('A & B');
   });
+
+  it('decodes Spanish named entities used by Gaceta Diputados', () => {
+    const text = extractVisibleHtmlText(
+      '<p>Gaceta Parlamentaria, a&ntilde;o XXIX, n&uacute;mero 7111. &iquest;Olvid&oacute;?</p>',
+    );
+    expect(collapseWhitespace(text)).toBe(
+      'Gaceta Parlamentaria, año XXIX, número 7111. ¿Olvidó?',
+    );
+  });
 });
 
 describe('sha256Normalized', () => {

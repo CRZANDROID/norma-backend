@@ -64,6 +64,7 @@ export class ArtifactStore {
       path: objectPath,
       buffer: params.buffer,
       contentType: params.contentType,
+      upsert: true,
     });
 
     const document = await this.upsertDocument({
@@ -134,8 +135,27 @@ export class ArtifactStore {
           },
         });
         if (existing) {
-          this.logger.log(`artifact already stored path=${params.path}`);
-          return existing;
+          this.logger.log(`artifact already stored path=${params.path}; replacing`);
+          return this.prisma.document.update({
+            where: { id: existing.id },
+            data: {
+              mimeType: params.mimeType,
+              sizeBytes: params.sizeBytes,
+              processingStatus,
+              lastError: null,
+              extractedText: discarded ? existing.extractedText : null,
+              extractedPath: discarded ? existing.extractedPath : null,
+              contentHash: discarded ? existing.contentHash : null,
+              canonicalDocumentId: discarded
+                ? existing.canonicalDocumentId
+                : null,
+              metadata: params.metadata as Prisma.InputJsonValue,
+              processingHistory: appendProcessingHistory(
+                existing.processingHistory,
+                processingStatus,
+              ) as unknown as Prisma.InputJsonValue,
+            },
+          });
         }
       }
       throw err;
