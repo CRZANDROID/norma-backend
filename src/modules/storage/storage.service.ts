@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
   BadRequestException,
@@ -192,27 +192,50 @@ export class StorageService implements OnModuleInit {
     contentType: string;
     filename: string;
   }> {
-    const client = this.ensureClient();
+    return this.getObject(path);
+  }
+
+  /**
+   * Lee bytes de Storage o del fallback local `data/crawl/`.
+   */
+  async getObject(path: string): Promise<{
+    data: Buffer;
+    contentType: string;
+    filename: string;
+  }> {
     const objectPath = this.normalizePath(path);
-
-    const { data, error } = await client.storage
-      .from(this.bucket)
-      .download(objectPath);
-
-    if (error || !data) {
-      throw new NotFoundException(
-        `Archivo no encontrado: ${objectPath}${error ? ` (${error.message})` : ''}`,
-      );
-    }
-
-    const arrayBuffer = await data.arrayBuffer();
     const filename = objectPath.split('/').pop() || 'download.bin';
 
-    return {
-      data: Buffer.from(arrayBuffer),
-      contentType: data.type || 'application/octet-stream',
-      filename,
-    };
+    if (this.configured && this.client) {
+      const { data, error } = await this.client.storage
+        .from(this.bucket)
+        .download(objectPath);
+
+      if (error || !data) {
+        throw new NotFoundException(
+          `Archivo no encontrado: ${objectPath}${error ? ` (${error.message})` : ''}`,
+        );
+      }
+
+      const arrayBuffer = await data.arrayBuffer();
+      return {
+        data: Buffer.from(arrayBuffer),
+        contentType: data.type || 'application/octet-stream',
+        filename,
+      };
+    }
+
+    const localPath = join(process.cwd(), 'data', 'crawl', ...objectPath.split('/'));
+    try {
+      const data = await readFile(localPath);
+      return {
+        data,
+        contentType: this.guessContentType(filename),
+        filename,
+      };
+    } catch {
+      throw new NotFoundException(`Archivo no encontrado: ${objectPath}`);
+    }
   }
 
   async createSignedUrl(
@@ -254,5 +277,14 @@ export class StorageService implements OnModuleInit {
 
   private sanitizeSegment(segment: string): string {
     return segment.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'x';
+  }
+
+  private guessContentType(filename: string): string {
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'text/html';
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.json')) return 'application/json';
+    if (lower.endsWith('.txt')) return 'text/plain';
+    return 'application/octet-stream';
   }
 }

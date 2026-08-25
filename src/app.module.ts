@@ -12,6 +12,8 @@ import { UsersModule } from './modules/users/users.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { AiModule } from './modules/ai/ai.module';
 import { JobsModule } from './jobs/jobs.module';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { readProjectEnvFile } from './config/project-env';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { JobsModule } from './jobs/jobs.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env'],
+      // internalConfig gana a process.env vacío (p. ej. OPENAI_API_KEY del IDE).
+      load: [readProjectEnvFile],
     }),
     PrismaModule,
     HealthModule,
@@ -30,6 +34,7 @@ import { JobsModule } from './jobs/jobs.module';
     StorageModule,
     AiModule,
     JobsModule,
+    DocumentsModule,
   ],
   providers: [
     {

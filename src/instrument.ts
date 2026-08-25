@@ -1,8 +1,8 @@
-import { config as loadEnv } from 'dotenv';
 import * as Sentry from '@sentry/nestjs';
+import { applyProjectEnvToProcess } from './config/project-env';
 
 // Cargar .env antes de init (ConfigModule de Nest aún no está listo).
-loadEnv();
+applyProjectEnvToProcess();
 
 const dsn = process.env.SENTRY_DSN?.trim();
 const enabled = Boolean(dsn);

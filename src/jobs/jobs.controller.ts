@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../modules/auth/jwt-auth.guard';
 import { Roles } from '../modules/auth/roles.decorator';
 import { RolesGuard } from '../modules/auth/roles.guard';
 import { ListJobRunsQueryDto } from './dto/list-job-runs.query.dto';
+import { ProgressDateQueryDto } from './dto/progress-date.query.dto';
 import { TriggerCrawlDto } from './dto/trigger-crawl.dto';
 import { JobsService } from './jobs.service';
 
@@ -43,6 +44,16 @@ export class JobsController {
   @ApiOperation({ summary: 'Listar ejecuciones de crawl (job_runs)' })
   listRuns(@Query() query: ListJobRunsQueryDto) {
     return this.jobsService.listRuns(query);
+  }
+
+  @Get('progress')
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({
+    summary:
+      'Resumen ejecutivo: una fila por fuente (último crawl del día, copy en español)',
+  })
+  progress(@Query() query: ProgressDateQueryDto) {
+    return this.jobsService.progress(query);
   }
 
   @Post('crawl')

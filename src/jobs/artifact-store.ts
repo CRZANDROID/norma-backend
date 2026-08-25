@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '../database/prisma-client';
+import { DocumentProcessingStatus, Prisma } from '../database/prisma-client';
 import { PrismaService } from '../database/prisma.service';
 import { StorageService } from '../modules/storage/storage.service';
+import { isMetaCrawlFilename } from './document-text';
+import { appendProcessingHistory } from './processing-history';
 import { pathDateParts } from './schedule-window';
 import type { SourceCrawlArtifact } from './types';
 
@@ -97,6 +99,13 @@ export class ArtifactStore {
     sizeBytes: number | null;
     metadata: Record<string, unknown>;
   }) {
+    const discarded =
+      params.metadata.kind === 'raw-crawl-meta' ||
+      isMetaCrawlFilename(params.filename);
+    const processingStatus = discarded
+      ? DocumentProcessingStatus.DISCARDED
+      : DocumentProcessingStatus.RECEIVED;
+
     try {
       return await this.prisma.document.create({
         data: {
@@ -106,6 +115,11 @@ export class ArtifactStore {
           filename: params.filename,
           mimeType: params.mimeType,
           sizeBytes: params.sizeBytes,
+          processingStatus,
+          processingHistory: appendProcessingHistory(
+            [],
+            processingStatus,
+          ) as unknown as Prisma.InputJsonValue,
           metadata: params.metadata as Prisma.InputJsonValue,
         },
       });

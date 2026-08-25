@@ -32,4 +32,6 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 - Pre-S5 modelo: **hecho** (entidad federativa, schedule, 32 congresos catálogo, delivery/semáforo).
 - Bloque 1 OpenAI ask: **hecho** (`POST /ai/ask`).
 - Sprint 5 crawl: **hecho** (Redis/BullMQ, `job_runs`, conectores DOF/Diputados/Jalisco).
-- Siguiente backend: S6 extract/normalize según `docs/DOCUMENT-JOB-CONTRACTS.md`.
+- Sprint 6 documentos: **hecho** (extract/normalize/dedup + `GET /documents`).
+- Panel ejecutivo: `GET /jobs/progress` + `GET /documents/progress` — [docs/FRONTEND-TRACKING.md](docs/FRONTEND-TRACKING.md).
+- Siguiente backend: S7 clasificación según `docs/DOCUMENT-JOB-CONTRACTS.md`.

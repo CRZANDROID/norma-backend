@@ -1,9 +1,11 @@
 import {
   adminIdempotencyKey,
   isDueForScheduledCrawl,
+  isValidCalendarDate,
   parseScheduleMinutes,
   scheduledIdempotencyKey,
   zonedClock,
+  zonedDayRange,
 } from './schedule-window';
 
 describe('schedule-window', () => {
@@ -45,5 +47,18 @@ describe('schedule-window', () => {
     expect(adminIdempotencyKey('dof', now, 'America/Mexico_City')).toBe(
       'dof:2026-08-18:admin',
     );
+  });
+
+  it('resolves Mexico City civil-day bounds in UTC', () => {
+    expect(isValidCalendarDate('2026-08-25')).toBe(true);
+    expect(isValidCalendarDate('2026-02-31')).toBe(false);
+    const { start, end } = zonedDayRange('2026-08-25');
+    expect(start.toISOString()).toBe('2026-08-25T06:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-08-26T06:00:00.000Z');
+    expect(zonedClock(start, 'America/Mexico_City')).toMatchObject({
+      date: '2026-08-25',
+      hour: 0,
+      minute: 0,
+    });
   });
 });

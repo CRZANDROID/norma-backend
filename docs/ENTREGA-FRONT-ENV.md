@@ -118,6 +118,7 @@ Pantalla de operación (no hace falta para el piloto de consultor, sí para demo
 |--------|------|-------|-----|
 | `GET` | `/jobs/status` | autenticado | `{ configured, redis, worker, scheduler, storage, connectors }` |
 | `GET` | `/jobs/runs?sourceCode=dof&limit=20` | ADMIN, ANALYST | Historial `job_runs` |
+| `GET` | `/jobs/progress?date=YYYY-MM-DD` | ADMIN, ANALYST | Resumen ejecutivo (1 fila/fuente). UI: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) |
 | `POST` | `/jobs/crawl` | ADMIN | `{ "sourceCode": "dof" }` o `{ "sourceId": "..." }` |
 | `POST` | `/jobs/crawl/all` | ADMIN | Encola todas las ACTIVE |
 
@@ -125,8 +126,9 @@ UI sugerida:
 
 1. Banner si `configured: false`: “Redis no configurado; el rastreo automático está apagado”.
 2. Botón “Rastrear ahora” por fuente ACTIVE (solo ADMIN) → `POST /jobs/crawl`.
-3. Tabla de corridas: `sourceCode`, `status` (`QUEUED` \| `RUNNING` \| `SUCCESS` \| `FAILED` \| `SKIPPED`), `message`, fechas.
-4. No mostrar el HTML crudo en el front (S6). `503` = falta Redis en el server.
+3. **Panel piloto:** tabla de `GET /jobs/progress` (nombre + `label` + hora). No listar cada `job_run`. Detalle: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
+4. Tabla técnica (Swagger/ops): `GET /jobs/runs` con `sourceCode`, `status`, `message`.
+5. No mostrar el HTML crudo en el front. `503` = falta Redis en el server.
 
 Respuesta típica de encolar:
 
@@ -157,7 +159,7 @@ Si ya corrió ese día: `enqueued: false`, `skipped: true`, `reason: "already-co
 
 - Clasificar normas / semáforo de hallazgos (S7).
 - Inbox de findings.
-- Extraer texto de documentos (S6).
+- Extraer texto en el browser: usar `GET /documents/progress` ([FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)); el HTML crudo no se pinta.
 - Enviar correo o WhatsApp.
 - Conectar a Redis, OpenAI o Supabase desde el browser.
 

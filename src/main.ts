@@ -30,5 +30,8 @@ async function bootstrap() {
   // Render (y otros PaaS) inyectan PORT; hay que escuchar en 0.0.0.0.
   const port = Number(process.env.PORT ?? config.get<string>('PORT') ?? 3000);
   await app.listen(port, '0.0.0.0');
+  // eslint-disable-next-line no-console
+  console.log(`NORMA API listening on http://localhost:${port}`);
 }
+
 bootstrap();

@@ -24,22 +24,22 @@ Relacionado:
 
 ## 2. Modelo actual vs pipeline futuro
 
-### Hoy (ya en schema / API)
+### Hoy (schema / API, S6 implementado)
 
 | Pieza | Rol |
 |-------|-----|
 | `Source` | Catálogo de orígenes (`code`, `category`, `platform`, `url`, `sections`) |
 | `client_sources` | Qué fuentes monitorear por cliente |
-| `Document` | Metadatos Storage (`bucket`, `path`, `filename`, `clientId?`, `status` EntityStatus) |
+| `Document` | Metadatos Storage + `processingStatus` / hash / texto extraído (S6) |
 | `POST /storage/*` | Upload/download/signed-url **sin** crear fila `documents` aún |
 | `Finding` | Placeholder de hallazgo (CRUD inbox = S7–S8) |
+| `GET /documents` | Lectura admin/analyst del registro documental |
+| `GET /documents/progress` | Resumen ejecutivo (1 fila/fuente, copy en español) |
 
-### A añadir en S5–S6 (no implementar aquí)
-
-Campo/proceso de **pipeline** sobre documentos normalizados (recomendado nuevo enum, no reutilizar solo `EntityStatus`):
+Campo de pipeline (`DocumentProcessingStatus` en columna `processing_status`):
 
 ```text
-DocumentProcessingStatus (propuesto S6)
+DocumentProcessingStatus
 ```
 
 | Estado | Significado |
@@ -54,7 +54,7 @@ DocumentProcessingStatus (propuesto S6)
 | `DISCARDED` | Soft-out del pipeline (no borrar bytes) |
 
 `EntityStatus` en `Document` sigue siendo **ACTIVE/INACTIVE** (visibilidad admin).  
-El processing status conviene en columna nueva `processing_status` o en `metadata.processing` hasta la migración S6.
+Implementación S6: [document-processing.md](./document-processing.md).
 
 ---
 
@@ -169,7 +169,7 @@ type SourceCrawlFailure = {
 
 ---
 
-### 4.2 `document.extract` — (S6, contrato adelantado)
+### 4.2 `document.extract` — implementado S6
 
 ```ts
 type DocumentExtractJob = {
@@ -185,7 +185,7 @@ Resultado: actualiza processing → `EXTRACTED` + texto en tabla/archivo derivad
 
 ---
 
-### 4.3 `document.normalize_dedup` — (S6)
+### 4.3 `document.normalize_dedup` — implementado S6
 
 ```ts
 type DocumentNormalizeJob = {
@@ -252,4 +252,4 @@ clients/{clientId}/...   // si query clientId
 5. [x] `idempotencyKey` (`{code}:{fecha}:scheduled` | `:admin`)
 6. [x] Conectores piloto DOF, Diputados, Jalisco (GET crudo; HTTP genérico para otras ACTIVE)
 
-**Siguiente:** Sprint 6 extract/normalize/dedup. No clasificar en este worker.
+**Siguiente:** Sprint 6 extract/normalize/dedup — **hecho:** [document-processing.md](./document-processing.md).

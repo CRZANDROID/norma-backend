@@ -18,7 +18,7 @@ import { AskAiDto } from './dto/ask-ai.dto';
 @ApiTags('ai')
 @ApiBearerAuth('bearer')
 @ApiUnauthorizedResponse()
-@Controller('ai')
+@Controller(['ai', 'catalog-ai'])
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AiController {
   constructor(private readonly aiService: AiService) {}

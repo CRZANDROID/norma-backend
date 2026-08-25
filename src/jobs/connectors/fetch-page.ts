@@ -10,7 +10,8 @@ export type FetchedPage = {
 };
 
 const DEFAULT_TIMEOUT_MS = 25_000;
-const DEFAULT_MAX_BYTES = 2_500_000;
+/** Tope por defecto: homes de congresos estatales a veces pasan de 2–3 MB. */
+export const DEFAULT_MAX_BYTES = 10_000_000;
 const USER_AGENT =
   'NORMA-piloto/0.6 (monitoreo regulatorio; crawl de catálogo oficial)';
 
@@ -34,12 +35,74 @@ function classifyHttp(status: number): CrawlError {
   return new CrawlError(`HTTP ${status}`, 'UNKNOWN', true);
 }
 
+export function resolveMaxBytes(override?: number): number {
+  if (typeof override === 'number' && Number.isFinite(override) && override > 0) {
+    return Math.floor(override);
+  }
+  const fromEnv = Number(process.env.CRAWL_MAX_BYTES);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return Math.floor(fromEnv);
+  }
+  return DEFAULT_MAX_BYTES;
+}
+
+function tooLargeError(bytes: number, maxBytes: number): CrawlError {
+  return new CrawlError(
+    `Respuesta demasiado grande (${bytes} bytes; máximo ${maxBytes})`,
+    'PARSE',
+    false,
+  );
+}
+
+async function readBodyWithLimit(
+  response: Response,
+  maxBytes: number,
+): Promise<Buffer> {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw tooLargeError(declared, maxBytes);
+  }
+
+  if (!response.body) {
+    const arrayBuffer = await response.arrayBuffer();
+    if (arrayBuffer.byteLength > maxBytes) {
+      throw tooLargeError(arrayBuffer.byteLength, maxBytes);
+    }
+    return Buffer.from(arrayBuffer);
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value?.byteLength) {
+        continue;
+      }
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw tooLargeError(total, maxBytes);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks, total);
+}
+
 export async function fetchPage(
   url: string,
   options: { timeoutMs?: number; maxBytes?: number } = {},
 ): Promise<FetchedPage> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  const maxBytes = resolveMaxBytes(options.maxBytes);
   const fetchedAt = new Date().toISOString();
 
   let response: Response;
@@ -62,14 +125,7 @@ export async function fetchPage(
     throw classifyHttp(response.status);
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  if (arrayBuffer.byteLength > maxBytes) {
-    throw new CrawlError(
-      `Respuesta demasiado grande (${arrayBuffer.byteLength} bytes)`,
-      'PARSE',
-      false,
-    );
-  }
+  const body = await readBodyWithLimit(response, maxBytes);
 
   const contentType =
     response.headers.get('content-type')?.split(';')[0]?.trim() ||
@@ -80,7 +136,7 @@ export async function fetchPage(
     finalUrl: response.url || url,
     statusCode: response.status,
     contentType,
-    body: Buffer.from(arrayBuffer),
+    body,
     fetchedAt,
   };
 }

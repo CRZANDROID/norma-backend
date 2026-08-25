@@ -53,6 +53,18 @@ enum JobErrorCode {
   UNKNOWN
 }
 
+/// Pipeline de registro documental (S6). Independiente de EntityStatus.
+enum DocumentProcessingStatus {
+  RECEIVED
+  EXTRACTED
+  NORMALIZED
+  HASHED
+  DEDUPED
+  READY_FOR_AI
+  FAILED
+  DISCARDED
+}
+
 enum SourceCategory {
   OFFICIAL
   MEDIA
@@ -334,7 +346,8 @@ model JobRun {
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
 
-  source Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  source    Source?    @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  documents Document[]
 
   @@index([sourceId])
   @@index([sourceCode])
@@ -342,31 +355,48 @@ model JobRun {
   @@map("job_runs")
 }
 
-/// Metadatos de archivos en Supabase Storage (infra para documentos futuros).
-/// El binario vive en el bucket; esta tabla guarda la referencia.
+/// Metadatos de archivos en Storage + pipeline de registro documental (S6).
+/// El binario crudo vive en el bucket; el texto extraído puede ir en columna o path derivado.
 model Document {
-  id           String       @id @default(cuid())
-  clientId     String?      @map("client_id")
-  sourceId     String?      @map("source_id")
-  uploadedById String?      @map("uploaded_by_id")
-  bucket       String
-  path         String
-  filename     String
-  mimeType     String?      @map("mime_type")
-  sizeBytes    Int?         @map("size_bytes")
-  status       EntityStatus @default(ACTIVE)
-  metadata     Json?
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  id                  String                    @id @default(cuid())
+  clientId            String?                   @map("client_id")
+  sourceId            String?                   @map("source_id")
+  uploadedById        String?                   @map("uploaded_by_id")
+  bucket              String
+  path                String
+  filename            String
+  mimeType            String?                   @map("mime_type")
+  sizeBytes           Int?                      @map("size_bytes")
+  status              EntityStatus              @default(ACTIVE)
+  processingStatus    DocumentProcessingStatus  @default(RECEIVED) @map("processing_status")
+  contentHash         String?                   @map("content_hash")
+  canonicalDocumentId String?                   @map("canonical_document_id")
+  extractedText       String?                   @map("extracted_text") @db.Text
+  extractedPath       String?                   @map("extracted_path")
+  normalizedPath      String?                   @map("normalized_path")
+  lastError           String?                   @map("last_error")
+  jobRunId            String?                   @map("job_run_id")
+  /// Historial de processing_status: [{ status, at }] — no es expediente legislativo.
+  processingHistory   Json                      @default("[]") @map("processing_history")
+  metadata            Json?
+  createdAt           DateTime                  @default(now()) @map("created_at")
+  updatedAt           DateTime                  @updatedAt @map("updated_at")
 
-  client     Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  source     Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-  uploadedBy User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  client            Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  source            Source?   @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  uploadedBy        User?     @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  jobRun            JobRun?   @relation(fields: [jobRunId], references: [id], onDelete: SetNull)
+  canonicalDocument Document? @relation("DocumentDedup", fields: [canonicalDocumentId], references: [id], onDelete: SetNull)
+  duplicates        Document[] @relation("DocumentDedup")
 
   @@unique([bucket, path])
   @@index([clientId])
   @@index([sourceId])
   @@index([uploadedById])
   @@index([status])
+  @@index([processingStatus])
+  @@index([contentHash])
+  @@index([jobRunId])
+  @@index([canonicalDocumentId])
   @@map("documents")
 }
