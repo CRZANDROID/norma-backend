@@ -46,6 +46,35 @@ describe('Jobs crawl (e2e)', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
+  it('rejects unauthenticated progress', async () => {
+    await request(app.getHttpServer()).get('/jobs/progress').expect(401);
+  });
+
+  it('GET /jobs/progress rejects an invalid calendar date', async () => {
+    await request(app.getHttpServer())
+      .get('/jobs/progress?date=2026-13-99')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+  });
+
+  it('GET /jobs/progress returns one executive row per source', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/jobs/progress')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(Array.isArray(res.body.sources)).toBe(true);
+    expect(res.body.sources.length).toBeGreaterThanOrEqual(1);
+    for (const row of res.body.sources) {
+      expect(typeof row.sourceName).toBe('string');
+      expect(typeof row.status).toBe('string');
+      expect(typeof row.label).toBe('string');
+      expect(row).not.toHaveProperty('idempotencyKey');
+      expect(row).not.toHaveProperty('storagePath');
+    }
+  });
+
   it('POST /jobs/crawl without sourceId/sourceCode is 400', async () => {
     await request(app.getHttpServer())
       .post('/jobs/crawl')

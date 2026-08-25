@@ -79,11 +79,16 @@ export class CrawlProducer implements OnModuleDestroy {
     if (!this.isConfigured()) {
       return false;
     }
-    if (this.config.get<string>('JOBS_SCHEDULER')?.trim() === 'false') {
+    const flag = this.config.get<string>('JOBS_SCHEDULER')?.trim();
+    if (flag === 'false') {
       return false;
     }
-    if (process.env.NODE_ENV === 'test') {
-      return this.config.get<string>('JOBS_SCHEDULER')?.trim() === 'true';
+    // Local/test: solo si se pide explícito. Staging/prod: on salvo JOBS_SCHEDULER=false.
+    if (
+      process.env.NODE_ENV === 'test' ||
+      process.env.NODE_ENV === 'development'
+    ) {
+      return flag === 'true';
     }
     return true;
   }

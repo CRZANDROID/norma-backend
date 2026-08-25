@@ -34,6 +34,7 @@ Relacionado:
 | `POST /storage/*` | Upload/download/signed-url **sin** crear fila `documents` aún |
 | `Finding` | Placeholder de hallazgo (CRUD inbox = S7–S8) |
 | `GET /documents` | Lectura admin/analyst del registro documental |
+| `GET /documents/progress` | Resumen ejecutivo (1 fila/fuente, copy en español) |
 
 Campo de pipeline (`DocumentProcessingStatus` en columna `processing_status`):
 

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -10,9 +11,26 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { PILOT_CONNECTOR_CODES } from '../../jobs/connectors/registry';
 import { DocumentJobsProducer } from '../../jobs/document-jobs.producer';
+import type { ProgressDateQueryDto } from '../../jobs/dto/progress-date.query.dto';
 import { isExtractableCrawlFile, isMetaCrawlFilename } from '../../jobs/document-text';
+import { listTrackingSources } from '../../jobs/progress-board';
 import { appendProcessingHistory } from '../../jobs/processing-history';
+import {
+  isValidCalendarDate,
+  trackingCalendarDate,
+  zonedDayRange,
+} from '../../jobs/schedule-window';
 import type { ListDocumentsQueryDto } from './dto/list-documents.query.dto';
+import {
+  documentDaySignals,
+  documentHeadline,
+  documentPipelineRank,
+  documentProgressLabel,
+  documentProgressNote,
+  mapDocumentPipelineStatus,
+  preferHtmlFilename,
+  type DocumentProgressStatus,
+} from './progress.labels';
 
 const LIST_SELECT = {
   id: true,
@@ -66,6 +84,153 @@ export class DocumentsService {
     });
 
     return rows.map((row) => this.toListItem(row));
+  }
+
+  async progress(query: ProgressDateQueryDto) {
+    const date = trackingCalendarDate(new Date(), query.date);
+    if (!isValidCalendarDate(date)) {
+      throw new BadRequestException('date debe ser un día civil YYYY-MM-DD.');
+    }
+
+    const { start, end } = zonedDayRange(date);
+    const sources = await listTrackingSources(this.prisma);
+    const sourceIds = sources.map((s) => s.id);
+    const rows =
+      sourceIds.length === 0
+        ? []
+        : await this.prisma.document.findMany({
+            where: {
+              sourceId: { in: sourceIds },
+              processingStatus: { not: DocumentProcessingStatus.DISCARDED },
+              OR: [
+                { createdAt: { gte: start, lt: end } },
+                {
+                  jobRun: {
+                    idempotencyKey: { contains: `:${date}:` },
+                  },
+                },
+              ],
+            },
+            select: {
+              id: true,
+              sourceId: true,
+              filename: true,
+              mimeType: true,
+              processingStatus: true,
+              lastError: true,
+              extractedText: true,
+              canonicalDocumentId: true,
+              createdAt: true,
+            },
+          });
+
+    const bySource = new Map<string, (typeof rows)[number][]>();
+    for (const row of rows) {
+      if (
+        !row.sourceId ||
+        isMetaCrawlFilename(row.filename) ||
+        !isExtractableCrawlFile(row.filename, row.mimeType)
+      ) {
+        continue;
+      }
+      const list = bySource.get(row.sourceId) ?? [];
+      list.push(row);
+      bySource.set(row.sourceId, list);
+    }
+
+    const bestBySource = new Map<string, (typeof rows)[number]>();
+    for (const [sourceId, list] of bySource) {
+      let best = list[0];
+      for (const row of list.slice(1)) {
+        if (this.isBetterProgressDocument(row, best)) {
+          best = row;
+        }
+      }
+      bestBySource.set(sourceId, best);
+    }
+
+    const canonicalIds = [
+      ...new Set(
+        [...bestBySource.values()]
+          .map((row) => row.canonicalDocumentId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const canonicalText = new Map<string, string | null>();
+    if (canonicalIds.length) {
+      const canons = await this.prisma.document.findMany({
+        where: { id: { in: canonicalIds } },
+        select: { id: true, extractedText: true },
+      });
+      for (const canon of canons) {
+        canonicalText.set(canon.id, canon.extractedText);
+      }
+    }
+
+    return {
+      date,
+      sources: sources.map((source) => {
+        const dayRows = bySource.get(source.id) ?? [];
+        const row = bestBySource.get(source.id);
+        if (!row) {
+          const status: DocumentProgressStatus = 'pending';
+          return {
+            sourceId: source.id,
+            sourceName: source.name,
+            status,
+            label: documentProgressLabel(status),
+            headline: null,
+            note: null,
+          };
+        }
+
+        const status = mapDocumentPipelineStatus(
+          row.processingStatus,
+          row.lastError,
+        );
+        const signals = documentDaySignals(dayRows);
+        const text =
+          row.extractedText ||
+          (row.canonicalDocumentId
+            ? canonicalText.get(row.canonicalDocumentId)
+            : null);
+        return {
+          sourceId: source.id,
+          sourceName: source.name,
+          status,
+          label: documentProgressLabel(status),
+          headline: documentHeadline(text),
+          note: documentProgressNote(status, row.lastError, signals),
+        };
+      }),
+    };
+  }
+
+  private isBetterProgressDocument(
+    candidate: {
+      filename: string;
+      processingStatus: DocumentProcessingStatus;
+      createdAt: Date;
+    },
+    current: {
+      filename: string;
+      processingStatus: DocumentProcessingStatus;
+      createdAt: Date;
+    },
+  ): boolean {
+    const rankDelta =
+      documentPipelineRank(candidate.processingStatus) -
+      documentPipelineRank(current.processingStatus);
+    if (rankDelta !== 0) {
+      return rankDelta > 0;
+    }
+    const htmlDelta =
+      preferHtmlFilename(candidate.filename) -
+      preferHtmlFilename(current.filename);
+    if (htmlDelta !== 0) {
+      return htmlDelta > 0;
+    }
+    return candidate.createdAt > current.createdAt;
   }
 
   async findOne(id: string) {

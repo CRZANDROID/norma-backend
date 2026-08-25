@@ -84,6 +84,7 @@ Estado vivo: [HANDOFF.md](./HANDOFF.md).
 - [x] Redis + BullMQ (workers, retries, scheduler)
 - [x] Conectores: DOF, Diputados, Congreso de Jalisco
 - [x] Tabla `job_runs` + `POST /jobs/crawl`
+- [x] `GET /jobs/progress` (resumen ejecutivo por fuente)
 
 **Entregable:** jobs que traen resultados crudos por fuente. Detalle: [jobs-crawl.md](./jobs-crawl.md).
 
@@ -94,6 +95,7 @@ Estado vivo: [HANDOFF.md](./HANDOFF.md).
 - [x] Documentos inmutables + originales en Storage + estados de pipeline
 - [x] Extracción HTML/PDF, normalización, hash, dedup
 - [x] `GET /documents` y `GET /documents/:id` (ADMIN/ANALYST)
+- [x] `GET /documents/progress` (resumen ejecutivo por fuente)
 
 **Entregable:** documento normalizado y deduplicado. Detalle: [document-processing.md](./document-processing.md).
 

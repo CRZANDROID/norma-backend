@@ -10,8 +10,9 @@ Contrato: [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md).
 |----------|-------------|---------|
 | `REDIS_URL` | Para encolar | vacío → `POST /jobs/crawl` 503 |
 | `JOBS_WORKER` | No | arranca worker salvo `false` |
-| `JOBS_SCHEDULER` | No | cron cada minuto salvo `false` (en `NODE_ENV=test` queda off) |
+| `JOBS_SCHEDULER` | No | En `development`/`test`: off salvo `true`. En prod: on salvo `false`. Cron cada minuto. |
 | `JOBS_CONCURRENCY` | No | `2` |
+| `CRAWL_MAX_BYTES` | No | `10000000` (10 MB). Homes de congresos a veces superan 2–3 MB. |
 
 Redis local:
 
@@ -47,6 +48,8 @@ Lee fuentes `ACTIVE` cada minuto. Encola si el día (ISO 1=lunes…7=domingo) es
 
 Otras `ACTIVE` con URL usan el conector HTTP genérico (GET de `Source.url`). Errores se loguean con `sourceId` / `sourceCode` y `errorCode` (`NETWORK` retryable; `PARSE`/`AUTH` no).
 
+Si un crawl falla con **Respuesta demasiado grande**, el body crudo superó `CRAWL_MAX_BYTES`. Sube el tope en `.env` o apunta `Source.url` a una sección más liviana (gaceta / iniciativas), no solo la home. Tras cambiar el tope, vuelve a **Rastrear ahora** (ADMIN): el scheduler no reintenta `FAILED` el mismo día.
+
 ## API
 
 Auth: Bearer JWT. Trigger: solo `ADMIN`.
@@ -81,7 +84,13 @@ Encola todas las `ACTIVE`.
 
 ### `GET /jobs/runs?sourceCode=dof&limit=20`
 
-Filas de `job_runs`.
+Filas de `job_runs` (historial técnico: intentos, `idempotencyKey`, paths).
+
+### `GET /jobs/progress?date=YYYY-MM-DD`
+
+Resumen ejecutivo: **una fila por fuente**, último crawl del día civil (`America/Mexico_City`). Copy en español (`label` / `note`). No duplica admin+scheduler en la UI. Contrato para el front: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
+
+`GET /jobs/runs` no cambia; sigue para Swagger/ops.
 
 ## Paths
 

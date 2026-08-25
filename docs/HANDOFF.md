@@ -49,6 +49,7 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | Jobs/docs contracts | [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
 | OpenAI catálogo | [openai-catalog.md](./openai-catalog.md) |
 | Front AI ask | [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) |
+| Front panel rastreo | [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) |
 | Jobs crawl S5 | [jobs-crawl.md](./jobs-crawl.md) |
 | Registro documental S6 | [document-processing.md](./document-processing.md) |
 | **Entrega front + .env** | **[ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md)** |
@@ -68,6 +69,7 @@ Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fisc
 - Delivery 1:1: `deliveryConfig` con `suggestedAction` por nivel (registrar / seguir / nota / alertar)
 - Asistente de catálogo: `GET /ai/status`, `POST /ai/ask` (OpenAI; 503 sin `OPENAI_API_KEY`)
 - Crawl S5: Redis/BullMQ cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, tabla `job_runs` (503 sin `REDIS_URL`). Admin reencola FAILED/QUEUED huérfanos; el scheduler no reintenta FAILED el mismo día.
+- Panel ejecutivo: `GET /jobs/progress` y `GET /documents/progress` (una fila por fuente, copy en español). Listas técnicas `GET /jobs/runs` y `GET /documents` no cambian. UI: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
 - Registro documental S6: colas `document.extract` y `document.normalize_dedup`, `GET /documents`, `GET /documents/:id`, `POST /documents/:id/reprocess` (ADMIN). Detalle: [document-processing.md](./document-processing.md).
 
 ### Sprint 4
@@ -92,7 +94,7 @@ test/*e2e-spec.ts
 ## 4. Qué falta (prioridad)
 
 1. **Sprint 7:** clasificación OpenAI / semáforo sobre documentos `READY_FOR_AI`.
-2. Frontend (otro repo): listado mínimo de registro documental en el panel de rastreo.
+2. Frontend (otro repo): cablear `GET /jobs/progress` y `GET /documents/progress` — [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
 3. Redis en staging/prod (`REDIS_URL`) para que el scheduler crawlee a las 07:00.
 
 ---
@@ -121,6 +123,7 @@ Documento único (bloques 0–2 + checklist UI + `.env`): **[ENTREGA-FRONT-ENV.m
 4. Entrega / semáforo (config, no inbox): **[FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md)**.
 5. Asistente de catálogo: **[FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md)**.
 6. Crawl (botón ADMIN): [jobs-crawl.md](./jobs-crawl.md) / sección 2.5 de la entrega.
+7. Panel rastreo/extracción: **[FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)** (`GET /jobs/progress`, `GET /documents/progress`).
 
 ---
 
@@ -140,6 +143,6 @@ Documento único (bloques 0–2 + checklist UI + `.env`): **[ENTREGA-FRONT-ENV.m
 
 ## 8. Plantilla siguiente agente
 
-> Lee `docs/HANDOFF.md` §4. S7 clasificación sobre `READY_FOR_AI`. S6: `document-processing.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md`.
+> Lee `docs/HANDOFF.md` §4. S7 clasificación sobre `READY_FOR_AI`. S6: `document-processing.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md` + `FRONTEND-TRACKING.md`.
 
-**Última actualización:** 2026-08-25 — S6 registro documental (extract HTML/PDF, ficha, SHA-256, DEDUPED vs READY_FOR_AI, `GET /documents`).
+**Última actualización:** 2026-08-25 — panel ejecutivo `GET /jobs/progress` + `GET /documents/progress` (una fila por fuente).

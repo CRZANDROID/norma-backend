@@ -7,6 +7,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { UserRole } from '../../database/prisma-client';
+import { ProgressDateQueryDto } from '../../jobs/dto/progress-date.query.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -29,6 +30,16 @@ export class DocumentsController {
   })
   list(@Query() query: ListDocumentsQueryDto) {
     return this.documentsService.list(query);
+  }
+
+  @Get('progress')
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({
+    summary:
+      'Resumen ejecutivo: una fila por fuente (mejor HTML/PDF del día, copy en español)',
+  })
+  progress(@Query() query: ProgressDateQueryDto) {
+    return this.documentsService.progress(query);
   }
 
   @Get(':id')

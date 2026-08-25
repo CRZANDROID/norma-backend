@@ -34,6 +34,12 @@ Paths derivados: `derived/{documentId}/extracted.txt`, `derived/{documentId}/nor
 
 Auth JWT. Lectura: `ADMIN` \| `ANALYST`. Reproceso: `ADMIN`.
 
+### `GET /documents/progress?date=YYYY-MM-DD`
+
+Resumen ejecutivo: **una fila por fuente**, mejor `page.html` / PDF del día (se ignora `meta.json`; si hay canónico + `DEDUPED`, gana el canónico). Copy en español. Si el día solo trajo duplicado o un extract fallido, el `label`/`note` lo dicen sin jerga (`Sin cambios…` / `Rastreada, sin texto usable`). Contrato UI: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
+
+Registrar esta ruta **antes** de `GET /documents/:id`.
+
 ### `GET /documents?sourceCode=dof&processingStatus=READY_FOR_AI&pilotOnly=true&limit=20`
 
 Lista ficha + estado de pipeline + preview de texto. **No** devuelve HTML crudo.
@@ -49,5 +55,7 @@ Reencola extract (vuelve a `RECEIVED`).
 ## Cómo se comprueba
 
 1. **Rastrear ahora** en DOF / Diputados / Jalisco → `job_runs` SUCCESS (igual que S5).
-2. `GET /documents?sourceCode=dof` → fila `EXTRACTED` o `READY_FOR_AI` con texto legible.
-3. Segundo rastreo del mismo contenido (o reprocess) → `DEDUPED` al primero; ambas filas siguen vivas.
+2. `GET /jobs/progress` → una fila por fuente con `label` (p. ej. Rastreada).
+3. `GET /documents?sourceCode=dof` → fila `EXTRACTED` o `READY_FOR_AI` con texto legible.
+4. `GET /documents/progress` → una fila por fuente (`Texto listo` / `Rastreada, sin texto usable` / `Sin cambios…` con `note`).
+5. Segundo rastreo del mismo contenido (o reprocess) → `DEDUPED` al primero; ambas filas siguen vivas. El resumen queda `unchanged` (no “Texto listo” otra vez) y la nota explica que ya estaba registrado.

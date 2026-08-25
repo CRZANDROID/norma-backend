@@ -14,6 +14,7 @@ Instrucciones de entrada para cualquier agente (Cursor u otro) que trabaje en es
 8. Crawl S5: [docs/jobs-crawl.md](docs/jobs-crawl.md) y contratos [docs/DOCUMENT-JOB-CONTRACTS.md](docs/DOCUMENT-JOB-CONTRACTS.md)
 9. Entrega/semáforo (config): [docs/FRONTEND-CLIENT-DELIVERY.md](docs/FRONTEND-CLIENT-DELIVERY.md)
 10. Asistente de catálogo: [docs/openai-catalog.md](docs/openai-catalog.md)
+11. Panel rastreo/extracción: [docs/FRONTEND-TRACKING.md](docs/FRONTEND-TRACKING.md)
 
 Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
 

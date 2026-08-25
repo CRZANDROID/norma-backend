@@ -67,6 +67,28 @@ describe('Documents (e2e)', () => {
     await request(app.getHttpServer()).get('/documents').expect(401);
   });
 
+  it('rejects unauthenticated progress', async () => {
+    await request(app.getHttpServer()).get('/documents/progress').expect(401);
+  });
+
+  it('GET /documents/progress returns one executive row per source', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/documents/progress')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(Array.isArray(res.body.sources)).toBe(true);
+    expect(res.body.sources.length).toBeGreaterThanOrEqual(1);
+    for (const row of res.body.sources) {
+      expect(typeof row.sourceName).toBe('string');
+      expect(typeof row.status).toBe('string');
+      expect(typeof row.label).toBe('string');
+      expect(row).not.toHaveProperty('contentHash');
+      expect(row).not.toHaveProperty('canonicalDocumentId');
+    }
+  });
+
   it('GET /documents lists registro documental for ADMIN', async () => {
     const res = await request(app.getHttpServer())
       .get('/documents')
