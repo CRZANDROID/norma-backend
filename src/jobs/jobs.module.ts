@@ -6,6 +6,9 @@ import { ArtifactStore } from './artifact-store';
 import { CrawlProcessor } from './crawl.processor';
 import { CrawlProducer } from './crawl.producer';
 import { CrawlScheduler } from './crawl.scheduler';
+import { DocumentJobsProcessor } from './document-jobs.processor';
+import { DocumentJobsProducer } from './document-jobs.producer';
+import { DocumentPipelineService } from './document-pipeline.service';
 import { JobsController } from './jobs.controller';
 import { JobsService } from './jobs.service';
 
@@ -18,7 +21,10 @@ import { JobsService } from './jobs.service';
     CrawlScheduler,
     ArtifactStore,
     JobsService,
+    DocumentPipelineService,
+    DocumentJobsProducer,
+    DocumentJobsProcessor,
   ],
-  exports: [JobsService],
+  exports: [JobsService, DocumentJobsProducer, DocumentPipelineService],
 })
 export class JobsModule {}

@@ -16,6 +16,11 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { ArtifactStore } from './artifact-store';
 import { getConnector } from './connectors/registry';
+import { DocumentJobsProducer } from './document-jobs.producer';
+import {
+  isExtractableCrawlFile,
+  isMetaCrawlFilename,
+} from './document-text';
 import { SOURCE_CRAWL_QUEUE } from './types';
 import { CrawlError } from './types';
 import type {
@@ -34,6 +39,7 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly artifacts: ArtifactStore,
+    private readonly documentJobs: DocumentJobsProducer,
   ) {}
 
   onModuleInit() {
@@ -204,6 +210,14 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
       this.logger.log(
         `crawl ok source=${source.code} saved=${result.stats.saved} path=${pageArtifact.storagePath}`,
       );
+
+      await this.enqueueDocumentExtract({
+        filename: fetched.filename,
+        contentType: fetched.page.contentType,
+        artifact: pageArtifact,
+        jobRunId: payload.jobId,
+      });
+
       return result;
     } catch (err) {
       const crawlErr =
@@ -248,5 +262,51 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
       return new UnrecoverableError(err.message);
     }
     return err;
+  }
+
+  private async enqueueDocumentExtract(params: {
+    filename: string;
+    contentType: string;
+    artifact: { documentId?: string; storagePath: string };
+    jobRunId: string;
+  }) {
+    const { artifact } = params;
+    if (!artifact.documentId) {
+      return;
+    }
+    if (isMetaCrawlFilename(params.filename)) {
+      return;
+    }
+    if (!isExtractableCrawlFile(params.filename, params.contentType)) {
+      this.logger.log(
+        `extract skip unsupported file=${params.filename} type=${params.contentType}`,
+      );
+      return;
+    }
+
+    await this.prisma.document.update({
+      where: { id: artifact.documentId },
+      data: { jobRunId: params.jobRunId },
+    });
+
+    if (!this.documentJobs.isConfigured()) {
+      this.logger.warn(
+        `extract not enqueued document=${artifact.documentId}: REDIS_URL ausente`,
+      );
+      return;
+    }
+
+    try {
+      await this.documentJobs.enqueueExtract({
+        documentId: artifact.documentId,
+        storagePath: artifact.storagePath,
+        jobRunId: params.jobRunId,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `extract enqueue failed document=${artifact.documentId}: ${message}`,
+      );
+    }
   }
 }

@@ -16,11 +16,12 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | Pre-S5 modelo | **API hecha** | Entidad federativa, disparador, catálogo 32 congresos, delivery/semáforo |
 | Bloque 1 OpenAI | **API hecha** | `GET /ai/status` + `POST /ai/ask` (catálogo; no clasifica) |
 | 5 crawl | **Hecho** | Redis/BullMQ + `job_runs` + conectores DOF/Diputados/Jalisco |
+| 6 documentos | **Hecho** | extract / normalize / SHA-256 / dedup + `GET /documents` |
 | 3 front | Fuera de este repo | Wire UI → [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) + [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) + [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) + [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) |
 | 4 | **Hecho en código/verificado** | Sentry + Storage OK en local |
-| 6+ | Pendiente | Extract/normalize según [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
+| 7+ | Pendiente | Clasificación OpenAI / inbox |
 
-**Siguiente en este repo:** Sprint 6 (registro documental / extract) según [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md). Crawl: [jobs-crawl.md](./jobs-crawl.md).
+**Siguiente en este repo:** Sprint 7 (clasificación / semáforo). Registro documental S6: [document-processing.md](./document-processing.md). Crawl: [jobs-crawl.md](./jobs-crawl.md).
 
 ---
 
@@ -49,6 +50,7 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | OpenAI catálogo | [openai-catalog.md](./openai-catalog.md) |
 | Front AI ask | [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) |
 | Jobs crawl S5 | [jobs-crawl.md](./jobs-crawl.md) |
+| Registro documental S6 | [document-processing.md](./document-processing.md) |
 | **Entrega front + .env** | **[ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md)** |
 | Sentry/Storage | [sentry-storage.md](./sentry-storage.md) |
 | Render | [render-deploy.md](./render-deploy.md) |
@@ -66,6 +68,7 @@ Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fisc
 - Delivery 1:1: `deliveryConfig` con `suggestedAction` por nivel (registrar / seguir / nota / alertar)
 - Asistente de catálogo: `GET /ai/status`, `POST /ai/ask` (OpenAI; 503 sin `OPENAI_API_KEY`)
 - Crawl S5: Redis/BullMQ cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, tabla `job_runs` (503 sin `REDIS_URL`). Admin reencola FAILED/QUEUED huérfanos; el scheduler no reintenta FAILED el mismo día.
+- Registro documental S6: colas `document.extract` y `document.normalize_dedup`, `GET /documents`, `GET /documents/:id`, `POST /documents/:id/reprocess` (ADMIN). Detalle: [document-processing.md](./document-processing.md).
 
 ### Sprint 4
 
@@ -78,8 +81,8 @@ Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fisc
 
 ### Módulos
 ```text
-src/modules/{auth,clients,sources,users,storage,ai}/
-src/jobs/            # BullMQ source.crawl
+src/modules/{auth,clients,sources,users,storage,ai,documents}/
+src/jobs/            # BullMQ source.crawl + document.extract/normalize_dedup
 src/common/swagger.ts
 test/*e2e-spec.ts
 ```
@@ -88,8 +91,8 @@ test/*e2e-spec.ts
 
 ## 4. Qué falta (prioridad)
 
-1. **Sprint 6:** extract / normalize / dedup sobre el crudo de S5 ([DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md)).
-2. Frontend (otro repo): UI fuentes + delivery/semáforo + client↔sources + caja `POST /ai/ask`.
+1. **Sprint 7:** clasificación OpenAI / semáforo sobre documentos `READY_FOR_AI`.
+2. Frontend (otro repo): listado mínimo de registro documental en el panel de rastreo.
 3. Redis en staging/prod (`REDIS_URL`) para que el scheduler crawlee a las 07:00.
 
 ---
@@ -131,11 +134,12 @@ Documento único (bloques 0–2 + checklist UI + `.env`): **[ENTREGA-FRONT-ENV.m
 | 13 | Sentry+Storage | CLOSED — verificado local |
 | 14 | Document contracts | Cerrar — doc entregada |
 | 15–16 | S5 workers/connectors | **Hecho** — [jobs-crawl.md](./jobs-crawl.md) |
+| 17–18 | S6 documentos | **Hecho** — [document-processing.md](./document-processing.md) |
 
 ---
 
 ## 8. Plantilla siguiente agente
 
-> Lee `docs/HANDOFF.md` §4. S6 extract según `DOCUMENT-JOB-CONTRACTS.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md`.
+> Lee `docs/HANDOFF.md` §4. S7 clasificación sobre `READY_FOR_AI`. S6: `document-processing.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md`.
 
-**Última actualización:** 2026-08-18 — `searchFocus` es `string[]` (igual que `keywordsGuide`; `[]` válido). S5 Redis/BullMQ + conectores DOF/Diputados/Jalisco + `job_runs`.
+**Última actualización:** 2026-08-25 — S6 registro documental (extract HTML/PDF, ficha, SHA-256, DEDUPED vs READY_FOR_AI, `GET /documents`).

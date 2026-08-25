@@ -43,6 +43,7 @@ Cobertura:
 | `test/source-state-delivery.e2e-spec.ts` | `stateCode` / `schedule` + `deliveryConfig` |
 | `test/ai-ask.e2e-spec.ts` | `/ai/ask` 401/400 y 503 sin API key |
 | `test/jobs-crawl.e2e-spec.ts` | `/jobs/*` 401/400 y 503 sin Redis |
+| `test/documents.e2e-spec.ts` | `/documents` 401/404 + HTML fixture → `READY_FOR_AI` / `DEDUPED` |
 
 Los tests crean datos con sufijo temporal (`e2e-*`) y desactivan cliente/fuente al final.
 

@@ -92,4 +92,4 @@ raw/{sourceCode}/{yyyy}/{mm}/{dd}/{idempotencyKey}/attempt-{n}/meta.json
 
 ## Qué no hace S5
 
-Extract/normalize/dedup (S6), clasificación OpenAI (S7), email/WhatsApp, scrapers de fuentes `INACTIVE`.
+Extract/normalize/dedup es Sprint 6: [document-processing.md](./document-processing.md). Tampoco clasificación OpenAI (S7), email/WhatsApp, ni scrapers de fuentes `INACTIVE`.

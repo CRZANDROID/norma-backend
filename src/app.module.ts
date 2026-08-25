@@ -12,6 +12,7 @@ import { UsersModule } from './modules/users/users.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { AiModule } from './modules/ai/ai.module';
 import { JobsModule } from './jobs/jobs.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { JobsModule } from './jobs/jobs.module';
     StorageModule,
     AiModule,
     JobsModule,
+    DocumentsModule,
   ],
   providers: [
     {
