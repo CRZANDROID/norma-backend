@@ -32,7 +32,7 @@ import {
   type DocumentProgressStatus,
 } from './progress.labels';
 
-const LIST_SELECT = {
+const LIST_ITEM_SELECT = {
   id: true,
   sourceId: true,
   filename: true,
@@ -42,14 +42,18 @@ const LIST_SELECT = {
   canonicalDocumentId: true,
   lastError: true,
   jobRunId: true,
-  extractedText: true,
-  extractedPath: true,
-  normalizedPath: true,
-  processingHistory: true,
   metadata: true,
   createdAt: true,
   updatedAt: true,
   source: { select: { code: true, name: true } },
+} satisfies Prisma.DocumentSelect;
+
+const LIST_SELECT = {
+  ...LIST_ITEM_SELECT,
+  extractedText: true,
+  extractedPath: true,
+  normalizedPath: true,
+  processingHistory: true,
 } satisfies Prisma.DocumentSelect;
 
 @Injectable()
@@ -98,10 +102,13 @@ export class DocumentsService {
       where,
       orderBy: { createdAt: 'desc' },
       take: query.limit ?? 20,
-      select: LIST_SELECT,
+      select: LIST_ITEM_SELECT,
     });
 
-    return rows.map((row) => this.toListItem(row));
+    const previews = await this.loadTextPreviews(rows.map((row) => row.id));
+    return rows.map((row) =>
+      this.toListItem(row, previews.get(row.id) ?? null),
+    );
   }
 
   async progress(query: ProgressDateQueryDto) {
@@ -136,7 +143,6 @@ export class DocumentsService {
               mimeType: true,
               processingStatus: true,
               lastError: true,
-              extractedText: true,
               canonicalDocumentId: true,
               createdAt: true,
             },
@@ -167,23 +173,16 @@ export class DocumentsService {
       bestBySource.set(sourceId, best);
     }
 
-    const canonicalIds = [
+    const headlineIds = [
       ...new Set(
-        [...bestBySource.values()]
-          .map((row) => row.canonicalDocumentId)
-          .filter((id): id is string => Boolean(id)),
+        [...bestBySource.values()].flatMap((row) =>
+          [row.id, row.canonicalDocumentId].filter(
+            (id): id is string => Boolean(id),
+          ),
+        ),
       ),
     ];
-    const canonicalText = new Map<string, string | null>();
-    if (canonicalIds.length) {
-      const canons = await this.prisma.document.findMany({
-        where: { id: { in: canonicalIds } },
-        select: { id: true, extractedText: true },
-      });
-      for (const canon of canons) {
-        canonicalText.set(canon.id, canon.extractedText);
-      }
-    }
+    const headlineText = await this.loadTextPreviews(headlineIds);
 
     return {
       date,
@@ -208,9 +207,9 @@ export class DocumentsService {
         );
         const signals = documentDaySignals(dayRows);
         const text =
-          row.extractedText ||
+          headlineText.get(row.id) ||
           (row.canonicalDocumentId
-            ? canonicalText.get(row.canonicalDocumentId)
+            ? headlineText.get(row.canonicalDocumentId)
             : null);
         return {
           sourceId: source.id,
@@ -306,10 +305,36 @@ export class DocumentsService {
     };
   }
 
-  private toListItem(row: Prisma.DocumentGetPayload<{ select: typeof LIST_SELECT }>) {
+  private async loadTextPreviews(
+    ids: string[],
+  ): Promise<Map<string, string | null>> {
+    const unique = [...new Set(ids.filter(Boolean))];
+    const previews = new Map<string, string | null>();
+    if (unique.length === 0) {
+      return previews;
+    }
+    const rows = await this.prisma.$queryRaw<
+      Array<{ id: string; preview: string | null }>
+    >(Prisma.sql`
+      SELECT id, LEFT(extracted_text, 240) AS preview
+      FROM documents
+      WHERE id IN (${Prisma.join(unique)})
+    `);
+    for (const row of rows) {
+      previews.set(row.id, row.preview);
+    }
+    return previews;
+  }
+
+  private toListItem(
+    row: Prisma.DocumentGetPayload<{ select: typeof LIST_ITEM_SELECT }>,
+    textPreview: string | null,
+  ) {
     const metadata = asRecord(row.metadata);
-    const extracted = row.extractedText ?? '';
-    const preview = extracted.replace(/\s+/g, ' ').trim().slice(0, 240);
+    const preview = (textPreview ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 240);
     return {
       id: row.id,
       sourceId: row.sourceId,
@@ -332,10 +357,12 @@ export class DocumentsService {
     };
   }
 
-  private toDetail(row: Prisma.DocumentGetPayload<{ select: typeof LIST_SELECT }>) {
+  private toDetail(
+    row: Prisma.DocumentGetPayload<{ select: typeof LIST_SELECT }>,
+  ) {
     const metadata = asRecord(row.metadata);
     return {
-      ...this.toListItem(row),
+      ...this.toListItem(row, row.extractedText),
       extractedText: row.extractedText,
       extractedPath: row.extractedPath,
       normalizedPath: row.normalizedPath,
