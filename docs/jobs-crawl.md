@@ -41,7 +41,7 @@ Lee fuentes `ACTIVE` cada minuto. Encola si el día (ISO 1=lunes…7=domingo) es
 
 ## Alcance del crawl (no solo la portada)
 
-Cada job parte de `Source.url` y **sigue links del mismo host** (con o sin `www`). Prioriza materia legislativa (`gaceta`, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs). No recorre redes sociales, login, assets, transmisiones en vivo ni portales de transparencia masivos.
+Cada job parte de `Source.url` y **sigue links del mismo host** (con o sin `www`). Prioriza materia legislativa (`gaceta`, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs). No recorre redes sociales, login, assets, transmisiones en vivo ni portales de transparencia masivos. Si la portada es un HTML corto con `meta refresh`, no guarda esa página trampolín: sigue el destino en el **mismo host** (Coahuila `/coahuila/`) o un **subdominio del mismo `*.gob.mx`** (Chiapas `www` → `web`). El resto de links del crawl sigue siendo solo el mismo host. Un refresh a Facebook u otro congreso no se sigue.
 
 Tope: profundidad 2 y `CRAWL_MAX_PAGES` (default 80). Cada página/PDF/Word se guarda como documento propio y entra a extract. Los `.pdf` y `.doc`/`.docx` de un listado (orden del día, gaceta, DOF `nota_to_doc`) se encolan con prioridad sobre el menú HTML. `meta.json` del job se descarta del pipeline.
 
@@ -67,7 +67,7 @@ Familias de fallo (no se repara URL a URL ni con LLM):
 - **PDF en endpoint de descarga** (`/Home/Download?filename=….pdf`, `octet-stream`): se detecta por magic bytes `%PDF`, query o `Content-Disposition`; se guarda y extrae como PDF (`unpdf`), no como HTML.
 - **Word (`.doc` / `.docx`)**: p. ej. DOF `nota_to_doc.php` (`application/msword`, magic OLE `d0cf11e0`). Se guarda y extrae como Word, no como HTML.
 - **PDF escaneado:** el crawl guarda el archivo; extract falla a propósito con “PDF escaneado” (imagen, sin capa de texto). No es un bug de rastreo; OCR no está en este sprint.
-- **Cuerpo vacío / frameset sin contenido:** se omite esa página (`stats.skipped`); no tumba el job entero (`Archivo vacío` en storage).
+- **Portada con meta refresh:** no se guarda el HTML trampolín. Sigue el destino en el mismo host o un subdominio del mismo `*.gob.mx`. No hay que editar URL a URL.
 - **XML:** entra a extract (mismo strip de tags).
 - **TLS de sitios de gobierno:** un reintento con verificación de certificado relajada (solo esa URL; log `crawl TLS laxo`). Redes sociales, players en vivo (`/transmision-en-vivo`, YouTube, `.mp4`) y portales de transparencia masivos siguen fuera del crawl HTTP. Un tema WordPress con CSS de recaptcha no se marca como captcha si hay texto/PDF visible.
 

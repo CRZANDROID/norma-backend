@@ -27,7 +27,40 @@ export function sameSite(baseUrl: string, candidateUrl: string): boolean {
   }
 }
 
-export function normalizeCrawlUrl(baseUrl: string, href: string): string | null {
+/** `congresochiapas.gob.mx` desde `www.` o `web.congresochiapas.gob.mx`. */
+export function gobMxRegistrable(hostname: string): string | null {
+  const host = hostname.replace(/^www\./i, '').toLowerCase();
+  const parts = host.split('.');
+  if (parts.length < 3) {
+    return null;
+  }
+  if (parts[parts.length - 2] !== 'gob' || parts[parts.length - 1] !== 'mx') {
+    return null;
+  }
+  return parts.slice(-3).join('.');
+}
+
+export function sameCongressFamily(
+  baseUrl: string,
+  candidateUrl: string,
+): boolean {
+  if (sameSite(baseUrl, candidateUrl)) {
+    return true;
+  }
+  try {
+    const base = gobMxRegistrable(new URL(baseUrl).hostname);
+    const candidate = gobMxRegistrable(new URL(candidateUrl).hostname);
+    return Boolean(base && candidate && base === candidate);
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeCrawlUrl(
+  baseUrl: string,
+  href: string,
+  options: { congressFamily?: boolean } = {},
+): string | null {
   const trimmed = href.trim();
   if (!trimmed || SKIP_RE.test(trimmed) || trimmed.startsWith('#')) {
     return null;
@@ -39,13 +72,61 @@ export function normalizeCrawlUrl(baseUrl: string, href: string): string | null 
     return null;
   }
   resolved.hash = '';
-  if (!sameSite(baseUrl, resolved.href)) {
+  const allowed = options.congressFamily
+    ? sameCongressFamily(baseUrl, resolved.href)
+    : sameSite(baseUrl, resolved.href);
+  if (!allowed) {
     return null;
   }
   if (SKIP_HOST_OR_PATH.test(resolved.href)) {
     return null;
   }
   return resolved.href;
+}
+
+const META_REFRESH_ATTR = [
+  /http-equiv\s*=\s*["']refresh["'][^>]*content\s*=\s*["']([^"']+)/i,
+  /content\s*=\s*["']([^"']+)["'][^>]*http-equiv\s*=\s*["']refresh["']/i,
+];
+
+/**
+ * Portada-trampolín: HTML corto con meta refresh.
+ * Mismo host (Coahuila `/coahuila/`) o subdominio del mismo *.gob.mx (Chiapas `web.`).
+ * El spider de links sigue siendo solo mismo host.
+ */
+export function metaRefreshStubTarget(
+  html: string,
+  baseUrl: string,
+): string | null {
+  if (!html || html.length > 4096) {
+    return null;
+  }
+  let content: string | undefined;
+  for (const re of META_REFRESH_ATTR) {
+    re.lastIndex = 0;
+    const match = re.exec(html);
+    if (match?.[1]) {
+      content = match[1];
+      break;
+    }
+  }
+  if (!content) {
+    return null;
+  }
+  const urlMatch = /url\s*=\s*([^\s;]+)/i.exec(content);
+  if (!urlMatch?.[1]) {
+    return null;
+  }
+  const raw = urlMatch[1].replace(/^['"]|['"]$/g, '').trim();
+  const target = normalizeCrawlUrl(baseUrl, raw, { congressFamily: true });
+  if (!target || target === baseUrl) {
+    return null;
+  }
+  const hrefs = html.match(/href\s*=/gi)?.length ?? 0;
+  if (hrefs >= 3) {
+    return null;
+  }
+  return target;
 }
 
 /** Player de sesión en vivo / streaming — no es documento de catálogo. */

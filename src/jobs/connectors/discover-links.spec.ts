@@ -1,6 +1,7 @@
 import {
   discoverLinks,
   linkScore,
+  metaRefreshStubTarget,
   normalizeCrawlUrl,
   sameSite,
   sectionHints,
@@ -46,6 +47,31 @@ describe('normalizeCrawlUrl', () => {
         '/transmision-en-vivo/',
       ),
     ).toBeNull();
+  });
+});
+
+describe('metaRefreshStubTarget', () => {
+  it('follows a same-host Domain Default bounce', () => {
+    const html = `<!doctype html><html><head><title>Domain Default page</title>
+      <meta http-equiv="refresh" content="0; url=https://www.congresocoahuila.gob.mx/coahuila/" />
+      </head><body></body></html>`;
+    expect(
+      metaRefreshStubTarget(html, 'https://www.congresocoahuila.gob.mx/'),
+    ).toBe('https://www.congresocoahuila.gob.mx/coahuila/');
+  });
+
+  it('does not follow a refresh to another congress', () => {
+    const html = `<meta http-equiv="refresh" content="0; url=https://web.congresochiapas.gob.mx/" />`;
+    expect(
+      metaRefreshStubTarget(html, 'https://www.congresojal.gob.mx/'),
+    ).toBeNull();
+  });
+
+  it('follows a refresh to a sister subdomain of the same gob.mx site', () => {
+    const html = `<meta http-equiv="refresh" content="0; url=https://web.congresochiapas.gob.mx/" />`;
+    expect(
+      metaRefreshStubTarget(html, 'https://www.congresochiapas.gob.mx/'),
+    ).toBe('https://web.congresochiapas.gob.mx/');
   });
 });
 
