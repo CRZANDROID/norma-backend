@@ -70,10 +70,28 @@ export class DocumentsService {
       where.processingStatus = { not: DocumentProcessingStatus.DISCARDED };
     }
 
-    if (query.sourceCode) {
+    if (query.sourceId) {
+      where.sourceId = query.sourceId;
+    } else if (query.sourceCode) {
       where.source = { code: query.sourceCode };
     } else if (query.pilotOnly) {
       where.source = { code: { in: [...PILOT_CONNECTOR_CODES] } };
+    }
+
+    if (query.date) {
+      const date = trackingCalendarDate(new Date(), query.date);
+      if (!isValidCalendarDate(date)) {
+        throw new BadRequestException('date debe ser un día civil YYYY-MM-DD.');
+      }
+      const { start, end } = zonedDayRange(date);
+      where.OR = [
+        { createdAt: { gte: start, lt: end } },
+        {
+          jobRun: {
+            idempotencyKey: { contains: `:${date}:` },
+          },
+        },
+      ];
     }
 
     const rows = await this.prisma.document.findMany({
@@ -305,6 +323,10 @@ export class DocumentsService {
       lastError: row.lastError,
       jobRunId: row.jobRunId,
       textPreview: preview || null,
+      url:
+        stringField(metadata, 'finalUrl') ??
+        stringField(metadata, 'url') ??
+        null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -318,10 +340,6 @@ export class DocumentsService {
       extractedPath: row.extractedPath,
       normalizedPath: row.normalizedPath,
       processingHistory: row.processingHistory,
-      url:
-        stringField(metadata, 'finalUrl') ??
-        stringField(metadata, 'url') ??
-        null,
       fetchedAt: stringField(metadata, 'fetchedAt'),
     };
   }

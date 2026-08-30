@@ -1,6 +1,7 @@
 /**
  * Catálogo de 32 congresos locales alineado a la matriz operativa VCGA.
- * Solo Jalisco queda ACTIVE (conector piloto S5).
+ * ACTIVE en el piloto: AGU, BC, BCS, Campeche, Chihuahua y Jalisco
+ * (más federales `dof` y `diputados-gaceta` en seed.ts).
  */
 
 export const CONGRESS_KEYWORDS = [
@@ -82,7 +83,7 @@ export const STATE_CONGRESSES: StateCongressSeed[] = [
     name: 'Congreso de Aguascalientes',
     stateCode: 'AGU',
     url: 'https://congresoags.gob.mx/',
-    active: false,
+    active: true,
     sections: paths('Gaceta / iniciativas / orden del día'),
     weekdays: THRICE_WEEKDAYS,
     searchFocus:
@@ -94,7 +95,7 @@ export const STATE_CONGRESSES: StateCongressSeed[] = [
     name: 'Congreso de Baja California',
     stateCode: 'BCN',
     url: 'https://www.congresobc.gob.mx/',
-    active: false,
+    active: true,
     sections: paths('Gaceta / iniciativas / comisiones'),
     weekdays: THRICE_WEEKDAYS,
     searchFocus:
@@ -106,7 +107,7 @@ export const STATE_CONGRESSES: StateCongressSeed[] = [
     name: 'Congreso de Baja California Sur',
     stateCode: 'BCS',
     url: 'https://www.cbcs.gob.mx/',
-    active: false,
+    active: true,
     sections: paths('Gaceta / iniciativas / orden del día'),
     weekdays: THRICE_WEEKDAYS,
     searchFocus:
@@ -118,7 +119,7 @@ export const STATE_CONGRESSES: StateCongressSeed[] = [
     name: 'Congreso de Campeche',
     stateCode: 'CAM',
     url: 'https://www.congresocam.gob.mx/',
-    active: false,
+    active: true,
     sections: paths('Gaceta / iniciativas / dictámenes'),
     weekdays: THRICE_WEEKDAYS,
     searchFocus:
@@ -129,7 +130,7 @@ export const STATE_CONGRESSES: StateCongressSeed[] = [
     code: 'congreso-chp',
     name: 'Congreso de Chiapas',
     stateCode: 'CHP',
-    url: 'https://www.congresochiapas.gob.mx/',
+    url: 'https://web.congresochiapas.gob.mx/',
     active: false,
     sections: paths('Gaceta / iniciativas / comisiones'),
     weekdays: THRICE_WEEKDAYS,
@@ -142,7 +143,7 @@ export const STATE_CONGRESSES: StateCongressSeed[] = [
     name: 'Congreso de Chihuahua',
     stateCode: 'CHH',
     url: 'https://www.congresochihuahua.gob.mx/',
-    active: false,
+    active: true,
     sections: paths('Gaceta / iniciativas / dictámenes'),
     weekdays: THRICE_WEEKDAYS,
     searchFocus: 'Bebidas, alimentos, impuestos, escuelas, residuos, agua',

@@ -25,7 +25,7 @@ Controller → Service → PrismaService
 
 - Usar `@CurrentUser()` para el usuario NORMA.
 - Mutaciones de catálogo (clients/sources/users): `ADMIN`.
-- Profiles: `ADMIN` + `ANALYST` según `docs/SPRINT-3-BACKEND.md`.
+- Profiles: `ADMIN` + `ANALYST` (roles en HANDOFF / schema).
 - `POST /ai/ask`: lectura de catálogo; no muta datos.
 - `POST /jobs/crawl`: solo `ADMIN`; 503 sin Redis.
 - `GET /jobs/progress` y `GET /documents/progress`: `ADMIN` \| `ANALYST`; resumen ejecutivo (no sustituyen `GET /jobs/runs` ni `GET /documents`).

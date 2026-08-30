@@ -70,14 +70,17 @@ src/
     users/
     storage/         # Upload / download / signed-url (Supabase Storage)
     ai/              # POST /ai/ask
-  jobs/              # Redis/BullMQ source.crawl
+    documents/       # GET /documents + progress
+  jobs/              # Redis/BullMQ crawl + extract/normalize
   app.module.ts
   main.ts
 prisma/
-  schema.prisma      # Modelo ER (incluye Document como prep)
+  schema.prisma
 docs/
-  seed-and-tests.md  # Seed + e2e + Swagger /docs
-  sentry-storage.md  # Setup Sentry + Storage
+  README.md          # Índice: qué leer
+  HANDOFF.md         # Estado vivo
+  seed-and-tests.md
+  sentry-storage.md
   sql/               # SQL manual del bucket Storage
 ```
 
@@ -123,12 +126,14 @@ Swagger UI: `http://localhost:3000/docs` (Authorize con JWT de `POST /auth/login
 | `SUPABASE_STORAGE_BUCKET` | `documents` | bucket del ambiente |
 | `OPENAI_API_KEY` | vacío / key de prueba | key del ambiente |
 | `OPENAI_MODEL` | `gpt-4o-mini` | modelo del ambiente |
+| `REDIS_URL` | `redis://127.0.0.1:6379` | Redis del ambiente (crawl/docs) |
 
 Reglas:
 - Nunca subir `.env` a Git.
 - Staging y Production deben usar bases separadas cuando sea posible.
 - Migraciones en staging/prod: `pnpm prisma:deploy`.
 - Detalle de Sentry + Storage: [docs/sentry-storage.md](docs/sentry-storage.md).
+- Índice de docs: [docs/README.md](docs/README.md).
 - Deploy en Render: [docs/render-deploy.md](docs/render-deploy.md) (**Start Command** = `yarn start:prod`, no `yarn start` / `nest start`).
 
 ### Tablero
@@ -137,5 +142,5 @@ GitHub Project: [NORMA — Piloto Arca](https://github.com/users/CRZANDROID/proj
 
 ## Modelo ER
 
-Modelo administrativo: usuarios con auth propia (email/password + JWT), roles, membresías, clientes, perfiles regulatorios, fuentes, hallazgos y metadatos de documentos (prep para Storage).  
+Modelo administrativo: usuarios con auth propia (email/password + JWT), roles, membresías, clientes, perfiles regulatorios, fuentes, hallazgos, `job_runs` y documentos (pipeline S6).  
 El semáforo operativo del piloto usa 4 niveles: verde, amarillo, naranja y rojo.

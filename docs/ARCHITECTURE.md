@@ -8,7 +8,8 @@
 | ORM | Prisma 6 | Única vía a datos de negocio |
 | DB | PostgreSQL en Supabase | Migraciones con Prisma; Supabase = hosting DB |
 | Auth | JWT propio (Nest) | `passwordHash` + `POST /auth/login`; Bearer en rutas |
-| Jobs | Redis + BullMQ | Cola `source.crawl`; worker en el proceso Nest ([jobs-crawl.md](./jobs-crawl.md)) |
+| Jobs | Redis + BullMQ | `source.crawl` HTTP (mismo host, no redes) + extract/normalize. YouTube/X = conectores MVP aparte |
+| Storage | Supabase Storage | Originales de crawl + upload admin (`/storage/*`) |
 | IA catálogo | OpenAI | `POST /ai/ask` — solo datos admin; no clasifica |
 | IA (futuro) | OpenAI | Clasificación y semáforo desde Sprint 7 |
 | Email (futuro) | Resend | Solo tras aprobación humana |
@@ -29,8 +30,9 @@ React (frontend)
 
 Supabase se usa para:
 
-1. **Hosting de Postgres** (y más adelante Storage)
-2. **No** para Auth de aplicación
+1. **Hosting de Postgres**
+2. **Storage** de originales (crawl + upload admin)
+3. **No** para Auth de aplicación
 
 Prisma / Nest poseen identidad de negocio, reglas y autorización de tenant.
 
@@ -49,7 +51,8 @@ src/
     users/           # admin usuarios + memberships
     storage/         # upload / signed-url / download
     ai/              # POST /ai/ask (catálogo)
-  jobs/              # BullMQ source.crawl + conectores
+    documents/       # GET /documents + progress + reprocess
+  jobs/              # BullMQ source.crawl + document.extract/normalize_dedup
   app.module.ts
   main.ts
 ```
@@ -93,7 +96,8 @@ Soft-status: `EntityStatus` (`ACTIVE` | `INACTIVE`). No hard-delete en el piloto
 - `RegulatoryProfile` — keywords, categories, products (Json)
 - `Source` — code, category, platform, jurisdiction, stateCode, schedule (hora/días/zona), status
 - `ClientDeliveryConfig` — canales email/WhatsApp + acciones por nivel de semáforo (config; no envía)
-- `Finding` — impacto (GREEN…RED), status; CRUD inbox más adelante
+- `Document` — original en Storage + `processingStatus` / hash / texto (S6)
+- `Finding` — impacto (GREEN…RED), status; CRUD inbox = S7–S8
 - `JobRun` — ejecución de crawl (`idempotencyKey`, status, errorCode)
 
 Fuente de verdad del schema: `prisma/schema.prisma`.
@@ -118,7 +122,8 @@ Variables: ver `.env.example`. Secretos nunca en Git.
 
 ## Documentación relacionada
 
+- [README.md](./README.md) — índice
 - [PRODUCT.md](./PRODUCT.md)
 - [SPRINTS.md](./SPRINTS.md)
-- [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md)
+- [HANDOFF.md](./HANDOFF.md)
 - [postman-pruebas.md](./postman-pruebas.md)

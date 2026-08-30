@@ -101,8 +101,8 @@ prisma/migrations/20260803180000_documents_storage_meta/migration.sql
 
 Guarda metadatos (`bucket`, `path`, `filename`, `mimeType`, `clientId`, …). El binario sigue en Storage.
 
-**Estado:** la migración puede estar aplicada en el ambiente de desarrollo de la sesión (verificar con `pnpm prisma:deploy`).  
-**Comportamiento API:** `/storage/*` opera contra el bucket; **aún no** escribe filas en `documents` automáticamente (CRUD de metadatos / link job→document = S5–S6). Ver [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md).
+**Estado:** la migración debe estar aplicada (`pnpm prisma:deploy`).  
+**Comportamiento API:** `/storage/*` opera contra el bucket y **no** crea filas `documents`. El pipeline de crawl S5–S6 **sí** crea/actualiza `Document` (extract/normalize). Ver [document-processing.md](./document-processing.md) y [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md).
 
 ```bash
 pnpm prisma:deploy
@@ -127,6 +127,7 @@ pnpm prisma:deploy
 
 ## 5. Fuera de alcance de #13
 
-- Pipeline de crawl/extract (S5–S6)
 - UI de archivos en el front
 - Exponer `service_role` al browser
+
+(Crawl/extract S5–S6: [jobs-crawl.md](./jobs-crawl.md), [document-processing.md](./document-processing.md).)

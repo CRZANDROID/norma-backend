@@ -10,7 +10,9 @@ import {
   derivedNormalizedPath,
   extractPdfText,
   extractVisibleHtmlText,
+  extractWordText,
   isPdfContent,
+  isWordContent,
   sha256Normalized,
   validateExtractedText,
   type NormalizedDocumentFicha,
@@ -38,16 +40,42 @@ export class DocumentPipelineService {
     try {
       const object = await this.storage.getObject(doc.path);
       const mime = doc.mimeType || object.contentType;
+      const metadata = asRecord(doc.metadata);
+      const sourceUrl =
+        stringField(metadata, 'finalUrl') ??
+        stringField(metadata, 'url') ??
+        stringField(metadata, 'externalRef');
+      const pdf = isPdfContent(doc.filename, mime, {
+        url: sourceUrl,
+        buffer: object.data,
+      });
+      const word =
+        !pdf &&
+        isWordContent(doc.filename, mime, {
+          url: sourceUrl,
+          buffer: object.data,
+        });
       let extracted: string;
+      let kind: 'html' | 'pdf' | 'xml' | 'doc' = 'html';
 
-      if (isPdfContent(doc.filename, mime)) {
+      if (pdf) {
+        kind = 'pdf';
         extracted = await extractPdfText(object.data);
+      } else if (word) {
+        kind = 'doc';
+        extracted = await extractWordText(object.data);
       } else {
+        if (
+          (doc.filename || '').toLowerCase().endsWith('.xml') ||
+          (mime || '').toLowerCase().includes('xml')
+        ) {
+          kind = 'xml';
+        }
         extracted = extractVisibleHtmlText(object.data.toString('utf8'));
       }
 
-      const rawAsText = object.data.toString('utf8');
-      const check = validateExtractedText(rawAsText, extracted);
+      const rawAsText = pdf || word ? extracted : object.data.toString('utf8');
+      const check = validateExtractedText(rawAsText, extracted, { kind });
       if (!check.ok) {
         return this.markFailed(doc.id, doc.processingHistory, check.message);
       }

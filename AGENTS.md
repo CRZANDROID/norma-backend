@@ -4,19 +4,19 @@ Instrucciones de entrada para cualquier agente (Cursor u otro) que trabaje en es
 
 ## Antes de codear
 
-1. **Estado actual / qué sigue:** [docs/HANDOFF.md](docs/HANDOFF.md) ← empezar aquí
-2. [docs/PRODUCT.md](docs/PRODUCT.md) — qué es el producto y qué queda fuera
-3. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — stack, flujo Auth→Nest→Prisma, multi-tenant
-4. [docs/SPRINTS.md](docs/SPRINTS.md) — sprint actual y dependencias
-5. Si tocas CRUD admin: [docs/SPRINT-3-BACKEND.md](docs/SPRINT-3-BACKEND.md)
-6. Si el trabajo es **UI client↔sources** (otro repo): [docs/FRONTEND-CLIENT-SOURCES.md](docs/FRONTEND-CLIENT-SOURCES.md) y [docs/FRONTEND-SOURCES-V2.md](docs/FRONTEND-SOURCES-V2.md)
-7. Entrega consolidada front + `.env`: [docs/ENTREGA-FRONT-ENV.md](docs/ENTREGA-FRONT-ENV.md)
-8. Crawl S5: [docs/jobs-crawl.md](docs/jobs-crawl.md) y contratos [docs/DOCUMENT-JOB-CONTRACTS.md](docs/DOCUMENT-JOB-CONTRACTS.md)
-9. Entrega/semáforo (config): [docs/FRONTEND-CLIENT-DELIVERY.md](docs/FRONTEND-CLIENT-DELIVERY.md)
-10. Asistente de catálogo: [docs/openai-catalog.md](docs/openai-catalog.md)
-11. Panel rastreo/extracción: [docs/FRONTEND-TRACKING.md](docs/FRONTEND-TRACKING.md)
+1. **Estado / qué sigue:** [docs/HANDOFF.md](docs/HANDOFF.md)
+2. **Índice de docs:** [docs/README.md](docs/README.md)
+3. [docs/PRODUCT.md](docs/PRODUCT.md) — qué es el producto y qué queda fuera
+4. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — stack, flujo Auth→Nest→Prisma, multi-tenant
+5. [docs/SPRINTS.md](docs/SPRINTS.md) — piloto S1–S8
+6. UI (otro repo): contratos `docs/FRONTEND-*.md` listados en el índice
+7. Crawl S5: [docs/jobs-crawl.md](docs/jobs-crawl.md)
+8. Documentos S6: [docs/document-processing.md](docs/document-processing.md) + [docs/DOCUMENT-JOB-CONTRACTS.md](docs/DOCUMENT-JOB-CONTRACTS.md)
+9. Asistente de catálogo: [docs/openai-catalog.md](docs/openai-catalog.md)
 
 Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
+
+**No uses** `docs/SPRINT-3-BACKEND.md` ni copias Postman del frontend como contrato actual (`frequency` está muerto).
 
 ## Verdades fijas
 
@@ -26,19 +26,20 @@ Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
 - Soft-status `ACTIVE`/`INACTIVE`; evitar hard-delete.
 - `ADMIN` = backoffice total; no-ADMIN filtrar por `ClientMembership`.
 - Frontend **no** lee tablas de negocio por PostgREST.
-- Clientes pueden tener muchas fuentes (`client_sources`); ver [docs/client-sources.md](docs/client-sources.md).
+- Clientes pueden tener muchas fuentes (`client_sources`); UI: [docs/FRONTEND-CLIENT-SOURCES.md](docs/FRONTEND-CLIENT-SOURCES.md).
 - Fuentes estatales: `jurisdiction` + `stateCode`. Crawl schedule: `schedule` (no `frequency`).
+- Crawl HTTP = gaceta/PDF del mismo host. **YouTube / X / Facebook son MVP** (conectores de plataforma, no el spider WEB): [docs/PRODUCT.md](docs/PRODUCT.md).
 
 ## Estructura relevante
 
 ```text
-src/modules/{auth,clients,sources,users,storage,ai}/
-src/jobs/                 # Redis/BullMQ source.crawl
+src/modules/{auth,clients,sources,users,storage,ai,documents}/
+src/jobs/                 # Redis/BullMQ source.crawl + document.extract/normalize_dedup
 src/common/swagger.ts
 prisma/schema.prisma
 test/*e2e-spec.ts
 docs/HANDOFF.md
-docs/
+docs/README.md
 .cursor/rules/
 ```
 

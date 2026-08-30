@@ -1,6 +1,8 @@
-# NORMA — Sprints (piloto semanal)
+# NORMA — Sprints (piloto)
 
-Plan del GitHub Project **NORMA — Piloto Arca**. Cada semana = un sprint.  
+Plan del GitHub Project **NORMA — Piloto Arca**.  
+El piloto se armó como **8 iteraciones semanales** (S1–S8): cada “Sprint N” = **una semana** de ese plan, no un sprint de 4 semanas. No hay issues S9+.
+
 Piloto inicial: Arca Continental + pocas fuentes representativas.
 
 ## Estado alto nivel
@@ -9,10 +11,10 @@ Piloto inicial: Arca Continental + pocas fuentes representativas.
 |--------|--------|---------|---------------|
 | 1 | Fundaciones | Repos, Nest/React, Prisma, health, tablero | Hecho |
 | 2 | Identidad | Auth JWT propia, guards, schema admin, `/auth/me`, login | Hecho |
-| 3 | CRUD admin | Clients, profiles, sources, users + pantallas | **Backend hecho**; front pendiente |
-| 4 | Estabilización | Swagger, validación, e2e, Sentry, Storage, contratos jobs | **Docs/código listos**; falta verify manual #13 |
-| 5 | Ingesta | Redis/BullMQ + conectores piloto | **Backend hecho** |
-| 6 | Documentos | Registro, storage, extract/normalize/dedup | Pendiente |
+| 3 | CRUD admin | Clients, profiles, sources, users + pantallas | **Hecho** (API + UI admin) |
+| 4 | Estabilización | Swagger, validación, e2e, Sentry, Storage, contratos jobs | **Hecho** (#13 cerrado en local) |
+| 5 | Ingesta | Redis/BullMQ + conectores piloto | **Hecho** |
+| 6 | Documentos | Registro, storage, extract/normalize/dedup | **Hecho** |
 | 7 | IA | OpenAI client, clasificación, relevancia, semáforo | Pendiente |
 | 8 | Entrega piloto | Borrador ejecutivo, inbox humano, email tras OK | Pendiente |
 
@@ -49,15 +51,15 @@ Issues backend (hechos):
 - `S3: CRUD Sources + activate/deactivate` (P0) — **hecho**
 - `S3: Basic user admin and role assignment` (P1) — **hecho**
 
-Issue frontend (pendiente):
+Issue frontend (**hecho**, #3 cerrado):
 
-- `S3: Admin screens connected to real API` (Frontend, P0)
+- `S3: Admin screens connected to real API`
 
 **Entregable backend:** API admin real (clients, profiles, sources, users) con AuthZ.  
-**Extensión (API hecha):** vínculo N:N cliente↔fuentes — [client-sources.md](./client-sources.md), UI: [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md).  
-**Entregable sprint completo:** panel admin con datos reales — front; falta UI de selección de fuentes.
+**Extensión (API hecha):** vínculo N:N cliente↔fuentes — [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md).  
+**Entregable sprint completo:** panel admin con datos reales.
 
-Detalle backend: [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md)  
+Brief histórico S3 (no usar `frequency`): [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md).
 Pruebas: [postman-pruebas.md](./postman-pruebas.md)  
 **Continuidad agentes:** [HANDOFF.md](./HANDOFF.md)
 
@@ -75,14 +77,14 @@ Estado vivo: [HANDOFF.md](./HANDOFF.md).
 
 ---
 
-**Pre-S5 (modelo, hecho en backend):** entidad federativa + disparador en fuentes, catálogo de 32 congresos (INACTIVE salvo Jalisco), config de semáforo/canales por cliente. Ver [HANDOFF.md](./HANDOFF.md).
+**Pre-S5 (modelo, hecho en backend):** entidad federativa + disparador en fuentes, catálogo de 32 congresos, config de semáforo/canales por cliente. ACTIVE de crawl: ver [state-congresses.md](./state-congresses.md).
 
 **Bloque 1 (hecho):** asistente de catálogo `POST /ai/ask` — [openai-catalog.md](./openai-catalog.md). No es clasificación S7.
 
 ## Sprint 5 — Motor de ingesta piloto
 
 - [x] Redis + BullMQ (workers, retries, scheduler)
-- [x] Conectores: DOF, Diputados, Congreso de Jalisco
+- [x] Conectores HTTP: DOF, Diputados y congresos ACTIVE (mismo sitio, no solo portada)
 - [x] Tabla `job_runs` + `POST /jobs/crawl`
 - [x] `GET /jobs/progress` (resumen ejecutivo por fuente)
 
@@ -120,6 +122,17 @@ Estado vivo: [HANDOFF.md](./HANDOFF.md).
 
 ---
 
+## MVP — Conectores YouTube / X / Facebook (obligatorio)
+
+No es un “nice to have” ni un sprint 9 inventado: el contrato del piloto incluye fuentes `SOCIAL` y `YOUTUBE`. S5 solo cubrió **HTTP WEB**.
+
+- **Cuándo:** después de S7 (hace falta texto clasificable). No mezclarlo con el spider de congresos.
+- **Qué:** conectores de plataforma (API/RSS/transcripto), no seguir links de redes desde un `.gob.mx`.
+- **Corte mínimo:** mañanera (YouTube o estenográfica WEB) + una cuenta X oficial. Catálogo ya existe; activar al tener conector.
+- Producto: [PRODUCT.md](./PRODUCT.md) § Conectores social / multimedia.
+
+---
+
 ## Dependencias (no saltar)
 
 ```text
@@ -129,6 +142,7 @@ Auth JWT / tenant (S2)
   → Colas + conectores (S5)
   → Documentos (S6)
   → IA (S7)
+  → Conectores YouTube/X (MVP contrato)
   → Inbox + email (S8)
 ```
 

@@ -2,7 +2,14 @@ import {
   collapseWhitespace,
   extractVisibleHtmlText,
   isExtractableCrawlFile,
+  isFramesetShell,
+  isPdfContent,
+  isWordContent,
+  looksLikeOleDocBuffer,
+  looksLikePdfBuffer,
   sha256Normalized,
+  urlLooksLikePdf,
+  urlLooksLikeWord,
   validateExtractedText,
 } from './document-text';
 
@@ -51,10 +58,93 @@ describe('sha256Normalized', () => {
 });
 
 describe('isExtractableCrawlFile', () => {
-  it('accepts page.html and page.pdf, ignores meta.json', () => {
+  it('accepts page.html, inner doc-*.html and PDFs; ignores meta.json', () => {
     expect(isExtractableCrawlFile('page.html', 'text/html')).toBe(true);
+    expect(isExtractableCrawlFile('doc-01-ab12cd34ef.html', 'text/html')).toBe(
+      true,
+    );
     expect(isExtractableCrawlFile('page.pdf', 'application/pdf')).toBe(true);
     expect(isExtractableCrawlFile('meta.json', 'application/json')).toBe(false);
+  });
+
+  it('accepts XML and octet-stream PDFs sniffed from the URL or magic bytes', () => {
+    expect(isExtractableCrawlFile('gaceta.xml', 'text/xml')).toBe(true);
+    expect(
+      isExtractableCrawlFile('doc-02.bin', 'application/octet-stream', {
+        url: 'https://congresoags.gob.mx/Home/Download?filename=convocatoria.pdf',
+      }),
+    ).toBe(true);
+    expect(
+      isExtractableCrawlFile('page.html', 'text/html', {
+        buffer: Buffer.from('%PDF-1.4\n1 0 obj'),
+      }),
+    ).toBe(true);
+    expect(
+      isExtractableCrawlFile('nota.bin', 'application/octet-stream', {
+        url: 'https://dof.gob.mx/nota_to_doc.php?codnota=5797407',
+      }),
+    ).toBe(true);
+    expect(
+      isExtractableCrawlFile('page.html', 'text/html', {
+        buffer: Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('pdf sniff', () => {
+  it('detects magic bytes and Download?filename=.pdf URLs', () => {
+    expect(looksLikePdfBuffer(Buffer.from('%PDF-1.7\n'))).toBe(true);
+    expect(looksLikePdfBuffer(Buffer.from('<html></html>'))).toBe(false);
+    expect(
+      urlLooksLikePdf(
+        'https://congresoags.gob.mx/Home/Download?filename=convocatoria.pdf',
+      ),
+    ).toBe(true);
+    expect(
+      isPdfContent('doc-01.html', 'application/octet-stream', {
+        url: 'https://congresoags.gob.mx/Home/Download?filename=convocatoria.pdf',
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('word sniff', () => {
+  it('detects OLE magic and DOF nota_to_doc.php', () => {
+    const ole = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    expect(looksLikeOleDocBuffer(ole)).toBe(true);
+    expect(
+      urlLooksLikeWord(
+        'https://dof.gob.mx/nota_to_doc.php?codnota=5797407',
+      ),
+    ).toBe(true);
+    expect(
+      isWordContent('page.html', 'application/msword', {
+        url: 'https://dof.gob.mx/nota_to_doc.php?codnota=5797407',
+        buffer: ole,
+      }),
+    ).toBe(true);
+    expect(
+      isPdfContent('page.html', 'application/msword', {
+        url: 'https://dof.gob.mx/nota_to_doc.php?codnota=5797407',
+        buffer: ole,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('isFramesetShell', () => {
+  it('detects empty frameset wrappers without article/main/p', () => {
+    expect(
+      isFramesetShell(
+        '<html><frameset cols="200,*"><frame src="/menu"></frameset></html>',
+      ),
+    ).toBe(true);
+    expect(
+      isFramesetShell(
+        '<html><frameset><p>contenido</p></frameset></html>',
+      ),
+    ).toBe(false);
   });
 });
 
@@ -63,12 +153,28 @@ describe('validateExtractedText', () => {
     'El Diario Oficial de la Federación publica el decreto de prueba con texto suficiente para el registro documental del piloto NORMA.';
 
   it('rejects captcha pages', () => {
-    const raw = '<html><body>Just a moment... Cloudflare captcha</body></html>';
-    const result = validateExtractedText(raw, longEnough);
+    const extracted =
+      'Just a moment... Checking your browser before accessing the site. Enable JavaScript and cookies.';
+    const result = validateExtractedText('<html></html>', extracted);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.reason).toBe('captcha');
     }
+  });
+
+  it('does not treat Avada/Contact Form recaptcha CSS as a challenge page', () => {
+    const raw = `
+      <html>
+        <head><style>.grecaptcha-badge{z-index:1}.wpcf7-captchar{width:100%}</style></head>
+        <body>
+          <h1>Orden del día</h1>
+          <a href="/ORDEN_01.0_01MAYO2026.pdf">ORDEN_01.0_01MAYO2026.pdf</a>
+          <p>${longEnough}</p>
+        </body>
+      </html>
+    `;
+    const extracted = extractVisibleHtmlText(raw);
+    expect(validateExtractedText(raw, extracted).ok).toBe(true);
   });
 
   it('rejects short visible text', () => {
@@ -83,5 +189,22 @@ describe('validateExtractedText', () => {
     expect(validateExtractedText(`<p>${longEnough}</p>`, longEnough).ok).toBe(
       true,
     );
+  });
+
+  it('does not treat PDF binary as a captcha page', () => {
+    const raw = '%PDF-1.4 captcha token stream';
+    expect(validateExtractedText(raw, longEnough, { kind: 'pdf' }).ok).toBe(
+      true,
+    );
+  });
+
+  it('uses a scanned-PDF empty message', () => {
+    const result = validateExtractedText('%PDF-1.4', '', { kind: 'pdf' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('empty');
+      expect(result.message).toMatch(/escaneado/i);
+      expect(result.message).toMatch(/OCR/i);
+    }
   });
 });

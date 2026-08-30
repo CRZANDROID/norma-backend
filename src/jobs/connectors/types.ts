@@ -7,6 +7,7 @@ export type ConnectorSource = {
   name: string;
   url: string | null;
   searchFocus: string[];
+  keywordsGuide?: string[];
   notes: string | null;
   sections: Prisma.JsonValue;
 };
@@ -19,5 +20,5 @@ export type ConnectorFetch = {
 export interface SourceConnector {
   code: string;
   label: string;
-  crawl(source: ConnectorSource): Promise<ConnectorFetch>;
+  crawl(source: ConnectorSource): Promise<ConnectorFetch[]>;
 }
