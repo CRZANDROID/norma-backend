@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { CrawlError } from '../types';
 import { urlLooksLikePdf, urlLooksLikeWord } from '../document-text';
 import { fetchPage, pageFilename, sniffCrawlExtension, type FetchedPage } from './fetch-page';
-import { discoverLinks, sectionHints } from './discover-links';
+import { discoverLinks, metaRefreshStubTarget, sectionHints } from './discover-links';
 import type { ConnectorFetch, ConnectorSource } from './types';
 
 const DEFAULT_MAX_PAGES = 80;
@@ -105,6 +105,23 @@ export async function crawlSite(
     }
 
     const finalUrl = page.finalUrl || next.url;
+    const sniffed = sniffCrawlExtension({
+      contentType: page.contentType,
+      url: finalUrl,
+      body: page.body,
+    });
+    if (sniffed === 'html') {
+      const bounce = metaRefreshStubTarget(page.body.toString('utf8'), finalUrl);
+      if (bounce) {
+        seenFinal.add(finalUrl);
+        if (!queued.has(bounce)) {
+          queued.add(bounce);
+          queue.unshift({ url: bounce, depth: next.depth });
+        }
+        continue;
+      }
+    }
+
     if (seenFinal.has(finalUrl)) {
       continue;
     }
@@ -115,12 +132,7 @@ export async function crawlSite(
       filename: filenameFor(page, pages.length),
     });
 
-    const isHtml =
-      sniffCrawlExtension({
-        contentType: page.contentType,
-        url: page.finalUrl,
-        body: page.body,
-      }) === 'html';
+    const isHtml = sniffed === 'html';
     if (isHtml && next.depth < maxDepth) {
       const discovered = discoverLinks(
         page.body.toString('utf8'),

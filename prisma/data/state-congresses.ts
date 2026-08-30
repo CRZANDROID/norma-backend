@@ -165,7 +165,7 @@ export const STATE_CONGRESSES: StateCongressSeed[] = [
     code: 'congreso-coa',
     name: 'Congreso de Coahuila',
     stateCode: 'COA',
-    url: 'https://www.congresocoahuila.gob.mx/',
+    url: 'https://www.congresocoahuila.gob.mx/coahuila/',
     active: false,
     sections: paths('Gaceta / iniciativas / orden del día'),
     weekdays: THRICE_WEEKDAYS,

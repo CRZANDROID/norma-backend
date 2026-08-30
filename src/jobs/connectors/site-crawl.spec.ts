@@ -163,4 +163,43 @@ describe('crawlSite', () => {
       true,
     );
   });
+
+  it('follows a same-host meta-refresh stub instead of saving the bounce page', async () => {
+    const fetched: string[] = [];
+    const pages = await crawlSite(
+      { ...source, url: 'https://www.congresocoahuila.gob.mx/' },
+      {
+        maxPages: 3,
+        maxDepth: 1,
+        delayMs: 0,
+        fetch: async (url) => {
+          fetched.push(url);
+          if (url === 'https://www.congresocoahuila.gob.mx/') {
+            return page(
+              url,
+              `<!doctype html><html><head><title>Domain Default page</title>
+               <meta http-equiv="refresh" content="0; url=https://www.congresocoahuila.gob.mx/coahuila/" />
+               </head><body></body></html>`,
+            );
+          }
+          return page(
+            url,
+            `<article>H. Congreso del Estado de Coahuila</article>
+             <a href="/gaceta/iniciativas.pdf">PDF</a>`,
+          );
+        },
+      },
+    );
+
+    expect(fetched[0]).toBe('https://www.congresocoahuila.gob.mx/');
+    expect(fetched).toContain('https://www.congresocoahuila.gob.mx/coahuila/');
+    expect(
+      pages.some(
+        (item) => item.page.finalUrl === 'https://www.congresocoahuila.gob.mx/',
+      ),
+    ).toBe(false);
+    expect(pages[0]?.page.finalUrl).toBe(
+      'https://www.congresocoahuila.gob.mx/coahuila/',
+    );
+  });
 });
