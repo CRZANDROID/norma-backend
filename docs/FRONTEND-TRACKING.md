@@ -28,6 +28,8 @@ Fuentes: piloto (`dof`, `diputados-gaceta`, congresos ACTIVE) + cualquier otra `
 
 `GET /documents/progress` es ruta estática; no usar `GET /documents/:id` con id `progress`.
 
+**No pollar `GET /documents?limit=800` cada pocos segundos.** El panel solo refresca `/jobs/progress` y `/documents/progress` (15 s si hay trabajo en curso, 45 s si no). El listado de páginas se pide al entrar y al abrir una fuente (`sourceId`). Poll agresivo + CORS `OPTIONS` satura el plan gratuito de Render (`429` / `502` / `503`).
+
 ## Rastreo — `GET /jobs/progress`
 
 ```json
