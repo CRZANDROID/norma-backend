@@ -455,7 +455,7 @@ GET {{baseUrl}}/sources?jurisdiction=STATE&stateCode=JAL
 Authorization: Bearer {{accessToken}}
 ```
 
-Seed: `dof`, `diputados-gaceta` (FEDERAL) + 32 congresos (`jalisco-congreso` ACTIVE).  
+Seed: `dof`, `diputados-gaceta` (FEDERAL) + 32 congresos (ACTIVE: AGU, BC, BCS, Campeche, Chihuahua, Jalisco).  
 La respuesta incluye `clients`, `sections`, `jurisdiction`, `stateCode` y `schedule` (`time` / `timezone` / `weekdays`). Ya no hay `frequency`.
 
 ### GET `/sources/:id`

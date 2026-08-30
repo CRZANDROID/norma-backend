@@ -3,7 +3,7 @@
 **Audiencia:** `norma-frontend` (JobsPanel / DocumentsRegistry).  
 **Backend:** implementado. Copy en español. **No** clasifica (S7).
 
-Los listados técnicos (`GET /jobs/runs`, `GET /documents`) siguen para Swagger/ops. El piloto de consultor debe pintar **estos** GETs: una fila por fuente.
+Los listados técnicos (`GET /jobs/runs`) siguen para Swagger/ops. El resumen del día es **una fila por fuente**. Al abrir una fuente, el dashboard lista **PDF, Word y HTML** con `GET /documents` (preview) y `GET /documents/:id` (texto extraído).
 
 Detalle backend: [jobs-crawl.md](./jobs-crawl.md), [document-processing.md](./document-processing.md).
 
@@ -15,7 +15,7 @@ Detalle backend: [jobs-crawl.md](./jobs-crawl.md), [document-processing.md](./do
 
 Query opcional `date=YYYY-MM-DD`. Default: hoy en `America/Mexico_City` (igual que el schedule de fuentes). Fecha inválida → `400`.
 
-Fuentes: piloto (`dof`, `diputados-gaceta`, `jalisco-congreso`) + cualquier otra `ACTIVE`.
+Fuentes: piloto (`dof`, `diputados-gaceta`, congresos ACTIVE) + cualquier otra `ACTIVE`. El crawl guarda **varias** páginas por fuente; este GET sigue siendo **una fila por fuente**.
 
 ## Endpoints
 
@@ -23,6 +23,8 @@ Fuentes: piloto (`dof`, `diputados-gaceta`, `jalisco-congreso`) + cualquier otra
 |--------|------|-----|
 | `GET` | `/jobs/progress?date=` | Rastreo: último crawl del día (no duplicar admin+scheduler) |
 | `GET` | `/documents/progress?date=` | Extracción: mejor HTML/PDF del día (`meta.json` se ignora) |
+| `GET` | `/documents?pilotOnly=true&limit=&date=&sourceId=` | Páginas internas: preview + `url`. `limit` hasta 800. `date` = día civil. `sourceId` = detalle de una fuente |
+| `GET` | `/documents/:id` | Texto extraído de una página (`extractedText`, no HTML crudo) |
 
 `GET /documents/progress` es ruta estática; no usar `GET /documents/:id` con id `progress`.
 
@@ -84,6 +86,7 @@ Pintar: **nombre + badge `label` + `headline`**. Mostrar `note` si el contenido 
 | `READY_FOR_AI` | `ready` | Texto listo |
 | solo `DEDUPED` | `unchanged` | Sin cambios (ya registrada) |
 | umbral / captcha | `unread` | Rastreada, sin texto usable |
+| PDF escaneado (imagen, sin capa de texto) | `unread` | Rastreada, sin texto usable — `note` dice que es PDF escaneado; el archivo sí está guardado. OCR no está en este sprint |
 | error técnico | `failed` | No se pudo extraer |
 
 `headline`: ~80 caracteres del preview de texto, no HTML. No hay `contentHash`, paths ni `canonicalDocumentId`.
@@ -104,8 +107,9 @@ En `unchanged`, `headline` es el texto que ya teníamos (no HTML) y `note` aclar
 | Ruta | Para |
 |------|------|
 | `GET /jobs/runs` | Historial técnico (intentos, claves, paths) |
-| `GET /documents` / `GET /documents/:id` | Ficha de pipeline |
-| `POST /jobs/crawl` | Botón ADMIN “Rastrear ahora” |
+| `POST /jobs/crawl` | Botón ADMIN “Rastrear ahora” / “Poner a rastrear” |
 | `POST /documents/:id/reprocess` | Reintento ADMIN |
+
+`GET /documents` y `GET /documents/:id` **sí** van en el dashboard, en el **detalle de la fuente** (PDF / Word / HTML), no en el resumen ejecutivo.
 
 Clasificación / semáforo = Sprint 7.

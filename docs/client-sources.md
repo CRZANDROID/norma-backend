@@ -1,5 +1,7 @@
 # Relación clientes ↔ fuentes
 
+Nota corta de API. Contrato de UI: [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md). Índice: [README.md](./README.md).
+
 Relación **N:N** sin alterar el resto del modelo de `clients` / `sources` más allá de la tabla puente.
 
 ## Tabla puente

@@ -13,6 +13,7 @@ Contrato: [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md).
 | `JOBS_SCHEDULER` | No | En `development`/`test`: off salvo `true`. En prod: on salvo `false`. Cron cada minuto. |
 | `JOBS_CONCURRENCY` | No | `2` |
 | `CRAWL_MAX_BYTES` | No | `10000000` (10 MB). Homes de congresos a veces superan 2–3 MB. |
+| `CRAWL_MAX_PAGES` | No | `80` (máx. 80). Páginas HTML/PDF del mismo sitio por job, no solo la portada. |
 
 Redis local:
 
@@ -38,17 +39,39 @@ Storage: si hay `SUPABASE_*`, el crudo va al bucket; si no, a `data/crawl/` (git
 
 Lee fuentes `ACTIVE` cada minuto. Encola si el día (ISO 1=lunes…7=domingo) está en `scheduleWeekdays` y la hora local (`scheduleTimezone`) ya alcanzó `scheduleTime`. Idempotencia: `{sourceCode}:{YYYY-MM-DD}:scheduled`. `INACTIVE` se ignora.
 
-## Conectores piloto
+## Alcance del crawl (no solo la portada)
+
+Cada job parte de `Source.url` y **sigue links del mismo host** (con o sin `www`). Prioriza materia legislativa (`gaceta`, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs). No recorre redes sociales, login, assets, transmisiones en vivo ni portales de transparencia masivos.
+
+Tope: profundidad 2 y `CRAWL_MAX_PAGES` (default 80). Cada página/PDF/Word se guarda como documento propio y entra a extract. Los `.pdf` y `.doc`/`.docx` de un listado (orden del día, gaceta, DOF `nota_to_doc`) se encolan con prioridad sobre el menú HTML. `meta.json` del job se descarta del pipeline.
+
+No es un spider de todo el sitio: si hace falta otra sección, súbela al `url` de la fuente o a `sections` (se usan como pistas de ranking).
+
+## Conectores piloto (ACTIVE en seed)
 
 | `Source.code` | Origen |
 |---------------|--------|
 | `dof` | DOF |
 | `diputados-gaceta` | Gaceta Diputados |
 | `jalisco-congreso` | Congreso de Jalisco |
+| `congreso-agu` | Congreso de Aguascalientes |
+| `congreso-bcn` | Congreso de Baja California |
+| `congreso-bcs` | Congreso de Baja California Sur |
+| `congreso-cam` | Congreso de Campeche |
+| `congreso-chh` | Congreso de Chihuahua |
 
-Otras `ACTIVE` con URL usan el conector HTTP genérico (GET de `Source.url`). Errores se loguean con `sourceId` / `sourceCode` y `errorCode` (`NETWORK` retryable; `PARSE`/`AUTH` no).
+Otras `ACTIVE` con URL usan el mismo crawl HTTP genérico. Errores se loguean con `sourceId` / `sourceCode` y `errorCode` (`NETWORK` retryable; `PARSE`/`AUTH` no). Si una página interna falla, el job sigue con las demás; si falla la URL de arranque, el job falla.
 
-Si un crawl falla con **Respuesta demasiado grande**, el body crudo superó `CRAWL_MAX_BYTES`. Sube el tope en `.env` o apunta `Source.url` a una sección más liviana (gaceta / iniciativas), no solo la home. Tras cambiar el tope, vuelve a **Rastrear ahora** (ADMIN): el scheduler no reintenta `FAILED` el mismo día.
+Familias de fallo (no se repara URL a URL ni con LLM):
+
+- **PDF en endpoint de descarga** (`/Home/Download?filename=….pdf`, `octet-stream`): se detecta por magic bytes `%PDF`, query o `Content-Disposition`; se guarda y extrae como PDF (`unpdf`), no como HTML.
+- **Word (`.doc` / `.docx`)**: p. ej. DOF `nota_to_doc.php` (`application/msword`, magic OLE `d0cf11e0`). Se guarda y extrae como Word, no como HTML.
+- **PDF escaneado:** el crawl guarda el archivo; extract falla a propósito con “PDF escaneado” (imagen, sin capa de texto). No es un bug de rastreo; OCR no está en este sprint.
+- **Cuerpo vacío / frameset sin contenido:** se omite esa página (`stats.skipped`); no tumba el job entero (`Archivo vacío` en storage).
+- **XML:** entra a extract (mismo strip de tags).
+- **TLS de sitios de gobierno:** un reintento con verificación de certificado relajada (solo esa URL; log `crawl TLS laxo`). Redes sociales, players en vivo (`/transmision-en-vivo`, YouTube, `.mp4`) y portales de transparencia masivos siguen fuera del crawl HTTP. Un tema WordPress con CSS de recaptcha no se marca como captcha si hay texto/PDF visible.
+
+Si un crawl falla con **Respuesta demasiado grande**, el body crudo superó `CRAWL_MAX_BYTES`. Sube el tope en `.env`. Tras cambiar el tope, vuelve a **Rastrear ahora** (ADMIN): el scheduler no reintenta `FAILED` el mismo día.
 
 ## API
 
@@ -95,10 +118,23 @@ Resumen ejecutivo: **una fila por fuente**, último crawl del día civil (`Ameri
 ## Paths
 
 ```text
-raw/{sourceCode}/{yyyy}/{mm}/{dd}/{idempotencyKey}/attempt-{n}/page.html
+raw/{sourceCode}/{yyyy}/{mm}/{dd}/{idempotencyKey}/attempt-{n}/doc-00-{hash}.html
+raw/{sourceCode}/{yyyy}/{mm}/{dd}/{idempotencyKey}/attempt-{n}/doc-01-{hash}.pdf
 raw/{sourceCode}/{yyyy}/{mm}/{dd}/{idempotencyKey}/attempt-{n}/meta.json
 ```
+
+## Vaciar rastreo de prueba (local)
+
+Borra documentos de crawl y `job_runs` (no toca fuentes ni usuarios). También vacía `data/crawl/` y las colas Redis.
+
+```bash
+pnpm exec tsx prisma/reset-crawl.ts
+```
+
+Luego **Rastrear ahora** / **Rastrear todas** (ADMIN). Sin esto, un crawl `SUCCESS` del mismo día no se vuelve a encolar.
 
 ## Qué no hace S5
 
 Extract/normalize/dedup es Sprint 6: [document-processing.md](./document-processing.md). Tampoco clasificación OpenAI (S7), email/WhatsApp, ni scrapers de fuentes `INACTIVE`.
+
+**Redes y multimedia sí son del MVP**, pero **no de este spider.** YouTube / X / Facebook van como conectores de plataforma después de S7: [PRODUCT.md](./PRODUCT.md) § Conectores social / multimedia. El HTTP no sigue `/transmision-en-vivo` ni timelines.

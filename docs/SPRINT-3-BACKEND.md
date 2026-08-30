@@ -1,5 +1,9 @@
 # NORMA — Sprint 3 Backend Brief
- 
+
+> **Histórico.** El CRUD S3 está hecho. **No uses este archivo como contrato actual.**  
+> Fuentes hoy: `jurisdiction` + `stateCode` + `schedule` — **no** `frequency` (el API responde 400).  
+> Contratos vivos: [README.md](./README.md) · [postman-pruebas.md](./postman-pruebas.md) · [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md) · [HANDOFF.md](./HANDOFF.md).
+
 **Sprint:** 3 — CRUD administrativo vertical  
 **Repo:** `norma-backend` (`backend-norma`)  
 **Stack:** NestJS + Express + Prisma + PostgreSQL (Supabase = DB) + JWT propio  

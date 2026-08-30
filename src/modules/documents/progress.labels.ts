@@ -23,7 +23,7 @@ export const DOCUMENT_PROGRESS_LABELS: Record<
 export const DOCUMENT_HEADLINE_MAX = 80;
 
 const UNREAD_ERROR_RE =
-  /umbral|captcha|vacío|sin texto visible|intersticial|too-short|HTML vacío/i;
+  /umbral|captcha|vacío|sin texto visible|intersticial|too-short|HTML vacío|escaneado/i;
 
 const TECHNICAL_EXTRACT_RE =
   /Extracción fallida|ECONNREFUSED|Storage|ENOENT|timeout|AxiosError/i;
@@ -114,6 +114,9 @@ export function documentProgressNote(
   }
 
   if (status === 'unread') {
+    if (lastError && /escaneado/i.test(lastError)) {
+      return 'Es un PDF escaneado (imagen). El archivo está guardado, pero no hay texto que extraer todavía.';
+    }
     if (lastError && /captcha|intersticial/i.test(lastError)) {
       return 'La página pidió verificación y no trajo texto usable.';
     }

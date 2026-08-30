@@ -1,4 +1,14 @@
+import { Agent, fetch as undiciFetch, type RequestInit } from 'undici';
 import { CrawlError } from '../types';
+import {
+  looksLikeDocxBuffer,
+  looksLikeOleDocBuffer,
+  looksLikePdfBuffer,
+  urlLooksLikePdf,
+  urlLooksLikeWord,
+} from '../document-text';
+
+export type SniffedCrawlExt = 'pdf' | 'doc' | 'docx' | 'xml' | 'json' | 'html';
 
 export type FetchedPage = {
   url: string;
@@ -13,7 +23,55 @@ const DEFAULT_TIMEOUT_MS = 25_000;
 /** Tope por defecto: homes de congresos estatales a veces pasan de 2–3 MB. */
 export const DEFAULT_MAX_BYTES = 10_000_000;
 const USER_AGENT =
-  'NORMA-piloto/0.6 (monitoreo regulatorio; crawl de catálogo oficial)';
+  'NORMA-piloto/0.7 (monitoreo regulatorio; crawl de catálogo oficial)';
+
+const TLS_ERROR_RE =
+  /certificate|unable to verify|UNABLE_TO_VERIFY|CERT_|ERR_TLS|self.signed|ssl|tls/i;
+
+let laxTlsAgent: Agent | null = null;
+
+function getLaxTlsAgent(): Agent {
+  laxTlsAgent ??= new Agent({
+    connect: { rejectUnauthorized: false },
+  });
+  return laxTlsAgent;
+}
+
+function isTlsFailure(message: string): boolean {
+  return TLS_ERROR_RE.test(message);
+}
+
+function errorChainText(err: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = err;
+  for (let i = 0; i < 6 && current; i += 1) {
+    if (current instanceof Error) {
+      parts.push(current.message);
+      if ('code' in current && typeof current.code === 'string') {
+        parts.push(current.code);
+      }
+      current = current.cause;
+      continue;
+    }
+    parts.push(String(current));
+    break;
+  }
+  return parts.join(' ');
+}
+
+function isHardNetworkFailure(message: string): boolean {
+  return /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|AbortError|aborted|UND_ERR_(CONNECT|HEADERS|BODY)_TIMEOUT|timeout/i.test(
+    message,
+  );
+}
+
+function shouldRetryWithLaxTls(err: unknown): boolean {
+  const text = errorChainText(err);
+  if (isTlsFailure(text)) {
+    return true;
+  }
+  return /fetch failed/i.test(text) && !isHardNetworkFailure(text);
+}
 
 function classifyHttp(status: number): CrawlError {
   if (status === 429) {
@@ -105,19 +163,36 @@ export async function fetchPage(
   const maxBytes = resolveMaxBytes(options.maxBytes);
   const fetchedAt = new Date().toISOString();
 
+  const requestInit: RequestInit = {
+    method: 'GET',
+    redirect: 'follow',
+    signal: AbortSignal.timeout(timeoutMs),
+    headers: {
+      Accept:
+        'text/html,application/xhtml+xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/xml,*/*;q=0.8',
+      'User-Agent': USER_AGENT,
+    },
+  };
+
   let response: Response;
   try {
-    response = await fetch(url, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(timeoutMs),
-      headers: {
-        Accept: 'text/html,application/xhtml+xml,application/pdf,*/*;q=0.8',
-        'User-Agent': USER_AGENT,
-      },
-    });
+    try {
+      response = (await undiciFetch(url, requestInit)) as unknown as Response;
+    } catch (err) {
+      if (!shouldRetryWithLaxTls(err)) {
+        throw err;
+      }
+      // Sitios de gobierno con cadena TLS incompleta; no se desactiva TLS en el resto del crawl.
+      console.warn(
+        `crawl TLS laxo url=${url} reason=${errorChainText(err).slice(0, 200)}`,
+      );
+      response = (await undiciFetch(url, {
+        ...requestInit,
+        dispatcher: getLaxTlsAgent(),
+      })) as unknown as Response;
+    }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorChainText(err) || String(err);
     throw new CrawlError(`Fallo de red: ${message}`, 'NETWORK', true);
   }
 
@@ -126,30 +201,129 @@ export async function fetchPage(
   }
 
   const body = await readBodyWithLimit(response, maxBytes);
-
-  const contentType =
+  const finalUrl = response.url || url;
+  const disposition = filenameFromContentDisposition(
+    response.headers.get('content-disposition'),
+  );
+  const headerType =
     response.headers.get('content-type')?.split(';')[0]?.trim() ||
     'application/octet-stream';
+  const sniffed = sniffCrawlExtension({
+    contentType: headerType,
+    url: finalUrl,
+    filename: disposition,
+    body,
+  });
 
   return {
     url,
-    finalUrl: response.url || url,
+    finalUrl,
     statusCode: response.status,
-    contentType,
+    contentType: contentTypeForSniff(sniffed, headerType),
     body,
     fetchedAt,
   };
 }
 
-export function pageFilename(contentType: string): string {
-  if (contentType.includes('pdf')) {
-    return 'page.pdf';
+function filenameFromContentDisposition(header: string | null): string | undefined {
+  if (!header) {
+    return undefined;
   }
-  if (contentType.includes('json')) {
-    return 'page.json';
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+  const quoted = /filename="([^"]+)"/i.exec(header);
+  const plain = /filename=([^;]+)/i.exec(header);
+  const raw = (star?.[1] || quoted?.[1] || plain?.[1] || '').trim();
+  if (!raw) {
+    return undefined;
   }
-  if (contentType.includes('xml')) {
-    return 'page.xml';
+  try {
+    return decodeURIComponent(raw.replace(/^['"]|['"]$/g, ''));
+  } catch {
+    return raw.replace(/^['"]|['"]$/g, '');
   }
-  return 'page.html';
+}
+
+export function contentTypeForSniff(
+  sniffed: SniffedCrawlExt,
+  headerType: string,
+): string {
+  if (sniffed === 'pdf') {
+    return 'application/pdf';
+  }
+  if (sniffed === 'doc') {
+    return 'application/msword';
+  }
+  if (sniffed === 'docx') {
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  if (sniffed === 'xml') {
+    return headerType.toLowerCase().includes('xml')
+      ? headerType
+      : 'application/xml';
+  }
+  if (sniffed === 'json') {
+    return headerType.toLowerCase().includes('json')
+      ? headerType
+      : 'application/json';
+  }
+  return headerType;
+}
+
+export function sniffCrawlExtension(params: {
+  contentType: string;
+  url?: string;
+  filename?: string;
+  body?: Buffer;
+}): SniffedCrawlExt {
+  const type = (params.contentType || '').toLowerCase();
+  const name = (params.filename || '').toLowerCase();
+  if (
+    type.includes('pdf') ||
+    name.endsWith('.pdf') ||
+    looksLikePdfBuffer(params.body) ||
+    urlLooksLikePdf(params.url)
+  ) {
+    return 'pdf';
+  }
+  if (
+    looksLikeDocxBuffer(params.body) ||
+    name.endsWith('.docx') ||
+    type.includes('wordprocessingml') ||
+    type.includes('officedocument.word') ||
+    /\.docx(?:$|\?|&)/i.test(params.url || '')
+  ) {
+    return 'docx';
+  }
+  if (
+    looksLikeOleDocBuffer(params.body) ||
+    name.endsWith('.doc') ||
+    type.includes('msword') ||
+    urlLooksLikeWord(params.url)
+  ) {
+    return 'doc';
+  }
+  if (type.includes('json') || name.endsWith('.json')) {
+    return 'json';
+  }
+  if (
+    type.includes('xml') ||
+    name.endsWith('.xml') ||
+    /\.xml(?:$|\?)/i.test(params.url || '')
+  ) {
+    return 'xml';
+  }
+  return 'html';
+}
+
+export function pageFilename(
+  contentType: string,
+  hints: { url?: string; filename?: string; body?: Buffer } = {},
+): string {
+  const ext = sniffCrawlExtension({
+    contentType,
+    url: hints.url,
+    filename: hints.filename,
+    body: hints.body,
+  });
+  return `page.${ext}`;
 }

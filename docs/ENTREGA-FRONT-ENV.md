@@ -1,7 +1,10 @@
 # Entrega — qué hicimos, qué cambia el front, qué va en `.env`
 
+> **Snapshot 2026-08-18.** Útil para `.env`, Redis en Render y CORS.  
+> Estado vivo: [HANDOFF.md](./HANDOFF.md). Índice: [README.md](./README.md).  
+> **S6 (extract/normalize/dedup) ya está en API** — ver [document-processing.md](./document-processing.md) y [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
+
 **Audiencia:** backend local + agente/dev de `norma-frontend`.  
-**Fecha:** 2026-08-18.  
 **Repo de API:** `norma-backend` (este). El front es **otro** repositorio.
 
 Auth en todas las rutas de negocio: `Authorization: Bearer <accessToken>` de `POST /auth/login`.  
@@ -24,7 +27,7 @@ Contratos detallados (si hace falta el shape completo):
 
 - Fuentes: `jurisdiction` (`FEDERAL` | `STATE`) + `stateCode` (ISO 3166-2:MX). FEDERAL ⇒ `stateCode` null.
 - Disparador de rastreo: `schedule: { time, timezone, weekdays }` (1=lunes … 7=domingo). **Se eliminó `frequency`** (mandarlo → 400).
-- Catálogo seed: 32 congresos (solo **Jalisco** `ACTIVE` para crawl piloto) + federales `dof` y `diputados-gaceta`. INACTIVE: Senado, mañanera, COFEPRIS, PROFECO.
+- Catálogo seed: 32 congresos (ACTIVE: AGU, BC, BCS, Campeche, Chihuahua, Jalisco) + federales `dof` y `diputados-gaceta`. INACTIVE: Senado, mañanera, COFEPRIS, PROFECO. Estado vivo: [HANDOFF.md](./HANDOFF.md).
 - Campos de matriz: `searchFocus` (`string[]`, igual que `keywordsGuide`; `[]` vacío válido), `notes`.
 - Entrega 1:1 por cliente: canales email/WhatsApp (WhatsApp **no envía**), horario de entrega, 4 acciones de semáforo (`suggestedAction`).
 - Rutas: `GET/PATCH /clients/:id/delivery`. `delivery` también anidado en create/PATCH de cliente.
@@ -35,13 +38,13 @@ Contratos detallados (si hace falta el shape completo):
 - `POST /ai/ask` → pregunta sobre clientes/perfiles/fuentes **ya guardados**. **No clasifica normas** (eso es Sprint 7).
 - Sin `OPENAI_API_KEY` → `503`. No-ADMIN: el contexto se filtra por memberships.
 
-### Bloque 2 — Crawl Sprint 5 (recién en API)
+### Bloque 2 — Crawl Sprint 5 (en API)
 
 - Redis + BullMQ, cola `source.crawl`, worker en el mismo proceso Nest.
 - Scheduler: fuentes `ACTIVE` según `schedule` (hora + días + zona). `INACTIVE` se ignora.
 - Conectores piloto: `dof`, `diputados-gaceta`, `jalisco-congreso` (guardan HTML/PDF **crudo**).
 - Tabla `job_runs`. Sin `REDIS_URL` → `POST /jobs/crawl` 503.
-- **No** extract/normalize (S6), **no** findings, **no** email.
+- Crawl crudo + **extract/normalize S6** (ya en API). **No** findings ni email (S7–S8).
 
 Migraciones a aplicar si el entorno aún no las tiene:
 
@@ -294,7 +297,7 @@ Solo lo que el **browser** necesita para hablar con Nest. Nombres típicos (ajus
 Swagger: `http://localhost:3000/docs` (Authorize con el JWT).
 
 1. `POST /auth/login` → token.
-2. `GET /sources?status=ACTIVE` → `dof`, `diputados-gaceta`, `jalisco-congreso` + `schedule`.
+2. `GET /sources?status=ACTIVE` → `dof`, `diputados-gaceta`, congresos ACTIVE + `schedule`.
 3. `GET /clients` → Arca con `sources` y `deliveryConfig`.
 4. `GET /ai/status` → si configured, `POST /ai/ask`.
 5. `GET /jobs/status` → si configured, `POST /jobs/crawl` `{ "sourceCode": "dof" }` y `GET /jobs/runs`.
@@ -303,6 +306,6 @@ Postman: [postman-pruebas.md](./postman-pruebas.md).
 
 ---
 
-## 5. Fuera de esta entrega
+## 5. Fuera de esta entrega (S7–S8)
 
-Sprint 6 (extract/normalize), Sprint 7 (clasificación), Sprint 8 (inbox + email). El front no debe diseñar esas pantallas como si la API ya existiera.
+Sprint 7 (clasificación / semáforo sobre `READY_FOR_AI`), Sprint 8 (inbox + email). S6 ya está cableado: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).

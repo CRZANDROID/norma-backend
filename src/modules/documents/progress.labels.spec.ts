@@ -37,6 +37,12 @@ describe('document progress labels', () => {
     expect(
       mapDocumentPipelineStatus(
         DocumentProcessingStatus.FAILED,
+        'PDF escaneado: es una imagen y no tiene capa de texto. El archivo sí se guardó; OCR no está en este sprint.',
+      ),
+    ).toBe('unread');
+    expect(
+      mapDocumentPipelineStatus(
+        DocumentProcessingStatus.FAILED,
         'Extracción fallida: Storage timeout',
       ),
     ).toBe('failed');
@@ -48,6 +54,14 @@ describe('document progress labels', () => {
     );
     expect(documentProgressNote('unread', 'captcha')).toBe(
       'La página pidió verificación y no trajo texto usable.',
+    );
+    expect(
+      documentProgressNote(
+        'unread',
+        'PDF escaneado: es una imagen y no tiene capa de texto.',
+      ),
+    ).toBe(
+      'Es un PDF escaneado (imagen). El archivo está guardado, pero no hay texto que extraer todavía.',
     );
     expect(documentProgressNote('failed', 'boom')).toBe(
       'No se pudo extraer el texto.',

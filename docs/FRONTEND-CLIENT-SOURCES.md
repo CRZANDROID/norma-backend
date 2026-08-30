@@ -168,7 +168,7 @@ Esperado: `"configured": true`, `"redis": "up"`. Si falta `REDIS_URL` o Redis es
 | `POST` | `/jobs/crawl/all` | — |
 | `GET` | `/jobs/runs?sourceCode=dof&limit=20` | — |
 
-UI sugerida (detalle fuente o pantalla de operación): banner si `configured: false`; botón **Rastrear ahora** en fuentes `ACTIVE` → `POST /jobs/crawl`. No pintar el HTML crudo (eso es S6).
+UI sugerida (detalle fuente o pantalla de operación): banner si `configured: false`; botón **Rastrear ahora** en fuentes `ACTIVE` → `POST /jobs/crawl`. No pintar HTML crudo en esta pantalla (el texto va al registro documental: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)).
 
 Detalle: [jobs-crawl.md](./jobs-crawl.md) · entrega: [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) §2.5.
 
@@ -176,11 +176,13 @@ Detalle: [jobs-crawl.md](./jobs-crawl.md) · entrega: [ENTREGA-FRONT-ENV.md](./E
 
 ## Fuera de alcance de esta UI
 
-- Extraer / normalizar documentos (Sprint 6) y clasificación / inbox (Sprint 7–8)
-- Storage `/storage/*` (S4 infra; otra pantalla si hace falta)
+- Clasificación / inbox (Sprint 7–8)
+- Storage `/storage/*` (otra pantalla si hace falta)
 - Enviar correo o WhatsApp
 - Poner `REDIS_URL` / `OPENAI_API_KEY` / `DATABASE_URL` en el `.env` del front
 - Cambiar `slug` del cliente o `code` de fuente vía forms existentes (respetar reglas actuales del API)
+
+Panel de rastreo / extract: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
 
 ---
 

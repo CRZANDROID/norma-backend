@@ -16,14 +16,18 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { ArtifactStore } from './artifact-store';
 import { getConnector } from './connectors/registry';
+import { isLiveMediaUrl } from './connectors/discover-links';
 import { DocumentJobsProducer } from './document-jobs.producer';
 import {
   isExtractableCrawlFile,
+  isFramesetShell,
   isMetaCrawlFilename,
+  looksLikePdfBuffer,
 } from './document-text';
 import { SOURCE_CRAWL_QUEUE } from './types';
 import { CrawlError } from './types';
 import type {
+  SourceCrawlArtifact,
   SourceCrawlFailure,
   SourceCrawlJob,
   SourceCrawlResult,
@@ -146,33 +150,75 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
 
     try {
       const connector = getConnector(source.code);
-      const fetched = await connector.crawl(source);
+      const pages = await connector.crawl(source);
       const meta = {
         connector: connector.label,
         connectorCode: connector.code,
-        fetchedAt: fetched.page.fetchedAt,
-        url: fetched.page.url,
-        finalUrl: fetched.page.finalUrl,
-        statusCode: fetched.page.statusCode,
-        contentType: fetched.page.contentType,
+        fetchedAt: new Date().toISOString(),
+        startUrl: source.url,
+        pageCount: pages.length,
+        urls: pages.map((item) => item.page.finalUrl),
         searchFocus: source.searchFocus,
         notes: source.notes,
         sections: source.sections,
         sourceName: source.name,
       };
 
-      const pageArtifact = await this.artifacts.saveRaw({
-        sourceId: source.id,
-        sourceCode: source.code,
-        timeZone: source.scheduleTimezone,
-        idempotencyKey: payload.idempotencyKey,
-        attempt,
-        filename: fetched.filename,
-        buffer: fetched.page.body,
-        contentType: fetched.page.contentType,
-        externalRef: fetched.page.finalUrl,
-        metadata: meta,
-      });
+      const artifacts: SourceCrawlArtifact[] = [];
+      let skipped = 0;
+      for (const fetched of pages) {
+        if (!fetched.page.body?.length) {
+          skipped += 1;
+          this.logger.log(
+            `crawl skip empty source=${source.code} url=${fetched.page.finalUrl}`,
+          );
+          continue;
+        }
+        if (isLiveMediaUrl(fetched.page.finalUrl || fetched.page.url)) {
+          skipped += 1;
+          this.logger.log(
+            `crawl skip live-media source=${source.code} url=${fetched.page.finalUrl}`,
+          );
+          continue;
+        }
+        if (
+          !looksLikePdfBuffer(fetched.page.body) &&
+          isFramesetShell(fetched.page.body.toString('utf8'))
+        ) {
+          skipped += 1;
+          this.logger.log(
+            `crawl skip frameset source=${source.code} url=${fetched.page.finalUrl}`,
+          );
+          continue;
+        }
+        const pageArtifact = await this.artifacts.saveRaw({
+          sourceId: source.id,
+          sourceCode: source.code,
+          timeZone: source.scheduleTimezone,
+          idempotencyKey: payload.idempotencyKey,
+          attempt,
+          filename: fetched.filename,
+          buffer: fetched.page.body,
+          contentType: fetched.page.contentType,
+          externalRef: fetched.page.finalUrl,
+          metadata: {
+            ...meta,
+            url: fetched.page.url,
+            finalUrl: fetched.page.finalUrl,
+            statusCode: fetched.page.statusCode,
+            contentType: fetched.page.contentType,
+          },
+        });
+        artifacts.push(pageArtifact);
+        await this.enqueueDocumentExtract({
+          filename: fetched.filename,
+          contentType: fetched.page.contentType,
+          url: fetched.page.finalUrl,
+          buffer: fetched.page.body,
+          artifact: pageArtifact,
+          jobRunId: payload.jobId,
+        });
+      }
 
       const metaArtifact = await this.artifacts.saveRaw({
         sourceId: source.id,
@@ -183,16 +229,21 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
         filename: 'meta.json',
         buffer: Buffer.from(`${JSON.stringify(meta, null, 2)}\n`),
         contentType: 'application/json',
-        externalRef: fetched.page.finalUrl,
+        externalRef: source.url ?? pages[0]?.page.finalUrl,
         metadata: { kind: 'raw-crawl-meta' },
       });
+      artifacts.push(metaArtifact);
 
       const result: SourceCrawlResult = {
         ok: true,
         jobId: payload.jobId,
         sourceId: source.id,
-        artifacts: [pageArtifact, metaArtifact],
-        stats: { fetched: 1, saved: 2, skipped: 0 },
+        artifacts,
+        stats: {
+          fetched: pages.length,
+          saved: artifacts.length,
+          skipped,
+        },
         finishedAt: new Date().toISOString(),
       };
 
@@ -208,15 +259,8 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
       });
 
       this.logger.log(
-        `crawl ok source=${source.code} saved=${result.stats.saved} path=${pageArtifact.storagePath}`,
+        `crawl ok source=${source.code} pages=${pages.length} saved=${result.stats.saved}`,
       );
-
-      await this.enqueueDocumentExtract({
-        filename: fetched.filename,
-        contentType: fetched.page.contentType,
-        artifact: pageArtifact,
-        jobRunId: payload.jobId,
-      });
 
       return result;
     } catch (err) {
@@ -267,6 +311,8 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
   private async enqueueDocumentExtract(params: {
     filename: string;
     contentType: string;
+    url?: string;
+    buffer?: Buffer;
     artifact: { documentId?: string; storagePath: string };
     jobRunId: string;
   }) {
@@ -277,7 +323,12 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
     if (isMetaCrawlFilename(params.filename)) {
       return;
     }
-    if (!isExtractableCrawlFile(params.filename, params.contentType)) {
+    if (
+      !isExtractableCrawlFile(params.filename, params.contentType, {
+        url: params.url,
+        buffer: params.buffer,
+      })
+    ) {
       this.logger.log(
         `extract skip unsupported file=${params.filename} type=${params.contentType}`,
       );

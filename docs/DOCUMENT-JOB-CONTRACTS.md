@@ -1,8 +1,8 @@
 # Contratos de documentos y jobs de ingesta (Sprint 4 → 5)
 
 **Issue:** `S4: Document contracts for documents and ingestion jobs` (#14)  
-**Estado:** contrato + **S5 implementado** (`src/jobs/`, cola `source.crawl`, tabla `job_runs`).  
-**Operación S5:** [jobs-crawl.md](./jobs-crawl.md).
+**Estado:** contrato + **S5 y S6 implementados** (`source.crawl`, `document.extract`, `document.normalize_dedup`).  
+**Operación S5:** [jobs-crawl.md](./jobs-crawl.md). **S6:** [document-processing.md](./document-processing.md).
 
 Relacionado:
 
@@ -22,7 +22,7 @@ Relacionado:
 
 ---
 
-## 2. Modelo actual vs pipeline futuro
+## 2. Modelo actual vs S7+
 
 ### Hoy (schema / API, S6 implementado)
 
@@ -250,6 +250,6 @@ clients/{clientId}/...   // si query clientId
 3. [x] Worker escribe artifacts (Supabase Storage o `data/crawl/`) + `job_runs`
 4. [x] Tabla `job_runs` (migración `20260818150000_job_runs`)
 5. [x] `idempotencyKey` (`{code}:{fecha}:scheduled` | `:admin`)
-6. [x] Conectores piloto DOF, Diputados, Jalisco (GET crudo; HTTP genérico para otras ACTIVE)
+6. [x] Conectores HTTP: mismo sitio hasta `CRAWL_MAX_PAGES` (gaceta/iniciativas/notas/PDF), no solo GET de la home
 
 **Siguiente:** Sprint 6 extract/normalize/dedup — **hecho:** [document-processing.md](./document-processing.md).

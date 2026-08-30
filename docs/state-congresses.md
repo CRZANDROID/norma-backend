@@ -17,8 +17,8 @@ Fuente: matriz operativa de fuentes (VCGA). Seed: `prisma/data/state-congresses.
 
 **32 congresos** (`jalisco-congreso` conserva el code histórico).
 
-- **ACTIVE (crawl piloto S5):** solo Jalisco (diario, lun–vie).
-- **INACTIVE:** los otros 31. Alta prioridad en matriz (diario, aún inactivos): CDMX, Edomex, NL, Oaxaca, Veracruz. El resto: lun-mié-vie.
+- **ACTIVE (crawl):** Aguascalientes, Baja California, Baja California Sur, Campeche, Chihuahua, Jalisco.
+- **INACTIVE:** los otros 26. Alta prioridad en matriz (diario, aún inactivos): CDMX, Edomex, NL, Oaxaca, Veracruz. El resto: lun-mié-vie.
 
 **Federales ACTIVE:** `dof`, `diputados-gaceta`.
 

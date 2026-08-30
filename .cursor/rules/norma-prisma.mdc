@@ -31,4 +31,4 @@ alwaysApply: false
 
 ## Seed
 
-`prisma/seed.ts` debe ser idempotente (`upsert`). Piloto: Arca + DOF + Diputados ACTIVE; 32 congresos (solo Jalisco ACTIVE); Senado/mañanera/COFEPRIS/PROFECO INACTIVE.
+`prisma/seed.ts` debe ser idempotente (`upsert`). Piloto: Arca + DOF + Diputados ACTIVE; congresos ACTIVE: AGU, BC, BCS, Campeche, Chihuahua, Jalisco; Senado/mañanera/COFEPRIS/PROFECO INACTIVE hasta conector. YouTube/X/Facebook son MVP (no activar en seed sin conector de plataforma).

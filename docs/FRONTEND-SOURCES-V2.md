@@ -38,7 +38,7 @@
 ```
 
 Fuentes federales (`dof`, `diputados-gaceta`): `"jurisdiction": "FEDERAL"`, `"stateCode": null`.  
-Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`.
+Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`. `platform` `YOUTUBE` / `X` / `FACEBOOK` es **MVP obligatorio** (conectores aparte, no el crawl WEB): [PRODUCT.md](./PRODUCT.md).
 
 ## Enums
 
@@ -110,7 +110,7 @@ Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profec
 
 `searchFocus` y `keywordsGuide` son el mismo tipo (`string[]`). Omitir = no tocar; `[]` = vaciar. No mandar `null`.
 
-El seed carga **32 congresos** (solo Jalisco `ACTIVE`). Ver [state-congresses.md](./state-congresses.md).
+El seed carga **32 congresos**. ACTIVE de crawl: AGU, BC, BCS, Campeche, Chihuahua, Jalisco. Ver [state-congresses.md](./state-congresses.md).
 
 ## UI sugerida
 

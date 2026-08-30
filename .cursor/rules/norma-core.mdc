@@ -19,19 +19,15 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 - Multi-tenant por `Client` + `ClientMembership`. `ADMIN` ve todo.
 - Clientes ↔ fuentes: N:N (`client_sources`). UI guide: `docs/FRONTEND-CLIENT-SOURCES.md`.
 - No agregar Resend/scrapers extra fuera del sprint que los consume.
-- Redis/BullMQ de crawl (`POST /jobs/crawl`) está permitido; extract/normalize = Sprint 6.
+- Redis/BullMQ de crawl (`POST /jobs/crawl`) y extract/normalize S6 están permitidos.
+- Crawl: mismo host, links legislativos, tope `CRAWL_MAX_PAGES` — no solo la portada. No redes ni players en vivo. Detalle: `docs/jobs-crawl.md`.
+- Conectores YouTube / X / Facebook son **MVP de contrato** (después de S7); no se implementan reciclando el crawl HTTP. Ver `docs/PRODUCT.md`.
 - OpenAI de catálogo (`POST /ai/ask`) está permitido; clasificación de normas = Sprint 7.
 - Conventional Commits; ramas `main` / `dev` / `feature/*`.
 - Secretos solo en `.env` (nunca commit).
 
 ## Sprint / foco actual
 
-- Backend S3 CRUD + client↔sources: **hecho** (API).
-- Sprint 4: Swagger `/docs` + e2e + contratos jobs (doc) hechos; verificar Sentry/Storage (#13) con secrets reales.
-- Frontend: wire fuentes (estado + disparador) y delivery — `docs/FRONTEND-SOURCES-V2.md`, `docs/FRONTEND-CLIENT-DELIVERY.md`.
-- Pre-S5 modelo: **hecho** (entidad federativa, schedule, 32 congresos catálogo, delivery/semáforo).
-- Bloque 1 OpenAI ask: **hecho** (`POST /ai/ask`).
-- Sprint 5 crawl: **hecho** (Redis/BullMQ, `job_runs`, conectores DOF/Diputados/Jalisco).
-- Sprint 6 documentos: **hecho** (extract/normalize/dedup + `GET /documents`).
-- Panel ejecutivo: `GET /jobs/progress` + `GET /documents/progress` — [docs/FRONTEND-TRACKING.md](docs/FRONTEND-TRACKING.md).
-- Siguiente backend: S7 clasificación según `docs/DOCUMENT-JOB-CONTRACTS.md`.
+- S3–S6 **hechos** (CRUD, crawl, documentos, panel `progress`).
+- Siguiente backend: S7 clasificación según `docs/DOCUMENT-JOB-CONTRACTS.md`. Luego conectores YouTube/X (MVP).
+- Índice de docs: [docs/README.md](docs/README.md).
