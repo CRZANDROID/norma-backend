@@ -31,3 +31,4 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 - S3–S6 **hechos** (CRUD, crawl, documentos, panel `progress`).
 - Siguiente backend: S7 clasificación según `docs/DOCUMENT-JOB-CONTRACTS.md`. Luego conectores YouTube/X (MVP).
 - Índice de docs: [docs/README.md](docs/README.md).
+- Local Docker (API + Redis, DB = Supabase): `docs/docker.md`.

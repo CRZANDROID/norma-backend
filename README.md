@@ -134,6 +134,7 @@ Reglas:
 - Migraciones en staging/prod: `pnpm prisma:deploy`.
 - Detalle de Sentry + Storage: [docs/sentry-storage.md](docs/sentry-storage.md).
 - Índice de docs: [docs/README.md](docs/README.md).
+- Docker local (API + Redis): [docs/docker.md](docs/docker.md) — `docker compose up --build`. Postgres/Storage = Supabase.
 - Deploy en Render: [docs/render-deploy.md](docs/render-deploy.md) (**Start Command** = `yarn start:prod`, no `yarn start` / `nest start`).
 
 ### Tablero

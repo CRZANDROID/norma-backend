@@ -37,9 +37,12 @@ src/modules/{auth,clients,sources,users,storage,ai,documents}/
 src/jobs/                 # Redis/BullMQ source.crawl + document.extract/normalize_dedup
 src/common/swagger.ts
 prisma/schema.prisma
+Dockerfile
+docker-compose.yml
 test/*e2e-spec.ts
 docs/HANDOFF.md
 docs/README.md
+docs/docker.md
 .cursor/rules/
 ```
 

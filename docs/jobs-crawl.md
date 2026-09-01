@@ -18,7 +18,10 @@ Contrato: [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md).
 Redis local:
 
 ```bash
-# Docker
+# API + Redis juntos (Postgres sigue en Supabase): ver docker.md
+docker compose up --build
+
+# Solo Redis, Nest en el host
 docker run --rm -p 6379:6379 redis:7-alpine
 
 # Windows sin Docker
@@ -28,6 +31,8 @@ redis-server --bind 127.0.0.1 --port 6379
 ```env
 REDIS_URL=redis://127.0.0.1:6379
 ```
+
+Con `docker compose`, no uses esa URL dentro del contenedor: Compose pisa `REDIS_URL=redis://redis:6379`. Detalle: [docker.md](./docker.md).
 
 En **Render**: no uses Docker. Crea **New → Key Value** (misma región), copia la **Internal URL** y pégala como `REDIS_URL` en el Web Service. Paso a paso: [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) (Redis en Render) y [render-deploy.md](./render-deploy.md).
 

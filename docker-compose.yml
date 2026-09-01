@@ -1,0 +1,45 @@
+# API Nest + Redis (BullMQ). Postgres y Storage siguen en Supabase.
+# Uso: docker compose up --build
+# REDIS_URL del .env (127.0.0.1) se pisa aquí: dentro del contenedor 127.0.0.1 es el propio api.
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      # El .env local puede traer PORT=3001; Compose publica 3000:3000.
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data/crawl:/app/data/crawl
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+
+volumes:
+  redis-data:

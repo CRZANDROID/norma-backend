@@ -1,4 +1,4 @@
-# HANDOFF — Estado NORMA Backend (2026-08-30)
+# HANDOFF — Estado NORMA Backend (2026-09-01)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
 Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de trabajo.  
@@ -55,6 +55,7 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | Registro documental S6 | [document-processing.md](./document-processing.md) |
 | Entrega front + `.env` (snapshot) | [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) |
 | Sentry/Storage | [sentry-storage.md](./sentry-storage.md) |
+| Docker (API + Redis) | [docker.md](./docker.md) |
 | Render | [render-deploy.md](./render-deploy.md) |
 
 ---
@@ -111,7 +112,9 @@ pnpm start:dev
 pnpm test:e2e
 ```
 
-`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY`. Para crawl: `REDIS_URL=redis://127.0.0.1:6379` (Redis debe estar escuchando). Windows sin Docker: `redis-server --bind 127.0.0.1 --port 6379`.
+`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY`. Para crawl en el host: `REDIS_URL=redis://127.0.0.1:6379` (Redis debe estar escuchando). Windows sin Docker: `redis-server --bind 127.0.0.1 --port 6379`.
+
+**Compose (API + Redis, DB = Supabase):** `docker compose up --build`. Compose pisa `REDIS_URL` a `redis://redis:6379` (dentro del contenedor `127.0.0.1` no es Redis). Guía: [docker.md](./docker.md).
 
 ---
 
@@ -147,4 +150,4 @@ pnpm test:e2e
 
 > Lee `docs/HANDOFF.md` §4. S7 clasificación sobre `READY_FOR_AI`. Conectores YouTube/X son **MVP** ([PRODUCT.md](./PRODUCT.md)); no van en el spider WEB. S6: `document-processing.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md` + `FRONTEND-TRACKING.md`.
 
-**Última actualización:** 2026-08-30 — conectores YouTube/X/Facebook = MVP obligatorio (no crawl HTTP); S7 sigue primero; crawl default 80.
+**Última actualización:** 2026-09-01 — Docker Compose (API + Redis; Postgres/Storage = Supabase).
