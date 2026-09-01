@@ -23,6 +23,10 @@ Extract no se fía solo del `Content-Type` ni de la extensión: un PDF servido c
 
 Un **PDF escaneado** (imagen, sin capa de texto) se guarda bien en crawl; extract queda `FAILED` con `lastError` que dice **PDF escaneado**. No es un fallo de rastreo y **no hay OCR en este sprint**. Reprocess no va a inventar texto.
 
+El texto extraído se limpia de bytes NUL (`0x00`) antes de Postgres: HTML/PDF/Word a veces los traen y el `document.update` fallaba con `invalid byte sequence for encoding UTF8`.
+
+Storage (Supabase) en un crawl de muchas páginas puede responder `Too many connections issued to the database` o `fetch failed`. El cliente reintenta esas subidas/bajadas y no abre más de 3 operaciones a la vez. Prisma limita el pool (`connection_limit=8` salvo `PRISMA_CONNECTION_LIMIT`). Si Chiapas quedó `FAILED` por Storage, **Rastrear ahora** de nuevo cuando baje la carga.
+
 Fuentes ACTIVE en seed: `dof`, `diputados-gaceta`, Jalisco, Aguascalientes, BC, BCS, Campeche, Chihuahua.
 
 ## Colas (mismo Redis que S5)

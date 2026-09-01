@@ -207,6 +207,11 @@ export function collapseWhitespace(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+/** Postgres UTF8 rechaza NUL (0x00) en text. PDFs/HTML/Word a veces lo traen. */
+export function sanitizePostgresText(text: string): string {
+  return text.replace(/\u0000/g, '').replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+}
+
 export function sha256Normalized(text: string): string {
   return createHash('sha256').update(collapseWhitespace(text), 'utf8').digest('hex');
 }
@@ -251,11 +256,25 @@ export function decodeBasicEntities(text: string): string {
     .replace(/&#39;/gi, "'")
     .replace(/&#(\d+);/g, (_, n: string) => {
       const code = Number(n);
-      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+      if (!Number.isFinite(code) || code === 0) {
+        return '';
+      }
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        return '';
+      }
     })
     .replace(/&#x([0-9a-f]+);/gi, (_, n: string) => {
       const code = Number.parseInt(n, 16);
-      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+      if (!Number.isFinite(code) || code === 0) {
+        return '';
+      }
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        return '';
+      }
     });
 }
 

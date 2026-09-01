@@ -7,6 +7,7 @@ import {
   isWordContent,
   looksLikeOleDocBuffer,
   looksLikePdfBuffer,
+  sanitizePostgresText,
   sha256Normalized,
   urlLooksLikePdf,
   urlLooksLikeWord,
@@ -40,7 +41,18 @@ describe('extractVisibleHtmlText', () => {
     const text = extractVisibleHtmlText('<p>A&nbsp;&amp;&nbsp;B</p>');
     expect(collapseWhitespace(text)).toBe('A & B');
   });
+
+  it('drops NUL entities so Postgres UTF8 does not reject the row', () => {
+    const text = extractVisibleHtmlText('<p>Decreto&#0; oficial</p>');
+    expect(text).toContain('Decreto');
+    expect(text).not.toContain('\u0000');
+  });
 });
+
+describe('sanitizePostgresText', () => {
+  it('strips NUL bytes from PDF/Word extract', () => {
+    expect(sanitizePostgresText('hola\u0000mundo')).toBe('holamundo');
+  });
 
 describe('sha256Normalized', () => {
   it('collapses whitespace so the same copy hashes equal', () => {

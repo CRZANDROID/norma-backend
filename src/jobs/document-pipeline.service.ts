@@ -13,6 +13,7 @@ import {
   extractWordText,
   isPdfContent,
   isWordContent,
+  sanitizePostgresText,
   sha256Normalized,
   validateExtractedText,
   type NormalizedDocumentFicha,
@@ -80,6 +81,7 @@ export class DocumentPipelineService {
         return this.markFailed(doc.id, doc.processingHistory, check.message);
       }
 
+      extracted = sanitizePostgresText(extracted);
       const extractedPath = derivedExtractedPath(doc.id);
       await this.storage.putObject({
         path: extractedPath,

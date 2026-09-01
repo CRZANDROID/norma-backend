@@ -114,11 +114,11 @@ Fuente de verdad del schema: `prisma/schema.prisma`.
 
 | Ambiente | Uso |
 |----------|-----|
-| development | Local (`localhost:3000`) |
+| development | Local (`localhost:3000`) o `docker compose` ([docker.md](./docker.md)) |
 | staging | Validación (TBD) |
 | production | Clientes (TBD) |
 
-Variables: ver `.env.example`. Secretos nunca en Git.
+Compose local: API + Redis; Postgres/Storage = Supabase (no hay Postgres en Compose). Variables: ver `.env.example`. Secretos nunca en Git.
 
 ## Documentación relacionada
 
@@ -126,4 +126,5 @@ Variables: ver `.env.example`. Secretos nunca en Git.
 - [PRODUCT.md](./PRODUCT.md)
 - [SPRINTS.md](./SPRINTS.md)
 - [HANDOFF.md](./HANDOFF.md)
+- [docker.md](./docker.md) — Compose API + Redis
 - [postman-pruebas.md](./postman-pruebas.md)

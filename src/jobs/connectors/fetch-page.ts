@@ -1,4 +1,6 @@
-import { Agent, fetch as undiciFetch, type RequestInit } from 'undici';
+import * as http from 'node:http';
+import * as https from 'node:https';
+import { URL } from 'node:url';
 import { CrawlError } from '../types';
 import {
   looksLikeDocxBuffer,
@@ -27,15 +29,7 @@ const USER_AGENT =
 
 const TLS_ERROR_RE =
   /certificate|unable to verify|UNABLE_TO_VERIFY|CERT_|ERR_TLS|self.signed|ssl|tls/i;
-
-let laxTlsAgent: Agent | null = null;
-
-function getLaxTlsAgent(): Agent {
-  laxTlsAgent ??= new Agent({
-    connect: { rejectUnauthorized: false },
-  });
-  return laxTlsAgent;
-}
+const MAX_REDIRECTS = 8;
 
 function isTlsFailure(message: string): boolean {
   return TLS_ERROR_RE.test(message);
@@ -112,6 +106,134 @@ function tooLargeError(bytes: number, maxBytes: number): CrawlError {
   );
 }
 
+const CRAWL_HEADERS = {
+  Accept:
+    'text/html,application/xhtml+xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/xml,*/*;q=0.8',
+  'User-Agent': USER_AGENT,
+};
+
+function incomingToHeaders(raw: http.IncomingHttpHeaders): Headers {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === undefined) {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        headers.append(key, item);
+      }
+    } else {
+      headers.set(key, value);
+    }
+  }
+  return headers;
+}
+
+function requestOnce(
+  targetUrl: string,
+  options: { timeoutMs: number; maxBytes: number; insecureTls: boolean },
+): Promise<{
+  statusCode: number;
+  headers: http.IncomingHttpHeaders;
+  body: Buffer;
+}> {
+  return new Promise((resolve, reject) => {
+    let parsed: URL;
+    try {
+      parsed = new URL(targetUrl);
+    } catch {
+      reject(new CrawlError(`URL inválida: ${targetUrl}`, 'PARSE', false));
+      return;
+    }
+
+    const isHttps = parsed.protocol === 'https:';
+    const lib = isHttps ? https : http;
+    const requestOptions: https.RequestOptions = {
+      protocol: parsed.protocol,
+      hostname: parsed.hostname,
+      port: parsed.port || (isHttps ? 443 : 80),
+      path: `${parsed.pathname}${parsed.search}`,
+      method: 'GET',
+      timeout: options.timeoutMs,
+      headers: {
+        ...CRAWL_HEADERS,
+        Host: parsed.host,
+      },
+    };
+    if (isHttps && options.insecureTls) {
+      requestOptions.agent = new https.Agent({ rejectUnauthorized: false });
+    }
+
+    const req = lib.request(requestOptions, (res) => {
+      const declared = Number(res.headers['content-length']);
+      if (Number.isFinite(declared) && declared > options.maxBytes) {
+        res.resume();
+        reject(tooLargeError(declared, options.maxBytes));
+        return;
+      }
+
+      const chunks: Buffer[] = [];
+      let total = 0;
+      res.on('data', (chunk: Buffer) => {
+        total += chunk.byteLength;
+        if (total > options.maxBytes) {
+          res.destroy();
+          reject(tooLargeError(total, options.maxBytes));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      res.on('end', () => {
+        resolve({
+          statusCode: res.statusCode ?? 0,
+          headers: res.headers,
+          body: Buffer.concat(chunks, total),
+        });
+      });
+      res.on('error', reject);
+    });
+
+    req.on('timeout', () => {
+      req.destroy(
+        Object.assign(new Error(`Timeout tras ${options.timeoutMs}ms`), {
+          code: 'ETIMEDOUT',
+        }),
+      );
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+/** Node 20: no cargar el paquete npm `undici` 8 (exige markAsUncloneable de Node 22). */
+async function fetchWithLaxTls(
+  url: string,
+  options: { timeoutMs: number; maxBytes: number },
+): Promise<Response> {
+  let current = url;
+  for (let i = 0; i <= MAX_REDIRECTS; i += 1) {
+    const result = await requestOnce(current, {
+      ...options,
+      insecureTls: true,
+    });
+    if (
+      result.statusCode >= 300 &&
+      result.statusCode < 400 &&
+      result.headers.location
+    ) {
+      current = new URL(String(result.headers.location), current).toString();
+      continue;
+    }
+    const response = new Response(new Uint8Array(result.body), {
+      status: result.statusCode || 200,
+      headers: incomingToHeaders(result.headers),
+    });
+    Object.defineProperty(response, 'url', { value: current });
+    return response;
+  }
+  throw new CrawlError('Demasiados redirects HTTP', 'NETWORK', true);
+}
+
 async function readBodyWithLimit(
   response: Response,
   maxBytes: number,
@@ -167,17 +289,13 @@ export async function fetchPage(
     method: 'GET',
     redirect: 'follow',
     signal: AbortSignal.timeout(timeoutMs),
-    headers: {
-      Accept:
-        'text/html,application/xhtml+xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/xml,*/*;q=0.8',
-      'User-Agent': USER_AGENT,
-    },
+    headers: CRAWL_HEADERS,
   };
 
   let response: Response;
   try {
     try {
-      response = (await undiciFetch(url, requestInit)) as unknown as Response;
+      response = await fetch(url, requestInit);
     } catch (err) {
       if (!shouldRetryWithLaxTls(err)) {
         throw err;
@@ -186,10 +304,7 @@ export async function fetchPage(
       console.warn(
         `crawl TLS laxo url=${url} reason=${errorChainText(err).slice(0, 200)}`,
       );
-      response = (await undiciFetch(url, {
-        ...requestInit,
-        dispatcher: getLaxTlsAgent(),
-      })) as unknown as Response;
+      response = await fetchWithLaxTls(url, { timeoutMs, maxBytes });
     }
   } catch (err) {
     const message = errorChainText(err) || String(err);

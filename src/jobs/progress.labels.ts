@@ -36,6 +36,9 @@ export function crawlFailNote(
   if (trimmed && /demasiado grande/i.test(trimmed)) {
     return 'La página de la fuente es demasiado pesada para el rastreo actual.';
   }
+  if (trimmed && /certificado TLS|UNABLE_TO_VERIFY|CRAWL_TLS_INSECURE/i.test(trimmed)) {
+    return 'El sitio de la fuente tiene un certificado de seguridad incompleto.';
+  }
   if (trimmed && !TECHNICAL_FAIL_RE.test(trimmed) && trimmed.length <= 160) {
     return trimmed;
   }

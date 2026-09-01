@@ -32,6 +32,7 @@
 - [postman-pruebas.md](./postman-pruebas.md) — guía de endpoints (también Swagger `/docs`)
 - [seed-and-tests.md](./seed-and-tests.md)
 - [state-congresses.md](./state-congresses.md)
+- [docker.md](./docker.md) — Compose: API Nest + Redis (Postgres/Storage = Supabase)
 - [render-deploy.md](./render-deploy.md)
 - [sentry-storage.md](./sentry-storage.md)
 - [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) — `.env` + Redis; snapshot 2026-08-18 (S6 ya está en HANDOFF)
