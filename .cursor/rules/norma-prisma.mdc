@@ -21,7 +21,7 @@ alwaysApply: false
 
 ## Dominio
 
-- Hallazgos = modelo `Finding` (no volver a crecer `Alert` legacy).
+- Hallazgos = modelo `Finding` (unique documento×cliente; lectura S7; inbox S8). No volver a crecer `Alert` legacy.
 - `Source.config` y `RegulatoryProfile.products` son JSON; no scrapers aquí.
 - `Source.jurisdiction` + `stateCode` (null si FEDERAL).
 - `Source.keywordsGuide` y `Source.searchFocus` son `String[]` (`[]` = vacío).

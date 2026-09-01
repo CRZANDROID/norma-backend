@@ -16,16 +16,17 @@
 - [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md) — jurisdicción + `schedule` (ya no `frequency`)
 - [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) — cliente ↔ fuentes + crawl
 - [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)
-- [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) — semáforo/canales (config, no inbox)
+- [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) — semáforo/canales (**config**; no es la lista de hallazgos)
 - [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md)
-- [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) — panel `/jobs/progress` + `/documents/progress`
+- [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) — panel `/jobs/progress` + `/documents/progress` (incluye `CLASSIFIED`)
+- [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) — `GET /findings` (array; no inbox; no `/alertas`)
 
 ## Pipeline (S5–S6)
 
 - [jobs-crawl.md](./jobs-crawl.md) — HTTP WEB (no redes). YouTube/X = MVP aparte: [PRODUCT.md](./PRODUCT.md)
 - [document-processing.md](./document-processing.md)
 - [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md)
-- [openai-catalog.md](./openai-catalog.md) — catálogo; no clasifica (S7)
+- [openai-catalog.md](./openai-catalog.md) — catálogo; no clasifica (S7 = findings)
 
 ## Ops / pruebas
 
@@ -33,6 +34,7 @@
 - [seed-and-tests.md](./seed-and-tests.md)
 - [state-congresses.md](./state-congresses.md)
 - [render-deploy.md](./render-deploy.md)
+- [docker.md](./docker.md) — **local canónico:** Compose (API + Redis); Postgres en Supabase
 - [sentry-storage.md](./sentry-storage.md)
 - [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) — `.env` + Redis; snapshot 2026-08-18 (S6 ya está en HANDOFF)
 

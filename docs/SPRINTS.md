@@ -15,7 +15,7 @@ Piloto inicial: Arca Continental + pocas fuentes representativas.
 | 4 | Estabilización | Swagger, validación, e2e, Sentry, Storage, contratos jobs | **Hecho** (#13 cerrado en local) |
 | 5 | Ingesta | Redis/BullMQ + conectores piloto | **Hecho** |
 | 6 | Documentos | Registro, storage, extract/normalize/dedup | **Hecho** |
-| 7 | IA | OpenAI client, clasificación, relevancia, semáforo | Pendiente |
+| 7 | IA | OpenAI client, clasificación, relevancia, semáforo | **Hecho** |
 | 8 | Entrega piloto | Borrador ejecutivo, inbox humano, email tras OK | Pendiente |
 
 Fechas de iteración en el Project (aprox.): Sprint 1 desde 2026-07-06, duración 7 días c/u.
@@ -105,10 +105,12 @@ Estado vivo: [HANDOFF.md](./HANDOFF.md).
 
 ## Sprint 7 — Clasificación y semáforo
 
-- Cliente OpenAI reutilizable (errores, límites, usage log)
-- Clasificación, relevancia vs perfil Arca, semáforo 4 niveles + justificación
+- [x] Cliente OpenAI reutilizable (errores, límites, usage en `aiMeta`)
+- [x] Clasificación, relevancia vs perfil Arca, semáforo 4 niveles + justificación
+- [x] `GET /findings`, `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN)
+- [x] Cola `document.classify` al pasar a `READY_FOR_AI` (canónicos; no `DEDUPED`)
 
-**Entregable:** findings con impacto GREEN/YELLOW/ORANGE/RED.
+**Entregable:** findings con impacto GREEN/YELLOW/ORANGE/RED. UI: [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md). Sin email/inbox (S8).
 
 ---
 

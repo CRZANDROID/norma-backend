@@ -4,6 +4,7 @@ export type DocumentProgressStatus =
   | 'pending'
   | 'extracting'
   | 'ready'
+  | 'classified'
   | 'unchanged'
   | 'unread'
   | 'failed';
@@ -15,6 +16,7 @@ export const DOCUMENT_PROGRESS_LABELS: Record<
   pending: 'Sin texto aún',
   extracting: 'Extrayendo texto',
   ready: 'Texto listo',
+  classified: 'Clasificada',
   unchanged: 'Sin cambios (ya registrada)',
   unread: 'Rastreada, sin texto usable',
   failed: 'No se pudo extraer',
@@ -109,6 +111,10 @@ export function documentProgressNote(
     return 'El contenido es el mismo que ya teníamos registrado.';
   }
 
+  if (status === 'classified' && hadExtractProblem) {
+    return `Hay texto clasificado. ${problemNote}`;
+  }
+
   if (status === 'ready' && hadExtractProblem) {
     return `Hay texto listo. ${problemNote}`;
   }
@@ -141,6 +147,8 @@ export function mapDocumentPipelineStatus(
   lastError?: string | null,
 ): DocumentProgressStatus {
   switch (processingStatus) {
+    case DocumentProcessingStatus.CLASSIFIED:
+      return 'classified';
     case DocumentProcessingStatus.READY_FOR_AI:
       return 'ready';
     case DocumentProcessingStatus.DEDUPED:
@@ -158,6 +166,7 @@ export function mapDocumentPipelineStatus(
 }
 
 const PIPELINE_RANK: Record<DocumentProcessingStatus, number> = {
+  [DocumentProcessingStatus.CLASSIFIED]: 110,
   [DocumentProcessingStatus.READY_FOR_AI]: 100,
   [DocumentProcessingStatus.HASHED]: 80,
   [DocumentProcessingStatus.NORMALIZED]: 70,

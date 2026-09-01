@@ -2,7 +2,7 @@
 
 **Audiencia:** agente o dev del repo `norma-frontend`.  
 **Backend:** implementado. Migración `source_state_schedule_delivery`.  
-**No es** la vista de hallazgos/inbox: es la **configuración** que VCGA imprime (canales + acciones por color). El envío real (Resend/WhatsApp) no está implementado.
+**No es** la vista de hallazgos: es la **configuración** que VCGA imprime (canales + acciones por color). Hallazgos clasificados = [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) (`GET /findings`), otra pantalla. El envío real (Resend/WhatsApp) no está implementado.
 
 Contexto: [HANDOFF.md](./HANDOFF.md) · API: [postman-pruebas.md](./postman-pruebas.md)
 

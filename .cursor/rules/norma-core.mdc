@@ -19,15 +19,15 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 - Multi-tenant por `Client` + `ClientMembership`. `ADMIN` ve todo.
 - Clientes ↔ fuentes: N:N (`client_sources`). UI guide: `docs/FRONTEND-CLIENT-SOURCES.md`.
 - No agregar Resend/scrapers extra fuera del sprint que los consume.
-- Redis/BullMQ de crawl (`POST /jobs/crawl`) y extract/normalize S6 están permitidos.
+- Redis/BullMQ de crawl, extract/normalize y classify están permitidos. **Local: Docker Compose** (`docs/docker.md`), no Redis suelto en Windows.
 - Crawl: mismo host, links legislativos, tope `CRAWL_MAX_PAGES` — no solo la portada. No redes ni players en vivo. Detalle: `docs/jobs-crawl.md`.
 - Conectores YouTube / X / Facebook son **MVP de contrato** (después de S7); no se implementan reciclando el crawl HTTP. Ver `docs/PRODUCT.md`.
-- OpenAI de catálogo (`POST /ai/ask`) está permitido; clasificación de normas = Sprint 7.
+- OpenAI de catálogo (`POST /ai/ask`) y clasificación S7 (`document.classify` / `GET /findings`) están permitidos. Inbox/email = Sprint 8.
 - Conventional Commits; ramas `main` / `dev` / `feature/*`.
-- Secretos solo en `.env` (nunca commit).
+- Desarrollo local del API: **Docker Compose** (`docs/docker.md`). No asumir `pnpm start:dev` + Redis en el host.
 
 ## Sprint / foco actual
 
-- S3–S6 **hechos** (CRUD, crawl, documentos, panel `progress`).
-- Siguiente backend: S7 clasificación según `docs/DOCUMENT-JOB-CONTRACTS.md`. Luego conectores YouTube/X (MVP).
+- S3–S7 **hechos** (CRUD, crawl, documentos, clasificación/semáforo).
+- Siguiente backend: S8 inbox + Resend según `docs/SPRINTS.md`. Luego conectores YouTube/X (MVP).
 - Índice de docs: [docs/README.md](docs/README.md).

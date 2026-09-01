@@ -91,6 +91,25 @@ export function shapeDeliveryConfig(row: DeliveryRow) {
   };
 }
 
+export function snapshotSuggestedAction(
+  impact: ImpactLevel,
+  impactActions: Prisma.JsonValue | ImpactActionDto[] | null | undefined,
+): string {
+  const fallback =
+    DEFAULT_IMPACT_ACTIONS.find((a) => a.impact === impact)?.suggestedAction ??
+    'Registrar como contexto';
+  try {
+    const actions = normalizeImpactActions(
+      parseImpactActions(impactActions ?? undefined) ?? DEFAULT_IMPACT_ACTIONS,
+    );
+    return (
+      actions.find((a) => a.impact === impact)?.suggestedAction ?? fallback
+    );
+  } catch {
+    return fallback;
+  }
+}
+
 export function toDeliveryWriteData(input: {
   emailEnabled?: boolean;
   whatsappEnabled?: boolean;

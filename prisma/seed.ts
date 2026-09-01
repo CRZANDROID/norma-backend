@@ -363,6 +363,20 @@ async function main() {
     });
   }
 
+  for (const code of ['dof', 'diputados-gaceta']) {
+    const source = await prisma.source.findUnique({ where: { code } });
+    if (!source) {
+      continue;
+    }
+    await prisma.clientSource.upsert({
+      where: {
+        clientId_sourceId: { clientId: arca.id, sourceId: source.id },
+      },
+      update: {},
+      create: { clientId: arca.id, sourceId: source.id },
+    });
+  }
+
   console.log(
     `Seed completed: Arca (+ fiscal/contact/delivery), DOF+Diputados ACTIVE, Senado/mañanera/COFEPRIS/PROFECO INACTIVE, 32 congresos, admin ${seedEmail}`,
   );

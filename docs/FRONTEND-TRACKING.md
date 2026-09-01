@@ -1,7 +1,7 @@
 # Frontend — Panel de rastreo y extracción
 
 **Audiencia:** `norma-frontend` (JobsPanel / DocumentsRegistry).  
-**Backend:** implementado. Copy en español. **No** clasifica (S7).
+**Backend:** implementado. Copy en español. Badge `classified` = Sprint 7 ([FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md)).
 
 Los listados técnicos (`GET /jobs/runs`) siguen para Swagger/ops. El resumen del día es **una fila por fuente**. Al abrir una fuente, el dashboard lista **PDF, Word y HTML** con `GET /documents` (preview) y `GET /documents/:id` (texto extraído).
 
@@ -26,7 +26,7 @@ Fuentes: piloto (`dof`, `diputados-gaceta`, congresos ACTIVE) + cualquier otra `
 | `GET` | `/documents?pilotOnly=true&limit=&date=&sourceId=` | Páginas internas: preview + `url`. `limit` hasta 800. `date` = día civil. `sourceId` = detalle de una fuente |
 | `GET` | `/documents/:id` | Texto extraído de una página (`extractedText`, no HTML crudo) |
 
-`GET /documents/progress` es ruta estática; no usar `GET /documents/:id` con id `progress`.
+`GET /documents` puede devolver `processingStatus: "CLASSIFIED"` (Sprint 7). El union del front debe incluirlo; no descartar filas con status desconocido.
 
 **No pollar `GET /documents?limit=800` cada pocos segundos.** El panel solo refresca `/jobs/progress` y `/documents/progress` (15 s si hay trabajo en curso, 45 s si no). El listado de páginas se pide al entrar y al abrir una fuente (`sourceId`). Poll agresivo + CORS `OPTIONS` satura el plan gratuito de Render (`429` / `502` / `503`).
 
@@ -86,6 +86,7 @@ Pintar: **nombre + badge `label` + `headline`**. Mostrar `note` si el contenido 
 | sin HTML aún | `pending` | Sin texto aún |
 | extract en curso | `extracting` | Extrayendo texto |
 | `READY_FOR_AI` | `ready` | Texto listo |
+| `CLASSIFIED` | `classified` | Clasificada |
 | solo `DEDUPED` | `unchanged` | Sin cambios (ya registrada) |
 | umbral / captcha | `unread` | Rastreada, sin texto usable |
 | PDF escaneado (imagen, sin capa de texto) | `unread` | Rastreada, sin texto usable — `note` dice que es PDF escaneado; el archivo sí está guardado. OCR no está en este sprint |
@@ -96,7 +97,7 @@ Pintar: **nombre + badge `label` + `headline`**. Mostrar `note` si el contenido 
 ## Flujo piloto (hasta S6)
 
 ```text
-Pendiente → Rastreando → Rastreada → Extrayendo texto → Texto listo
+Pendiente → Rastreando → Rastreada → Extrayendo texto → Texto listo → Clasificada
                               ├→ Sin cambios (ya registrada)  ← mismo contenido
                               └→ Rastreada, sin texto usable / No se pudo extraer
 Pendiente → No se pudo rastrear
@@ -110,8 +111,10 @@ En `unchanged`, `headline` es el texto que ya teníamos (no HTML) y `note` aclar
 |------|------|
 | `GET /jobs/runs` | Historial técnico (intentos, claves, paths) |
 | `POST /jobs/crawl` | Botón ADMIN “Rastrear ahora” / “Poner a rastrear” |
-| `POST /documents/:id/reprocess` | Reintento ADMIN |
+| `POST /documents/:id/reprocess` | Reintento ADMIN (extract) |
+| `POST /documents/:id/classify` | Reintento ADMIN (clasificación S7) |
+| `GET /findings` | Semáforo S7 (no este panel ejecutivo) |
 
 `GET /documents` y `GET /documents/:id` **sí** van en el dashboard, en el **detalle de la fuente** (PDF / Word / HTML), no en el resumen ejecutivo.
 
-Clasificación / semáforo = Sprint 7.
+Clasificación / semáforo = [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) (`GET /findings`). Este panel no lista findings.

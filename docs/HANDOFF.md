@@ -1,4 +1,4 @@
-# HANDOFF — Estado NORMA Backend (2026-08-30)
+# HANDOFF — Estado NORMA Backend (2026-09-01)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
 Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de trabajo.  
@@ -18,11 +18,12 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | Bloque 1 OpenAI | **API hecha** | `GET /ai/status` + `POST /ai/ask` (catálogo; no clasifica) |
 | 5 crawl | **Hecho** | Redis/BullMQ + `job_runs` + crawl del mismo sitio (no solo portada) |
 | 6 documentos | **Hecho** | extract / normalize / SHA-256 / dedup + `GET /documents` |
-| 3 front | Fuera de este repo | Wire UI → [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) + [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) + [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) + [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) |
+| 7 clasificación | **Hecho** | cola `document.classify` + `GET /findings` (semáforo; no inbox) |
+| 3 front | Fuera de este repo | Wire UI → [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) + [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) + [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) + [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) + [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) |
 | 4 | **Hecho en código/verificado** | Sentry + Storage OK en local |
-| 7+ | Pendiente | Clasificación OpenAI / inbox |
+| 8+ | Pendiente | Inbox / folio / Resend |
 
-**Siguiente en este repo:** Sprint 7 (clasificación / semáforo) sobre `READY_FOR_AI`. Crawl: sigue links legislativos del mismo host (tope `CRAWL_MAX_PAGES`); no es solo la home. Detalle: [jobs-crawl.md](./jobs-crawl.md). S6: [document-processing.md](./document-processing.md).
+**Siguiente en este repo:** Sprint 8 (inbox humano + email tras aprobación). Crawl: sigue links legislativos del mismo host (tope `CRAWL_MAX_PAGES`); no es solo la home. Detalle: [jobs-crawl.md](./jobs-crawl.md). S6: [document-processing.md](./document-processing.md). S7: [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md).
 
 ---
 
@@ -51,6 +52,7 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | OpenAI catálogo | [openai-catalog.md](./openai-catalog.md) |
 | Front AI ask | [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) |
 | Front panel rastreo | [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) |
+| Front hallazgos S7 | [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) |
 | Jobs crawl S5 | [jobs-crawl.md](./jobs-crawl.md) |
 | Registro documental S6 | [document-processing.md](./document-processing.md) |
 | Entrega front + `.env` (snapshot) | [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) |
@@ -72,6 +74,7 @@ Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fisc
 - Crawl S5: Redis/BullMQ cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, tabla `job_runs` (503 sin `REDIS_URL`). Cada job trae hasta `CRAWL_MAX_PAGES` HTML/PDF/Word del mismo sitio (gaceta, iniciativas, notas DOF, etc.), no solo la portada. Admin reencola FAILED/QUEUED huérfanos; el scheduler no reintenta FAILED el mismo día. Seed ACTIVE: DOF, Gaceta Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. DB ya sembrada → `pnpm prisma:seed`.
 - Panel ejecutivo: `GET /jobs/progress` y `GET /documents/progress` (una fila por fuente). El dashboard lista cada página con `GET /documents` y el texto con `GET /documents/:id`.
 - Registro documental S6: colas `document.extract` y `document.normalize_dedup`, `GET /documents`, `GET /documents/:id`, `POST /documents/:id/reprocess` (ADMIN). Extrae HTML, PDF (`unpdf`) y Word (`.doc`/`.docx`, p. ej. DOF `nota_to_doc`). PDF escaneado (sin capa de texto) falla con copy **PDF escaneado**; no hay OCR en este sprint. Detalle: [document-processing.md](./document-processing.md).
+- Clasificación S7: cola `document.classify` al pasar a `READY_FOR_AI`; fan-out por `client_sources`; `Finding` único por documento×cliente; `GET /findings`, `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). 503 sin Redis o sin `OPENAI_API_KEY`. No email/inbox. UI: [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md).
 
 ### Sprint 4
 
@@ -84,8 +87,8 @@ Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fisc
 
 ### Módulos
 ```text
-src/modules/{auth,clients,sources,users,storage,ai,documents}/
-src/jobs/            # BullMQ source.crawl + document.extract/normalize_dedup
+src/modules/{auth,clients,sources,users,storage,ai,documents,findings}/
+src/jobs/            # BullMQ source.crawl + document.extract/normalize_dedup/classify
 src/common/swagger.ts
 test/*e2e-spec.ts
 ```
@@ -94,24 +97,26 @@ test/*e2e-spec.ts
 
 ## 4. Qué falta (prioridad)
 
-1. **Sprint 7:** clasificación OpenAI / semáforo sobre documentos `READY_FOR_AI` (ahora con texto de páginas internas, no solo portada).
+1. **Sprint 8:** inbox humano (ACK/RESOLVE), folio / borrador ejecutivo, Resend solo tras aprobación. Findings S7 ya existen (`GET /findings`).
 2. **Conectores MVP (contrato, no opcional):** YouTube / X / Facebook como jobs de plataforma — [PRODUCT.md](./PRODUCT.md) § social/multimedia. No ampliar el crawl HTTP a redes ni a players en vivo.
 3. Redis en staging/prod (`REDIS_URL`) para que el scheduler crawlee a las 07:00.
-4. Front: contratos de UI en este repo ([README.md](./README.md)); el panel de rastreo ya existe — verificar contra [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). `GET /documents` lista cada página interna; el resumen `progress` sigue siendo 1 fila/fuente.
+4. Front: contratos de UI en este repo ([README.md](./README.md)); hallazgos — [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md). Panel de rastreo: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
 
 ---
 
 ## 5. Operación local
 
+**Canónico: Docker** ([docs/docker.md](./docker.md)). Redis va en Compose; no hace falta `redis-server` en Windows.
+
 ```bash
-pnpm install
-# Si ERR_PNPM_IGNORED_BUILDS: pnpm approve-builds --all && pnpm install
-pnpm prisma:deploy && pnpm prisma:seed
-pnpm start:dev
-pnpm test:e2e
+docker compose up --build
 ```
 
-`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY`. Para crawl: `REDIS_URL=redis://127.0.0.1:6379` (Redis debe estar escuchando). Windows sin Docker: `redis-server --bind 127.0.0.1 --port 6379`.
+API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras cambiar código: `--build`, no solo `restart`.
+
+`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY` (classify). Compose pisa `REDIS_URL` y `PORT=3000`.
+
+`pnpm start:dev` en el host usa `REDIS_URL=redis://127.0.0.1:6379` → `ECONNREFUSED` si Redis no está. No es el flujo soportado.
 
 ---
 
@@ -126,6 +131,7 @@ pnpm test:e2e
 5. Asistente de catálogo: **[FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md)**.
 6. Crawl (botón ADMIN): [jobs-crawl.md](./jobs-crawl.md) / sección 2.5 de la entrega.
 7. Panel rastreo/extracción: **[FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)** (`GET /jobs/progress`, `GET /documents/progress`).
+8. Hallazgos / semáforo (S7, no inbox): **[FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md)**.
 
 ---
 
@@ -145,6 +151,6 @@ pnpm test:e2e
 
 ## 8. Plantilla siguiente agente
 
-> Lee `docs/HANDOFF.md` §4. S7 clasificación sobre `READY_FOR_AI`. Conectores YouTube/X son **MVP** ([PRODUCT.md](./PRODUCT.md)); no van en el spider WEB. S6: `document-processing.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md` + `FRONTEND-TRACKING.md`.
+> Lee `docs/HANDOFF.md` §4. S8 inbox/email sobre findings ya clasificados. Conectores YouTube/X son **MVP** ([PRODUCT.md](./PRODUCT.md)); no van en el spider WEB. S7: `FRONTEND-FINDINGS.md`. S6: `document-processing.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md` + `FRONTEND-TRACKING.md` + `FRONTEND-FINDINGS.md`.
 
-**Última actualización:** 2026-08-30 — conectores YouTube/X/Facebook = MVP obligatorio (no crawl HTTP); S7 sigue primero; crawl default 80.
+**Última actualización:** 2026-09-01 — Sprint 7 clasificación + semáforo (`GET /findings`); S8 inbox/email sigue; YouTube/X/Facebook = MVP (no crawl HTTP).

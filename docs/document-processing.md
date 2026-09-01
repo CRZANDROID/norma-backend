@@ -2,7 +2,7 @@
 
 Tras un crawl **SUCCESS**, cada HTML/PDF/Word interno se extrae, se arma ficha y se calcula SHA-256. Si el contenido ya existía, el documento nuevo queda `DEDUPED` enlazado al canónico; **no se borra**. El crawl ya no se queda en la portada: ver [jobs-crawl.md](./jobs-crawl.md).
 
-No clasifica (S7) ni abre inbox (S8). Copy de producto: **registro documental**, no LLM.
+No abre inbox ni envía email (S8). Copy de producto: **registro documental**, no LLM, hasta el paso classify.
 
 Contrato: [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) §§4.2–4.3.
 
@@ -15,6 +15,8 @@ crawl SUCCESS (N páginas HTML/PDF/Word del mismo sitio)
   → cola document.normalize_dedup
   → NORMALIZED → HASHED
   → READY_FOR_AI  |  DEDUPED + canonicalDocumentId
+  → cola document.classify (solo canónicos)
+  → CLASSIFIED + Finding por cliente en client_sources
 ```
 
 `meta.json` se ignora (`DISCARDED`). HTML vacío, captcha **visible** (Cloudflare / “Just a moment”) o texto < 80 caracteres → `FAILED` (`lastError`), sin normalize. Clases CSS de recaptcha en el tema (Avada, Contact Form 7) no cuentan: el listado de PDFs de una gaceta/orden del día se extrae.
@@ -31,6 +33,7 @@ Fuentes ACTIVE en seed: `dof`, `diputados-gaceta`, Jalisco, Aguascalientes, BC, 
 |------|----------------|
 | `document.extract` | `{documentId}:extract:v1` |
 | `document.normalize_dedup` | `{documentId}:normalize_dedup:v1` |
+| `document.classify` | `{documentId}:classify:v1` |
 
 Paths derivados: `derived/{documentId}/extracted.txt`, `derived/{documentId}/normalized.json`.
 
@@ -55,6 +58,10 @@ Ficha + `extractedText` + `url` + `processingHistory` (`[{ status, at }]`).
 ### `POST /documents/:id/reprocess`
 
 Reencola extract (vuelve a `RECEIVED`).
+
+### `POST /documents/:id/classify`
+
+Reencola classify (ADMIN). Requiere Redis + `OPENAI_API_KEY`. Hallazgos: [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md).
 
 ## Cómo se comprueba
 

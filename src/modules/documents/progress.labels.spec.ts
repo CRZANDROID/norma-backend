@@ -13,6 +13,9 @@ describe('document progress labels', () => {
     expect(
       mapDocumentPipelineStatus(DocumentProcessingStatus.READY_FOR_AI),
     ).toBe('ready');
+    expect(
+      mapDocumentPipelineStatus(DocumentProcessingStatus.CLASSIFIED),
+    ).toBe('classified');
     expect(mapDocumentPipelineStatus(DocumentProcessingStatus.DEDUPED)).toBe(
       'unchanged',
     );
@@ -110,6 +113,11 @@ describe('document progress labels', () => {
   });
 
   it('ranks canonical HTML over DEDUPED extras', () => {
+    expect(
+      documentPipelineRank(DocumentProcessingStatus.CLASSIFIED),
+    ).toBeGreaterThan(
+      documentPipelineRank(DocumentProcessingStatus.READY_FOR_AI),
+    );
     expect(
       documentPipelineRank(DocumentProcessingStatus.READY_FOR_AI),
     ).toBeGreaterThan(

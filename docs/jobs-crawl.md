@@ -129,9 +129,18 @@ Borra documentos de crawl y `job_runs` (no toca fuentes ni usuarios). También v
 
 ```bash
 pnpm exec tsx prisma/reset-crawl.ts
+pnpm exec tsx prisma/reset-crawl.ts dof diputados-gaceta
 ```
 
-Luego **Rastrear ahora** / **Rastrear todas** (ADMIN). Sin esto, un crawl `SUCCESS` del mismo día no se vuelve a encolar.
+Con Docker, Redis está en Compose (el `REDIS_URL` del host no llega). Monta el script o corre:
+
+```bash
+docker compose run --rm --entrypoint "" api ./node_modules/.bin/tsx prisma/reset-crawl.ts dof diputados-gaceta
+```
+
+(El `entrypoint` vacío evita otro `migrate deploy`. Sin códigos, borra **todas** las fuentes.)
+
+Luego **Rastrear ahora** (ADMIN). Sin esto, un crawl `SUCCESS` del mismo día no se vuelve a encolar.
 
 ## Qué no hace S5
 

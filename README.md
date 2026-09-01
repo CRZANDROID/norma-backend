@@ -5,16 +5,22 @@ Auth propia con JWT. Monitoreo de errores con Sentry.
 
 ## Requisitos
 
-- Node.js 20+
-- pnpm
-- PostgreSQL en [Supabase](https://supabase.com) (o Postgres local) — **solo DB**, la auth es propia (JWT)
+- Docker Desktop (arranque local del API)
+- Node.js 20+ y pnpm (tests e2e / herramientas en el host)
+- PostgreSQL en [Supabase](https://supabase.com) — **solo DB**, la auth es propia (JWT)
 
 ## Setup local
 
+**Canónico:** Docker Compose (API + Redis). Postgres/Storage = Supabase.
+
 ```bash
-pnpm install
-cp .env.example .env
+cp .env.example .env   # si aún no tienes .env
+docker compose up --build
 ```
+
+API: `http://localhost:3000` — Swagger: `/docs` — detalle: [docs/docker.md](docs/docker.md).
+
+`pnpm start:dev` en el host exige Redis en `127.0.0.1:6379` o falla con `ECONNREFUSED`. No es el flujo del piloto.
 
 Edita `.env` y pega la connection string de Supabase:
 
@@ -24,18 +30,9 @@ Edita `.env` y pega la connection string de Supabase:
 4. Para migraciones: conexión **Session** o Direct (puerto `5432`)
 
 ```bash
-# Generar cliente Prisma
+# Generar cliente Prisma (solo si desarrollas en el host)
 pnpm prisma:generate
-
-# Crear / aplicar migraciones (requiere DATABASE_URL válida)
-pnpm prisma:migrate
-
-# Arrancar API en watch mode
-pnpm start:dev
 ```
-
-API en `http://localhost:3000`  
-Swagger UI: `http://localhost:3000/docs`
 
 ### Health check
 
