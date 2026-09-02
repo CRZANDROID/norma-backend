@@ -1,4 +1,4 @@
-# HANDOFF — Estado NORMA Backend (2026-09-01)
+# HANDOFF — Estado NORMA Backend (2026-09-02)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
 Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de trabajo.  
@@ -71,8 +71,8 @@ Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fisc
 - Fuentes: `jurisdiction` + `stateCode`; `schedule`; `searchFocus` (`string[]`, igual que `keywordsGuide`) / `notes` (matriz VCGA)
 - Delivery 1:1: `deliveryConfig` con `suggestedAction` por nivel (registrar / seguir / nota / alertar)
 - Asistente de catálogo: `GET /ai/status`, `POST /ai/ask` (OpenAI; 503 sin `OPENAI_API_KEY`)
-- Crawl S5: Redis/BullMQ cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, tabla `job_runs` (503 sin `REDIS_URL`). Cada job trae hasta `CRAWL_MAX_PAGES` HTML/PDF/Word del mismo sitio (gaceta, iniciativas, notas DOF, etc.), no solo la portada. Admin reencola FAILED/QUEUED huérfanos; el scheduler no reintenta FAILED el mismo día. Seed ACTIVE: DOF, Gaceta Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. DB ya sembrada → `pnpm prisma:seed`.
-- Panel ejecutivo: `GET /jobs/progress` y `GET /documents/progress` (una fila por fuente). El dashboard lista cada página con `GET /documents` y el texto con `GET /documents/:id`.
+- Crawl S5: Redis/BullMQ cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, tabla `job_runs` (503 sin `REDIS_URL`). Cada job trae hasta `CRAWL_MAX_PAGES` HTML/PDF/Word del mismo sitio (gaceta, iniciativas, notas DOF, etc.), no solo la portada. Sitio caído / TLS inválido = **error de la página de origen** (copy en el panel); circuito + tope de intentos para no dejar el job en “Rastreando”. Admin reencola FAILED/QUEUED huérfanos; el scheduler no reintenta FAILED el mismo día. Seed ACTIVE: DOF, Gaceta Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. DB ya sembrada → `pnpm prisma:seed`.
+- Panel ejecutivo: `GET /jobs/progress`, `GET /documents/progress` y `GET /findings/progress` (una fila por fuente **ACTIVE**: rastreo → extracción → análisis). Extract/análisis: `status` = lote en curso (`extracting` / `classifying` si queda página pendiente o el crawl del día sigue vivo); `headline`/`counts` pueden ir adelantados. El dashboard lista cada página con `GET /documents` y el texto con `GET /documents/:id`. Lista de hallazgos: `GET /findings`.
 - Registro documental S6: colas `document.extract` y `document.normalize_dedup`, `GET /documents`, `GET /documents/:id`, `POST /documents/:id/reprocess` (ADMIN). Extrae HTML, PDF (`unpdf`) y Word (`.doc`/`.docx`, p. ej. DOF `nota_to_doc`). PDF escaneado (sin capa de texto) falla con copy **PDF escaneado**; no hay OCR en este sprint. Detalle: [document-processing.md](./document-processing.md).
 - Clasificación S7: cola `document.classify` al pasar a `READY_FOR_AI`; fan-out por `client_sources`; `Finding` único por documento×cliente; `GET /findings`, `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). 503 sin Redis o sin `OPENAI_API_KEY`. No email/inbox. UI: [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md).
 
@@ -130,7 +130,7 @@ API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras 
 4. Entrega / semáforo (config, no inbox): **[FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md)**.
 5. Asistente de catálogo: **[FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md)**.
 6. Crawl (botón ADMIN): [jobs-crawl.md](./jobs-crawl.md) / sección 2.5 de la entrega.
-7. Panel rastreo/extracción: **[FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)** (`GET /jobs/progress`, `GET /documents/progress`).
+7. Panel rastreo/extracción/análisis: **[FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)** (`GET /jobs/progress`, `GET /documents/progress`, `GET /findings/progress`).
 8. Hallazgos / semáforo (S7, no inbox): **[FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md)**.
 
 ---
@@ -153,4 +153,4 @@ API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras 
 
 > Lee `docs/HANDOFF.md` §4. S8 inbox/email sobre findings ya clasificados. Conectores YouTube/X son **MVP** ([PRODUCT.md](./PRODUCT.md)); no van en el spider WEB. S7: `FRONTEND-FINDINGS.md`. S6: `document-processing.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md` + `FRONTEND-TRACKING.md` + `FRONTEND-FINDINGS.md`.
 
-**Última actualización:** 2026-09-01 — Sprint 7 clasificación + semáforo (`GET /findings`); S8 inbox/email sigue; YouTube/X/Facebook = MVP (no crawl HTTP).
+**Última actualización:** 2026-09-02 — tablero `progress`: `status` de extract/análisis es del lote (no de la mejor página / primer hallazgo); crawl `queued`/`running` mantiene esas columnas en curso. Solo fuentes `ACTIVE`. S8 inbox/email sigue.

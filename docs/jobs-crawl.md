@@ -62,6 +62,8 @@ No es un spider de todo el sitio: si hace falta otra sección, súbela al `url` 
 
 Otras `ACTIVE` con URL usan el mismo crawl HTTP genérico. Errores se loguean con `sourceId` / `sourceCode` y `errorCode` (`NETWORK` retryable; `PARSE`/`AUTH` no). Si una página interna falla, el job sigue con las demás; si falla la URL de arranque, el job falla.
 
+El fallo de red, TLS o sitio caído se guarda y se muestra como **error de la página de origen** (`La página de la fuente no está disponible.`), no como fallo del rastreo de NORMA. Tras varios fallos seguidos del mismo origen (circuito), el job **termina** con lo que sí bajó y una nota (`Algunas páginas del sitio no respondieron…`). No drena el menú entero ni deja el panel en “Rastreando”. Tope extra: `maxPages * 2` intentos de fetch; timeout más corto en páginas internas.
+
 Familias de fallo (no se repara URL a URL ni con LLM):
 
 - **PDF en endpoint de descarga** (`/Home/Download?filename=….pdf`, `octet-stream`): se detecta por magic bytes `%PDF`, query o `Content-Disposition`; se guarda y extrae como PDF (`unpdf`), no como HTML.
@@ -69,7 +71,7 @@ Familias de fallo (no se repara URL a URL ni con LLM):
 - **PDF escaneado:** el crawl guarda el archivo; extract falla a propósito con “PDF escaneado” (imagen, sin capa de texto). No es un bug de rastreo; OCR no está en este sprint.
 - **Portada con meta refresh:** no se guarda el HTML trampolín. Sigue el destino en el mismo host o un subdominio del mismo `*.gob.mx`. No hay que editar URL a URL.
 - **XML:** entra a extract (mismo strip de tags).
-- **TLS de sitios de gobierno:** un reintento con verificación de certificado relajada (solo esa URL; log `crawl TLS laxo`). Redes sociales, players en vivo (`/transmision-en-vivo`, YouTube, `.mp4`) y portales de transparencia masivos siguen fuera del crawl HTTP. Un tema WordPress con CSS de recaptcha no se marca como captcha si hay texto/PDF visible.
+- **TLS de sitios de gobierno:** un reintento con verificación de certificado relajada (solo esa URL; log `crawl TLS laxo`). Si el reintento también falla, es **error de la página de origen** (sitio caído o certificado inválido): el job no se queda colgado. Redes sociales, players en vivo (`/transmision-en-vivo`, YouTube, `.mp4`), portales de transparencia masivos e inventario/archivo administrativo siguen fuera del crawl HTTP. Un tema WordPress con CSS de recaptcha no se marca como captcha si hay texto/PDF visible. Los PDF se priorizan solo si el path parece materia legislativa (gaceta, iniciativas, orden del día); no todo `.pdf` del CMS.
 
 Si un crawl falla con **Respuesta demasiado grande**, el body crudo superó `CRAWL_MAX_BYTES`. Sube el tope en `.env`. Tras cambiar el tope, vuelve a **Rastrear ahora** (ADMIN): el scheduler no reintenta `FAILED` el mismo día.
 
@@ -125,17 +127,18 @@ raw/{sourceCode}/{yyyy}/{mm}/{dd}/{idempotencyKey}/attempt-{n}/meta.json
 
 ## Vaciar rastreo de prueba (local)
 
-Borra documentos de crawl y `job_runs` (no toca fuentes ni usuarios). También vacía `data/crawl/` y las colas Redis.
+Borra documentos de crawl y `job_runs` (no toca fuentes ni usuarios). También vacía `data/crawl/` y las colas Redis. `--date=YYYY-MM-DD` limita el borrado al día civil (`America/Mexico_City`); el resto se conserva.
 
 ```bash
 pnpm exec tsx prisma/reset-crawl.ts
 pnpm exec tsx prisma/reset-crawl.ts dof diputados-gaceta
+pnpm exec tsx prisma/reset-crawl.ts --date=2026-09-02
 ```
 
 Con Docker, Redis está en Compose (el `REDIS_URL` del host no llega). Monta el script o corre:
 
 ```bash
-docker compose run --rm --entrypoint "" api ./node_modules/.bin/tsx prisma/reset-crawl.ts dof diputados-gaceta
+docker compose run --rm --entrypoint "" api ./node_modules/.bin/tsx prisma/reset-crawl.ts --date=2026-09-02
 ```
 
 (El `entrypoint` vacío evita otro `migrate deploy`. Sin códigos, borra **todas** las fuentes.)

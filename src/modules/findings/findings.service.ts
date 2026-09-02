@@ -1,9 +1,28 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../../database/prisma-client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { DocumentProcessingStatus, Prisma } from '../../database/prisma-client';
 import { PrismaService } from '../../database/prisma.service';
+import { isExtractableCrawlFile, isMetaCrawlFilename } from '../../jobs/document-text';
+import {
+  listTrackingSources,
+  loadCrawlInFlightSourceIds,
+} from '../../jobs/progress-board';
+import type { ProgressDateQueryDto } from '../../jobs/dto/progress-date.query.dto';
+import {
+  isValidCalendarDate,
+  trackingCalendarDate,
+  zonedDayRange,
+} from '../../jobs/schedule-window';
 import type { AuthUser } from '../auth/auth.types';
 import { assertClientAccess, isAdmin } from '../clients/client-access.util';
 import type { ListFindingsQueryDto } from './dto/list-findings.query.dto';
+import {
+  addImpactCount,
+  analysisDaySignals,
+  analysisProgressLabel,
+  analysisProgressNote,
+  emptyImpactCounts,
+  mapAnalysisProgressStatus,
+} from './progress.labels';
 
 const JUSTIFICATION_SHORT = 240;
 
@@ -37,6 +56,130 @@ export class FindingsService {
       take: limit,
     });
     return rows.map((row) => this.toListItem(row));
+  }
+
+  async progress(user: AuthUser, query: ProgressDateQueryDto) {
+    const date = trackingCalendarDate(new Date(), query.date);
+    if (!isValidCalendarDate(date)) {
+      throw new BadRequestException('date debe ser un día civil YYYY-MM-DD.');
+    }
+
+    const { start, end } = zonedDayRange(date);
+    const sources = await listTrackingSources(this.prisma);
+    const sourceIds = sources.map((s) => s.id);
+    const analystClientIds = isAdmin(user)
+      ? null
+      : user.memberships.map((m) => m.clientId);
+
+    const docs =
+      sourceIds.length === 0
+        ? []
+        : await this.prisma.document.findMany({
+            where: {
+              sourceId: { in: sourceIds },
+              processingStatus: { not: DocumentProcessingStatus.DISCARDED },
+              OR: [
+                { createdAt: { gte: start, lt: end } },
+                {
+                  jobRun: {
+                    idempotencyKey: { contains: `:${date}:` },
+                  },
+                },
+              ],
+            },
+            select: {
+              id: true,
+              sourceId: true,
+              filename: true,
+              mimeType: true,
+              processingStatus: true,
+              lastError: true,
+            },
+          });
+
+    const findings =
+      sourceIds.length === 0 ||
+      (analystClientIds !== null && analystClientIds.length === 0)
+        ? []
+        : await this.prisma.finding.findMany({
+            where: {
+              sourceId: { in: sourceIds },
+              ...(analystClientIds
+                ? { clientId: { in: analystClientIds } }
+                : {}),
+              OR: [
+                { createdAt: { gte: start, lt: end } },
+                {
+                  document: {
+                    jobRun: {
+                      idempotencyKey: { contains: `:${date}:` },
+                    },
+                  },
+                },
+              ],
+            },
+            select: {
+              impact: true,
+              sourceId: true,
+            },
+          });
+
+    const crawlInFlightIds = await loadCrawlInFlightSourceIds(
+      this.prisma,
+      date,
+      sourceIds,
+    );
+
+    const docsBySource = new Map<string, (typeof docs)[number][]>();
+    for (const doc of docs) {
+      if (
+        !doc.sourceId ||
+        isMetaCrawlFilename(doc.filename) ||
+        !isExtractableCrawlFile(doc.filename, doc.mimeType)
+      ) {
+        continue;
+      }
+      const list = docsBySource.get(doc.sourceId) ?? [];
+      list.push(doc);
+      docsBySource.set(doc.sourceId, list);
+    }
+
+    const findingsBySource = new Map<string, (typeof findings)[number][]>();
+    for (const finding of findings) {
+      if (!finding.sourceId) {
+        continue;
+      }
+      const list = findingsBySource.get(finding.sourceId) ?? [];
+      list.push(finding);
+      findingsBySource.set(finding.sourceId, list);
+    }
+
+    return {
+      date,
+      sources: sources.map((source) => {
+        const dayDocs = docsBySource.get(source.id) ?? [];
+        const dayFindings = findingsBySource.get(source.id) ?? [];
+        const signals = analysisDaySignals(
+          dayDocs,
+          dayFindings.length,
+          crawlInFlightIds.has(source.id),
+        );
+        const status = mapAnalysisProgressStatus(signals);
+        const counts = emptyImpactCounts();
+        for (const finding of dayFindings) {
+          addImpactCount(counts, finding.impact);
+        }
+
+        return {
+          sourceId: source.id,
+          sourceName: source.name,
+          status,
+          label: analysisProgressLabel(status),
+          counts,
+          note: analysisProgressNote(status, signals),
+        };
+      }),
+    };
   }
 
   async findOne(user: AuthUser, id: string) {

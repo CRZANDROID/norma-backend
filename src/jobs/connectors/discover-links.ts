@@ -5,10 +5,10 @@ const SKIP_RE =
   /^(mailto:|tel:|javascript:|data:)/i;
 
 const SKIP_HOST_OR_PATH =
-  /facebook\.com|twitter\.com|x\.com|instagram\.com|youtube\.com|youtu\.be|tiktok\.com|linkedin\.com|whatsapp|vimeo\.com|twitch\.tv|transparencia|infomex|plataformadetransparencia|\.jpg(?:$|\?)|\.jpeg(?:$|\?)|\.png(?:$|\?)|\.gif(?:$|\?)|\.webp(?:$|\?)|\.svg(?:$|\?)|\.css(?:$|\?)|\.js(?:$|\?)|\.woff|\.mp4|\.m3u8|\.webm|login|captcha|intranet|wp-admin|wp-login|xmlrpc|\.rss(?:$|\?)|\/feed(?:$|\/|\?)|transmisi[oó]n[-_]?en[-_]?vivo|en[-_]?vivo|livestream|live-stream|\/live(?:$|\/|\?)/i;
+  /facebook\.com|twitter\.com|x\.com|instagram\.com|youtube\.com|youtu\.be|tiktok\.com|linkedin\.com|whatsapp|vimeo\.com|twitch\.tv|transparencia|infomex|plataformadetransparencia|\.jpg(?:$|\?)|\.jpeg(?:$|\?)|\.png(?:$|\?)|\.gif(?:$|\?)|\.webp(?:$|\?)|\.svg(?:$|\?)|\.css(?:$|\?)|\.js(?:$|\?)|\.woff|\.mp4|\.m3u8|\.webm|login|captcha|intranet|wp-admin|wp-login|xmlrpc|\.rss(?:$|\?)|\/feed(?:$|\/|\?)|transmisi[oó]n[-_]?en[-_]?vivo|en[-_]?vivo|livestream|live-stream|\/live(?:$|\/|\?)|inventario[-_]?bienes|bienes[-_]?muebles|coord[-_]?archivo|coordenaci[oó]n[-_]?archivo|cuadro[-_].*clasificacion|\/cadido\//i;
 
 const PREFER_RE =
-  /gaceta|iniciativa|decreto|dictamen|parlamentari|nota_detalle|nota_to_doc|nota_to_imagen|\.pdf(?:$|\?)|\/download|filename=|leyes|ley-|sesion|sesión|debate|infolej|trabajo.?legislativ|acuerdo|minuta|diario|orden.?del.?dia|boletin|boletín|comision|comisión|dictamenes|dictámenes/i;
+  /gaceta|iniciativa|decreto|dictamen|parlamentari|nota_detalle|nota_to_doc|nota_to_imagen|\/download|filename=|leyes|ley-|sesion|sesión|debate|infolej|trabajo.?legislativ|acuerdo|minuta|diario|orden.?del.?dia|boletin|boletín|comision|comisión|dictamenes|dictámenes/i;
 
 export function bareHost(hostname: string): string {
   return hostname.replace(/^www\./i, '').toLowerCase();
@@ -150,13 +150,13 @@ export function extractHrefs(html: string): string[] {
 }
 
 export function linkScore(url: string, extraHints: string[] = []): number {
-  const haystack = `${url} ${extraHints.join(' ')}`;
   let score = 0;
-  if (PREFER_RE.test(haystack)) {
+  const legislative = PREFER_RE.test(url);
+  if (legislative) {
     score += 10;
   }
   if (/\.pdf(?:$|\?)/i.test(url)) {
-    score += 8;
+    score += legislative ? 8 : 1;
   }
   if (/nota_detalle/i.test(url)) {
     score += 12;

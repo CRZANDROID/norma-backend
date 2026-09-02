@@ -32,6 +32,10 @@ import type {
   SourceCrawlJob,
   SourceCrawlResult,
 } from './types';
+import {
+  ORIGIN_PAGE_PARTIAL,
+  storedCrawlFailureMessage,
+} from './origin-page';
 
 @Injectable()
 export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
@@ -150,7 +154,12 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
 
     try {
       const connector = getConnector(source.code);
-      const pages = await connector.crawl(source);
+      const outcome = await connector.crawl(source);
+      const pages = outcome.pages;
+      const originNote =
+        outcome.originUnreachable || outcome.failedFetches > 0
+          ? ORIGIN_PAGE_PARTIAL
+          : null;
       const meta = {
         connector: connector.label,
         connectorCode: connector.code,
@@ -158,6 +167,8 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
         startUrl: source.url,
         pageCount: pages.length,
         urls: pages.map((item) => item.page.finalUrl),
+        failedFetches: outcome.failedFetches,
+        originUnreachable: outcome.originUnreachable,
         searchFocus: source.searchFocus,
         notes: source.notes,
         sections: source.sections,
@@ -243,7 +254,9 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
           fetched: pages.length,
           saved: artifacts.length,
           skipped,
+          failed: outcome.failedFetches,
         },
+        originUnreachable: outcome.originUnreachable,
         finishedAt: new Date().toISOString(),
       };
 
@@ -254,12 +267,12 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
           result: result as unknown as Prisma.InputJsonValue,
           finishedAt: new Date(),
           errorCode: null,
-          message: null,
+          message: originNote,
         },
       });
 
       this.logger.log(
-        `crawl ok source=${source.code} pages=${pages.length} saved=${result.stats.saved}`,
+        `crawl ok source=${source.code} pages=${pages.length} saved=${result.stats.saved} failedFetches=${outcome.failedFetches} originUnreachable=${outcome.originUnreachable}`,
       );
 
       return result;
@@ -277,12 +290,13 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
   }
 
   private async fail(payload: SourceCrawlJob, err: CrawlError): Promise<Error> {
+    const message = storedCrawlFailureMessage(err);
     const failure: SourceCrawlFailure = {
       ok: false,
       jobId: payload.jobId,
       sourceId: payload.sourceId,
       errorCode: err.errorCode,
-      message: err.message,
+      message,
       retryable: err.retryable,
       finishedAt: new Date().toISOString(),
     };
@@ -292,7 +306,7 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
       data: {
         status: JobRunStatus.FAILED,
         errorCode: err.errorCode as JobErrorCode,
-        message: err.message.slice(0, 1000),
+        message,
         result: failure as unknown as Prisma.InputJsonValue,
         finishedAt: new Date(),
       },

@@ -103,4 +103,28 @@ describe('discoverLinks', () => {
       linkScore('https://congresoags.gob.mx/contacto', hints),
     );
   });
+
+  it('does not treat administrative PDFs as legislative and skips archive dumps', () => {
+    expect(
+      linkScore(
+        'https://www.cbcs.gob.mx/gaceta/iniciativas.pdf',
+      ),
+    ).toBeGreaterThan(
+      linkScore(
+        'https://www.cbcs.gob.mx/AREAS-CONGRESO/REC-MATERIALES/INVENTARIO-BIENES-MUEBLES.pdf',
+      ),
+    );
+    expect(
+      normalizeCrawlUrl(
+        'https://www.cbcs.gob.mx/',
+        '/AREAS-CONGRESO/COORD-ARCHIVO/cadido/cadido_congreso_bcs.pdf',
+      ),
+    ).toBeNull();
+    expect(
+      normalizeCrawlUrl(
+        'https://www.cbcs.gob.mx/',
+        '/AREAS-CONGRESO/REC-MATERIALES/INVENTARIO-BIENES-MUEBLES.pdf',
+      ),
+    ).toBeNull();
+  });
 });

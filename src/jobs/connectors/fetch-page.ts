@@ -1,6 +1,7 @@
 import * as http from 'node:http';
 import * as https from 'node:https';
 import { URL } from 'node:url';
+import { ORIGIN_PAGE_UNAVAILABLE } from '../origin-page';
 import { CrawlError } from '../types';
 import {
   looksLikeDocxBuffer,
@@ -79,7 +80,7 @@ function classifyHttp(status: number): CrawlError {
     return new CrawlError(`HTTP ${status} (auth)`, 'AUTH', false);
   }
   if (status >= 500) {
-    return new CrawlError(`HTTP ${status}`, 'NETWORK', true);
+    return new CrawlError(ORIGIN_PAGE_UNAVAILABLE, 'NETWORK', true);
   }
   if (status >= 400) {
     return new CrawlError(`HTTP ${status}`, 'PARSE', false);
@@ -308,7 +309,10 @@ export async function fetchPage(
     }
   } catch (err) {
     const message = errorChainText(err) || String(err);
-    throw new CrawlError(`Fallo de red: ${message}`, 'NETWORK', true);
+    console.warn(
+      `crawl origen no disponible url=${url} reason=${message.slice(0, 200)}`,
+    );
+    throw new CrawlError(ORIGIN_PAGE_UNAVAILABLE, 'NETWORK', true);
   }
 
   if (!response.ok) {

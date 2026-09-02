@@ -48,8 +48,41 @@ describe('Findings classify (e2e)', () => {
     }
   }, 15_000);
 
-  it('rejects unauthenticated list', async () => {
-    await request(app.getHttpServer()).get('/findings').expect(401);
+  it('GET /findings/progress rejects unauthenticated and invalid date', async () => {
+    await request(app.getHttpServer()).get('/findings/progress').expect(401);
+    await request(app.getHttpServer())
+      .get('/findings/progress?date=2026-13-99')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+  });
+
+  it('GET /findings/progress returns one executive row per source', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/findings/progress')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(Array.isArray(res.body.sources)).toBe(true);
+    expect(res.body.sources.length).toBeGreaterThanOrEqual(1);
+    for (const row of res.body.sources) {
+      expect(typeof row.sourceName).toBe('string');
+      expect(typeof row.status).toBe('string');
+      expect(typeof row.label).toBe('string');
+      expect(row.counts).toEqual(
+        expect.objectContaining({
+          red: expect.any(Number),
+          orange: expect.any(Number),
+          yellow: expect.any(Number),
+          green: expect.any(Number),
+        }),
+      );
+      expect(row).not.toHaveProperty('justification');
+      expect(row).not.toHaveProperty('aiMeta');
+      expect(row).not.toHaveProperty('headline');
+      expect(row).not.toHaveProperty('impact');
+      expect(row).not.toHaveProperty('detail');
+    }
   });
 
   it('GET /findings lists for ADMIN', async () => {

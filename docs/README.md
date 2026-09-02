@@ -18,7 +18,7 @@
 - [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)
 - [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) — semáforo/canales (**config**; no es la lista de hallazgos)
 - [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md)
-- [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) — panel `/jobs/progress` + `/documents/progress` (incluye `CLASSIFIED`)
+- [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) — panel `/jobs/progress` + `/documents/progress` + `/findings/progress`
 - [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) — `GET /findings` (array; no inbox; no `/alertas`)
 
 ## Pipeline (S5–S6)

@@ -43,7 +43,7 @@ describe('crawlSite', () => {
       'https://congresoags.gob.mx/noticias': '<p>Boletín de prensa</p>',
     };
 
-    const pages = await crawlSite(source, {
+    const { pages } = await crawlSite(source, {
       maxPages: 4,
       maxDepth: 2,
       delayMs: 0,
@@ -79,7 +79,7 @@ describe('crawlSite', () => {
 
   it('skips empty inner pages and names PDFs from magic bytes', async () => {
     const pdfBody = Buffer.from('%PDF-1.4\n1 0 obj\n');
-    const pages = await crawlSite(source, {
+    const { pages } = await crawlSite(source, {
       maxPages: 4,
       maxDepth: 1,
       delayMs: 0,
@@ -124,7 +124,7 @@ describe('crawlSite', () => {
   it('fetches PDFs from a listing even when the HTML menu would fill the queue', async () => {
     const pdfBody = Buffer.from('%PDF-1.4\n1 0 obj\n');
     const fetched: string[] = [];
-    const pages = await crawlSite(source, {
+    const { pages } = await crawlSite(source, {
       maxPages: 5,
       maxDepth: 2,
       delayMs: 0,
@@ -166,7 +166,7 @@ describe('crawlSite', () => {
 
   it('follows a same-host meta-refresh stub instead of saving the bounce page', async () => {
     const fetched: string[] = [];
-    const pages = await crawlSite(
+    const { pages } = await crawlSite(
       { ...source, url: 'https://www.congresocoahuila.gob.mx/' },
       {
         maxPages: 3,
@@ -201,5 +201,35 @@ describe('crawlSite', () => {
     expect(pages[0]?.page.finalUrl).toBe(
       'https://www.congresocoahuila.gob.mx/coahuila/',
     );
+  });
+
+  it('stops when the origin page keeps failing instead of draining the menu', async () => {
+    let fetches = 0;
+    const outcome = await crawlSite(source, {
+      maxPages: 80,
+      maxDepth: 1,
+      delayMs: 0,
+      circuitFailures: 3,
+      fetch: async (url) => {
+        fetches += 1;
+        if (url.endsWith('/')) {
+          const links = Array.from(
+            { length: 40 },
+            (_, i) => `<a href="/pagina-${i}.html">n</a>`,
+          ).join('');
+          return page(url, links);
+        }
+        throw new CrawlError(
+          'fetch failed unable to verify the first certificate',
+          'NETWORK',
+          true,
+        );
+      },
+    });
+
+    expect(outcome.pages).toHaveLength(1);
+    expect(outcome.originUnreachable).toBe(true);
+    expect(outcome.failedFetches).toBe(3);
+    expect(fetches).toBe(4);
   });
 });

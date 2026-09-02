@@ -6,6 +6,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { UserRole } from '../../database/prisma-client';
+import { ProgressDateQueryDto } from '../../jobs/dto/progress-date.query.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -30,6 +31,19 @@ export class FindingsController {
   })
   list(@CurrentUser() user: AuthUser, @Query() query: ListFindingsQueryDto) {
     return this.findingsService.list(user, query);
+  }
+
+  @Get('progress')
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({
+    summary:
+      'Resumen ejecutivo de análisis: una fila por fuente (hallazgos del día, copy en español)',
+  })
+  progress(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ProgressDateQueryDto,
+  ) {
+    return this.findingsService.progress(user, query);
   }
 
   @Get(':id')

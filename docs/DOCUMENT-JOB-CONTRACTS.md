@@ -35,6 +35,7 @@ Relacionado:
 | `Finding` | Hallazgo por documento×cliente (S7 lectura; inbox = S8) |
 | `GET /documents` | Lectura admin/analyst del registro documental |
 | `GET /documents/progress` | Resumen ejecutivo (1 fila/fuente, copy en español) |
+| `GET /findings/progress` | Resumen ejecutivo de análisis (1 fila/fuente, copy en español) |
 | `GET /findings` | Lista de hallazgos clasificados (semáforo; `sourceCode` / `sourceId`; `document.url`) |
 
 Campo de pipeline (`DocumentProcessingStatus` en columna `processing_status`):
@@ -149,7 +150,9 @@ type SourceCrawlResult = {
     fetched: number;
     saved: number;
     skipped: number;
+    failed?: number; // páginas internas que no respondieron (error de origen)
   };
+  originUnreachable?: boolean;
   finishedAt: string; // ISO
 };
 ```

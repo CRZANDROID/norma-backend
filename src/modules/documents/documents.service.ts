@@ -14,7 +14,10 @@ import { DocumentJobsProducer } from '../../jobs/document-jobs.producer';
 import { OpenAiClientService } from '../ai/openai-client.service';
 import type { ProgressDateQueryDto } from '../../jobs/dto/progress-date.query.dto';
 import { isExtractableCrawlFile, isMetaCrawlFilename } from '../../jobs/document-text';
-import { listTrackingSources } from '../../jobs/progress-board';
+import {
+  listTrackingSources,
+  loadCrawlInFlightSourceIds,
+} from '../../jobs/progress-board';
 import { appendProcessingHistory } from '../../jobs/processing-history';
 import {
   isValidCalendarDate,
@@ -29,6 +32,7 @@ import {
   documentProgressLabel,
   documentProgressNote,
   mapDocumentPipelineStatus,
+  mapDocumentSourceStatus,
   preferHtmlFilename,
   type DocumentProgressStatus,
 } from './progress.labels';
@@ -150,6 +154,12 @@ export class DocumentsService {
             },
           });
 
+    const crawlInFlightIds = await loadCrawlInFlightSourceIds(
+      this.prisma,
+      date,
+      sourceIds,
+    );
+
     const bySource = new Map<string, (typeof rows)[number][]>();
     for (const row of rows) {
       if (
@@ -191,23 +201,31 @@ export class DocumentsService {
       sources: sources.map((source) => {
         const dayRows = bySource.get(source.id) ?? [];
         const row = bestBySource.get(source.id);
+        const crawlInFlight = crawlInFlightIds.has(source.id);
+        const signals = {
+          ...documentDaySignals(dayRows),
+          crawlInFlight,
+        };
+        const bestStatus: DocumentProgressStatus | null = row
+          ? mapDocumentPipelineStatus(row.processingStatus, row.lastError)
+          : null;
+        const status = mapDocumentSourceStatus(
+          bestStatus,
+          signals,
+          crawlInFlight,
+        );
+
         if (!row) {
-          const status: DocumentProgressStatus = 'pending';
           return {
             sourceId: source.id,
             sourceName: source.name,
             status,
             label: documentProgressLabel(status),
             headline: null,
-            note: null,
+            note: documentProgressNote(status, null, signals),
           };
         }
 
-        const status = mapDocumentPipelineStatus(
-          row.processingStatus,
-          row.lastError,
-        );
-        const signals = documentDaySignals(dayRows);
         const text =
           headlineText.get(row.id) ||
           (row.canonicalDocumentId

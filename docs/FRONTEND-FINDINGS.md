@@ -32,13 +32,20 @@ No-ADMIN: la lista se recorta a memberships. ANALYST **no** ve el botón reclasi
 
 | Método | Ruta | Quién | Uso |
 |--------|------|--------|-----|
+| `GET` | `/findings/progress` | ADMIN / ANALYST | Dashboard: 1 fila/fuente (avance del análisis). Contrato: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) |
 | `GET` | `/findings` | ADMIN / ANALYST | Lista (array JSON) |
 | `GET` | `/findings/:id` | igual | Detalle |
 | `POST` | `/documents/:id/classify` | **solo ADMIN** | Encola classify; **no** devuelve el finding |
 
 No hay `PATCH /findings/:id`. No pintar ACK/RESOLVE.
 
-En Axios son dos URLs distintas (`/findings` vs `/findings/${id}`). No hace falta “registrar la lista antes del detalle”.
+En Axios son tres URLs distintas (`/findings`, `/findings/progress`, `/findings/${id}`). Registrar **`GET /findings/progress` antes** que el detalle si el cliente HTTP trata `progress` como id.
+
+## Dashboard de seguimiento — `GET /findings/progress`
+
+Misma forma que `/jobs/progress` y `/documents/progress`: `{ date, sources[] }`, **una fila por fuente**, query `date=YYYY-MM-DD`. No es la lista de hallazgos y **no** sustituye este documento para `/hallazgos`.
+
+Contrato y copy: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) § Análisis. Pollarlo junto a los otros dos progress (15 s / 45 s). Cuando el rastreo termina, refresca este GET enseguida. `classifying` manda aunque ya haya `counts`. No pollar `GET /findings` para el dashboard.
 
 ## Lista — `GET /findings`
 
@@ -131,14 +138,14 @@ Filtro de fuente en UI: combo con `GET /sources` (o las del cliente) → `GET /f
 
 Pintar: **semáforo (`impact`) + título + cliente + fuente + link `document.url`**. `suggestedAction` es copy (snapshot al clasificar), no un botón que envíe correo.
 
+Conteos “cuántos rojos” en **`/hallazgos`**: agrupar este array en el cliente. El dashboard de avance usa `counts` de `GET /findings/progress` (otra pantalla).
+
 | `impact` | Uso UI |
 |----------|--------|
 | `GREEN` | Contexto / poco impacto |
 | `YELLOW` | Seguimiento |
 | `ORANGE` | Nota y monitoreo |
 | `RED` | Alerta |
-
-Conteos “cuántos rojos” = agrupar este array en el cliente. No hay `GET /findings/summary`.
 
 ## Detalle — `GET /findings/:id`
 

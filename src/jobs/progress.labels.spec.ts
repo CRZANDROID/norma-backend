@@ -1,5 +1,9 @@
 import { JobErrorCode, JobRunStatus } from '../database/prisma-client';
 import {
+  ORIGIN_PAGE_PARTIAL,
+  ORIGIN_PAGE_UNAVAILABLE,
+} from './origin-page';
+import {
   crawlFailNote,
   crawlProgressFromRunStatus,
   crawlProgressLabel,
@@ -21,18 +25,24 @@ describe('crawl progress labels', () => {
     expect(crawlProgressLabel('pending')).toBe('Pendiente hoy');
   });
 
-  it('keeps short Spanish messages and hides stacks', () => {
+  it('attributes network and TLS failures to the origin page, not the agent', () => {
     expect(crawlFailNote('La fuente no respondió.', JobErrorCode.NETWORK)).toBe(
-      'La fuente no respondió.',
+      ORIGIN_PAGE_UNAVAILABLE,
     );
     expect(
       crawlFailNote(
         'Error: connect ECONNREFUSED 127.0.0.1:443',
         JobErrorCode.NETWORK,
       ),
-    ).toBe('No hubo conexión con la fuente.');
+    ).toBe(ORIGIN_PAGE_UNAVAILABLE);
+    expect(
+      crawlFailNote(
+        'fetch failed unable to verify the first certificate UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+        JobErrorCode.NETWORK,
+      ),
+    ).toBe(ORIGIN_PAGE_UNAVAILABLE);
     expect(crawlFailNote(null, JobErrorCode.PARSE)).toBe(
-      'No se pudo leer la página.',
+      'No se pudo leer la página de la fuente.',
     );
     expect(crawlFailNote('at Worker.run (index.js:1:1)', null)).toBe(
       'No se pudo completar el rastreo.',
@@ -44,7 +54,7 @@ describe('crawl progress labels', () => {
     );
   });
 
-  it('explains skipped and a later success after a failed attempt', () => {
+  it('explains skipped, later success, and partial origin-page failures', () => {
     expect(crawlProgressNote('skipped', 'Fuente INACTIVE', null)).toBe(
       'La fuente está inactiva; no se rastreó.',
     );
@@ -54,5 +64,11 @@ describe('crawl progress labels', () => {
       'Un intento de hoy no se pudo completar. El último rastreo sí terminó.',
     );
     expect(crawlProgressNote('crawled', null, null)).toBeNull();
+    expect(crawlProgressNote('crawled', ORIGIN_PAGE_PARTIAL, null)).toBe(
+      ORIGIN_PAGE_PARTIAL,
+    );
+    expect(
+      crawlProgressNote('failed', ORIGIN_PAGE_UNAVAILABLE, JobErrorCode.NETWORK),
+    ).toBe(ORIGIN_PAGE_UNAVAILABLE);
   });
 });

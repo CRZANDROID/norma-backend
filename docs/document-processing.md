@@ -43,7 +43,7 @@ Auth JWT. Lectura: `ADMIN` \| `ANALYST`. Reproceso: `ADMIN`.
 
 ### `GET /documents/progress?date=YYYY-MM-DD`
 
-Resumen ejecutivo: **una fila por fuente**, mejor HTML/PDF del día (se ignora `meta.json`; si hay canónico + `DEDUPED`, gana el canónico). Copy en español. Si el día solo trajo duplicado o un extract fallido, el `label`/`note` lo dicen sin jerga (`Sin cambios…` / `Rastreada, sin texto usable`). Contrato UI: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). El listado `GET /documents` muestra **todas** las páginas internas del crawl.
+Resumen ejecutivo: **una fila por fuente**. El `status` es el del **lote** (si alguna página sigue en extract, o el crawl del día sigue `queued`/`running`, la fila es `extracting`). `headline` sale de la mejor página (`meta.json` se ignora; si hay canónico + `DEDUPED`, gana el canónico). Copy en español. Contrato UI: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). El listado `GET /documents` muestra **todas** las páginas internas del crawl.
 
 Registrar esta ruta **antes** de `GET /documents/:id`.
 
