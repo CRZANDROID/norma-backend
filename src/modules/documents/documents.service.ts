@@ -11,9 +11,13 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { PILOT_CONNECTOR_CODES } from '../../jobs/connectors/registry';
 import { DocumentJobsProducer } from '../../jobs/document-jobs.producer';
+import { OpenAiClientService } from '../ai/openai-client.service';
 import type { ProgressDateQueryDto } from '../../jobs/dto/progress-date.query.dto';
 import { isExtractableCrawlFile, isMetaCrawlFilename } from '../../jobs/document-text';
-import { listTrackingSources } from '../../jobs/progress-board';
+import {
+  listTrackingSources,
+  loadCrawlInFlightSourceIds,
+} from '../../jobs/progress-board';
 import { appendProcessingHistory } from '../../jobs/processing-history';
 import {
   isValidCalendarDate,
@@ -28,6 +32,7 @@ import {
   documentProgressLabel,
   documentProgressNote,
   mapDocumentPipelineStatus,
+  mapDocumentSourceStatus,
   preferHtmlFilename,
   type DocumentProgressStatus,
 } from './progress.labels';
@@ -61,6 +66,7 @@ export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly documentJobs: DocumentJobsProducer,
+    private readonly openai: OpenAiClientService,
   ) {}
 
   async list(query: ListDocumentsQueryDto) {
@@ -148,6 +154,12 @@ export class DocumentsService {
             },
           });
 
+    const crawlInFlightIds = await loadCrawlInFlightSourceIds(
+      this.prisma,
+      date,
+      sourceIds,
+    );
+
     const bySource = new Map<string, (typeof rows)[number][]>();
     for (const row of rows) {
       if (
@@ -189,23 +201,31 @@ export class DocumentsService {
       sources: sources.map((source) => {
         const dayRows = bySource.get(source.id) ?? [];
         const row = bestBySource.get(source.id);
+        const crawlInFlight = crawlInFlightIds.has(source.id);
+        const signals = {
+          ...documentDaySignals(dayRows),
+          crawlInFlight,
+        };
+        const bestStatus: DocumentProgressStatus | null = row
+          ? mapDocumentPipelineStatus(row.processingStatus, row.lastError)
+          : null;
+        const status = mapDocumentSourceStatus(
+          bestStatus,
+          signals,
+          crawlInFlight,
+        );
+
         if (!row) {
-          const status: DocumentProgressStatus = 'pending';
           return {
             sourceId: source.id,
             sourceName: source.name,
             status,
             label: documentProgressLabel(status),
             headline: null,
-            note: null,
+            note: documentProgressNote(status, null, signals),
           };
         }
 
-        const status = mapDocumentPipelineStatus(
-          row.processingStatus,
-          row.lastError,
-        );
-        const signals = documentDaySignals(dayRows);
         const text =
           headlineText.get(row.id) ||
           (row.canonicalDocumentId
@@ -301,6 +321,49 @@ export class DocumentsService {
     return {
       id: row.id,
       processingStatus: DocumentProcessingStatus.RECEIVED,
+      ...queued,
+    };
+  }
+
+  async classify(id: string) {
+    const row = await this.prisma.document.findUnique({
+      where: { id },
+    });
+    if (!row || isMetaCrawlFilename(row.filename)) {
+      throw new NotFoundException('Documento no encontrado.');
+    }
+    if (row.canonicalDocumentId || row.processingStatus === DocumentProcessingStatus.DEDUPED) {
+      throw new BadRequestException(
+        'Los duplicados no se clasifican; usa el documento canónico.',
+      );
+    }
+    if (
+      row.processingStatus !== DocumentProcessingStatus.READY_FOR_AI &&
+      row.processingStatus !== DocumentProcessingStatus.CLASSIFIED
+    ) {
+      throw new BadRequestException(
+        'Solo se reencola clasificación en documentos READY_FOR_AI o CLASSIFIED.',
+      );
+    }
+    if (!this.documentJobs.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'Jobs no configurados. Define REDIS_URL.',
+      );
+    }
+    if (!this.openai.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'OpenAI no configurado. Define OPENAI_API_KEY.',
+      );
+    }
+
+    const queued = await this.documentJobs.enqueueClassify({
+      documentId: row.id,
+      force: true,
+    });
+
+    return {
+      id: row.id,
+      processingStatus: row.processingStatus,
       ...queued,
     };
   }

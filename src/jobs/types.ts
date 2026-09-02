@@ -39,7 +39,9 @@ export type SourceCrawlResult = {
     fetched: number;
     saved: number;
     skipped: number;
+    failed?: number;
   };
+  originUnreachable?: boolean;
   finishedAt: string;
 };
 

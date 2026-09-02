@@ -8,9 +8,12 @@ import { ConfigService } from '@nestjs/config';
 import { Worker, type Job } from 'bullmq';
 import Redis from 'ioredis';
 import { DocumentProcessingStatus } from '../database/prisma-client';
+import { DocumentClassifyService } from './document-classify.service';
 import {
+  DOCUMENT_CLASSIFY_QUEUE,
   DOCUMENT_EXTRACT_QUEUE,
   DOCUMENT_NORMALIZE_QUEUE,
+  type DocumentClassifyJob,
   type DocumentExtractJob,
   type DocumentNormalizeJob,
 } from './document-jobs.types';
@@ -23,11 +26,13 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
   private redis: Redis | null = null;
   private extractWorker: Worker<DocumentExtractJob> | null = null;
   private normalizeWorker: Worker<DocumentNormalizeJob> | null = null;
+  private classifyWorker: Worker<DocumentClassifyJob> | null = null;
 
   constructor(
     private readonly config: ConfigService,
     private readonly pipeline: DocumentPipelineService,
     private readonly producer: DocumentJobsProducer,
+    private readonly classify: DocumentClassifyService,
   ) {}
 
   onModuleInit() {
@@ -59,6 +64,11 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
       (job) => this.handleNormalize(job),
       { connection: this.redis, concurrency },
     );
+    this.classifyWorker = new Worker<DocumentClassifyJob>(
+      DOCUMENT_CLASSIFY_QUEUE,
+      (job) => this.handleClassify(job),
+      { connection: this.redis, concurrency },
+    );
     this.extractWorker.on('failed', (job, err) => {
       this.logger.error(
         `extract failed document=${job?.data?.documentId}: ${err.message}`,
@@ -69,14 +79,20 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
         `normalize failed document=${job?.data?.documentId}: ${err.message}`,
       );
     });
+    this.classifyWorker.on('failed', (job, err) => {
+      this.logger.error(
+        `classify failed document=${job?.data?.documentId}: ${err.message}`,
+      );
+    });
     this.logger.log(
-      `workers document.extract + document.normalize_dedup concurrency=${concurrency}`,
+      `workers document.extract + document.normalize_dedup + document.classify concurrency=${concurrency}`,
     );
   }
 
   async onModuleDestroy() {
     await this.extractWorker?.close();
     await this.normalizeWorker?.close();
+    await this.classifyWorker?.close();
     this.redis?.disconnect();
   }
 
@@ -91,6 +107,16 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleNormalize(job: Job<DocumentNormalizeJob>) {
-    return this.pipeline.normalizeDedup(job.data.documentId);
+    const result = await this.pipeline.normalizeDedup(job.data.documentId);
+    if (result.processingStatus === DocumentProcessingStatus.READY_FOR_AI) {
+      await this.producer.enqueueClassify({
+        documentId: job.data.documentId,
+      });
+    }
+    return result;
+  }
+
+  private async handleClassify(job: Job<DocumentClassifyJob>) {
+    return this.classify.classify(job.data.documentId);
   }
 }

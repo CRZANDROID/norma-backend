@@ -1,14 +1,19 @@
 import { createHash } from 'node:crypto';
 import { CrawlError } from '../types';
+import { ORIGIN_PAGE_UNAVAILABLE } from '../origin-page';
 import { urlLooksLikePdf, urlLooksLikeWord } from '../document-text';
 import { fetchPage, pageFilename, sniffCrawlExtension, type FetchedPage } from './fetch-page';
 import { discoverLinks, metaRefreshStubTarget, sectionHints } from './discover-links';
-import type { ConnectorFetch, ConnectorSource } from './types';
+import type { ConnectorFetch, ConnectorSource, CrawlOutcome } from './types';
 
 const DEFAULT_MAX_PAGES = 80;
 const ABSOLUTE_MAX_PAGES = 80;
 const DEFAULT_MAX_DEPTH = 2;
 const DEFAULT_DELAY_MS = 150;
+const START_PAGE_TIMEOUT_MS = 25_000;
+const INNER_PAGE_TIMEOUT_MS = 12_000;
+/** Fallos de red/TLS seguidos: el origen está caído; no drenar el menú. */
+export const ORIGIN_CIRCUIT_FAILURES = 6;
 
 export function resolveMaxPages(override?: number): number {
   if (typeof override === 'number' && Number.isFinite(override) && override > 0) {
@@ -44,12 +49,13 @@ export type SiteCrawlDeps = {
   maxPages?: number;
   maxDepth?: number;
   delayMs?: number;
+  circuitFailures?: number;
 };
 
 export async function crawlSite(
   source: ConnectorSource,
   deps: SiteCrawlDeps = {},
-): Promise<ConnectorFetch[]> {
+): Promise<CrawlOutcome> {
   const startUrl = source.url?.trim();
   if (!startUrl) {
     throw new CrawlError(
@@ -63,6 +69,8 @@ export async function crawlSite(
   const maxPages = resolveMaxPages(deps.maxPages);
   const maxDepth = deps.maxDepth ?? DEFAULT_MAX_DEPTH;
   const delayMs = deps.delayMs ?? DEFAULT_DELAY_MS;
+  const circuitLimit = deps.circuitFailures ?? ORIGIN_CIRCUIT_FAILURES;
+  const maxFetchAttempts = maxPages * 2;
   const hints = [
     ...sectionHints(source.sections),
     ...(source.searchFocus ?? []),
@@ -76,30 +84,48 @@ export async function crawlSite(
   const seenFinal = new Set<string>();
   const pages: ConnectorFetch[] = [];
   const maxQueue = maxPages * 3;
+  let failedFetches = 0;
+  let consecutiveFailures = 0;
+  let fetchAttempts = 0;
+  let originUnreachable = false;
 
-  while (queue.length > 0 && pages.length < maxPages) {
+  while (
+    queue.length > 0 &&
+    pages.length < maxPages &&
+    fetchAttempts < maxFetchAttempts &&
+    !originUnreachable
+  ) {
     const next = queue.shift();
     if (!next) {
       break;
     }
 
+    fetchAttempts += 1;
     let page: FetchedPage;
     try {
-      page = await fetchFn(next.url);
+      page = await fetchFn(next.url, {
+        timeoutMs: next.depth === 0 ? START_PAGE_TIMEOUT_MS : INNER_PAGE_TIMEOUT_MS,
+      });
+      consecutiveFailures = 0;
     } catch (err) {
       if (pages.length === 0) {
         throw err;
+      }
+      failedFetches += 1;
+      consecutiveFailures += 1;
+      if (consecutiveFailures >= circuitLimit) {
+        originUnreachable = true;
       }
       continue;
     }
 
     if (!page.body?.length) {
       if (pages.length === 0) {
-        throw new CrawlError(
-          `La portada de ${source.code} llegó vacía`,
-          'PARSE',
-          true,
-        );
+    throw new CrawlError(
+      ORIGIN_PAGE_UNAVAILABLE,
+      'PARSE',
+      true,
+    );
       }
       continue;
     }
@@ -142,16 +168,12 @@ export async function crawlSite(
       const binaries: Array<{ url: string; depth: number }> = [];
       const html: Array<{ url: string; depth: number }> = [];
       for (const url of discovered) {
-        if (queued.has(url)) {
-          continue;
-        }
-        const binary = urlLooksLikePdf(url) || urlLooksLikeWord(url);
-        if (!binary && queued.size >= maxQueue) {
+        if (queued.has(url) || queued.size >= maxQueue) {
           continue;
         }
         queued.add(url);
         const item = { url, depth: next.depth + 1 };
-        if (binary) {
+        if (urlLooksLikePdf(url) || urlLooksLikeWord(url)) {
           binaries.push(item);
         } else {
           html.push(item);
@@ -161,18 +183,23 @@ export async function crawlSite(
       queue.push(...html);
     }
 
-    if (queue.length > 0 && pages.length < maxPages) {
+    if (
+      queue.length > 0 &&
+      pages.length < maxPages &&
+      fetchAttempts < maxFetchAttempts &&
+      !originUnreachable
+    ) {
       await sleep(delayMs);
     }
   }
 
   if (pages.length === 0) {
     throw new CrawlError(
-      `No se pudo leer ninguna página de ${source.code}`,
+      ORIGIN_PAGE_UNAVAILABLE,
       'NETWORK',
       true,
     );
   }
 
-  return pages;
+  return { pages, failedFetches, originUnreachable };
 }

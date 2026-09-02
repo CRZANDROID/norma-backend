@@ -1,6 +1,6 @@
 # Asistente de catálogo (OpenAI) — Fase 1
 
-**No es** clasificación de normas (Sprint 7). El modelo **solo** responde con clientes, perfiles y fuentes ya guardados en Postgres.
+**No es** clasificación de normas. Eso es Sprint 7: cola `document.classify` y `GET /findings` ([FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md)). `POST /ai/ask` **solo** responde con clientes, perfiles y fuentes ya guardados en Postgres.
 
 ## Env
 

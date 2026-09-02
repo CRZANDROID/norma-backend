@@ -4,6 +4,7 @@ export type DocumentProgressStatus =
   | 'pending'
   | 'extracting'
   | 'ready'
+  | 'classified'
   | 'unchanged'
   | 'unread'
   | 'failed';
@@ -15,6 +16,7 @@ export const DOCUMENT_PROGRESS_LABELS: Record<
   pending: 'Sin texto aún',
   extracting: 'Extrayendo texto',
   ready: 'Texto listo',
+  classified: 'Clasificada',
   unchanged: 'Sin cambios (ya registrada)',
   unread: 'Rastreada, sin texto usable',
   failed: 'No se pudo extraer',
@@ -60,7 +62,30 @@ export type DocumentDaySignals = {
   hadUnchanged: boolean;
   hadUnread: boolean;
   hadFailed: boolean;
+  hasExtracting: boolean;
+  hasReadyOrClassified: boolean;
+  crawlInFlight: boolean;
 };
+
+const EMPTY_DOCUMENT_SIGNALS: DocumentDaySignals = {
+  hadUnchanged: false,
+  hadUnread: false,
+  hadFailed: false,
+  hasExtracting: false,
+  hasReadyOrClassified: false,
+  crawlInFlight: false,
+};
+
+export function isExtractPipelineActive(
+  processingStatus: DocumentProcessingStatus,
+): boolean {
+  return (
+    processingStatus === DocumentProcessingStatus.RECEIVED ||
+    processingStatus === DocumentProcessingStatus.EXTRACTED ||
+    processingStatus === DocumentProcessingStatus.NORMALIZED ||
+    processingStatus === DocumentProcessingStatus.HASHED
+  );
+}
 
 export function documentDaySignals(
   rows: Array<{
@@ -71,7 +96,12 @@ export function documentDaySignals(
   let hadUnchanged = false;
   let hadUnread = false;
   let hadFailed = false;
+  let hasExtracting = false;
+  let hasReadyOrClassified = false;
   for (const row of rows) {
+    if (isExtractPipelineActive(row.processingStatus)) {
+      hasExtracting = true;
+    }
     const mapped = mapDocumentPipelineStatus(
       row.processingStatus,
       row.lastError,
@@ -82,21 +112,52 @@ export function documentDaySignals(
       hadUnread = true;
     } else if (mapped === 'failed') {
       hadFailed = true;
+    } else if (mapped === 'ready' || mapped === 'classified') {
+      hasReadyOrClassified = true;
     }
   }
-  return { hadUnchanged, hadUnread, hadFailed };
+  return {
+    hadUnchanged,
+    hadUnread,
+    hadFailed,
+    hasExtracting,
+    hasReadyOrClassified,
+    crawlInFlight: false,
+  };
+}
+
+/** Status de la fila: hay trabajo si alguna página sigue en extract o el crawl del día sigue vivo. */
+export function mapDocumentSourceStatus(
+  bestStatus: DocumentProgressStatus | null,
+  signals: DocumentDaySignals,
+  crawlInFlight: boolean,
+): DocumentProgressStatus {
+  if (crawlInFlight || signals.hasExtracting) {
+    return 'extracting';
+  }
+  return bestStatus ?? 'pending';
 }
 
 /** Nota ejecutiva: duplicado y/o error, sin jerga de pipeline. */
 export function documentProgressNote(
   status: DocumentProgressStatus,
   lastError: string | null | undefined,
-  signals: DocumentDaySignals = {
-    hadUnchanged: false,
-    hadUnread: false,
-    hadFailed: false,
-  },
+  signals: DocumentDaySignals = EMPTY_DOCUMENT_SIGNALS,
 ): string | null {
+  if (status === 'extracting') {
+    if (
+      signals.crawlInFlight &&
+      signals.hasReadyOrClassified &&
+      !signals.hasExtracting
+    ) {
+      return 'Sigue llegando material del rastreo.';
+    }
+    if (signals.hasReadyOrClassified) {
+      return 'Sigue la extracción de otras páginas.';
+    }
+    return null;
+  }
+
   const hadExtractProblem = signals.hadUnread || signals.hadFailed;
   const problemNote = signals.hadFailed
     ? 'Otro intento de hoy no se pudo extraer.'
@@ -107,6 +168,10 @@ export function documentProgressNote(
       return `El contenido es el mismo que ya teníamos. ${problemNote}`;
     }
     return 'El contenido es el mismo que ya teníamos registrado.';
+  }
+
+  if (status === 'classified' && hadExtractProblem) {
+    return `Hay texto clasificado. ${problemNote}`;
   }
 
   if (status === 'ready' && hadExtractProblem) {
@@ -141,6 +206,8 @@ export function mapDocumentPipelineStatus(
   lastError?: string | null,
 ): DocumentProgressStatus {
   switch (processingStatus) {
+    case DocumentProcessingStatus.CLASSIFIED:
+      return 'classified';
     case DocumentProcessingStatus.READY_FOR_AI:
       return 'ready';
     case DocumentProcessingStatus.DEDUPED:
@@ -158,6 +225,7 @@ export function mapDocumentPipelineStatus(
 }
 
 const PIPELINE_RANK: Record<DocumentProcessingStatus, number> = {
+  [DocumentProcessingStatus.CLASSIFIED]: 110,
   [DocumentProcessingStatus.READY_FOR_AI]: 100,
   [DocumentProcessingStatus.HASHED]: 80,
   [DocumentProcessingStatus.NORMALIZED]: 70,

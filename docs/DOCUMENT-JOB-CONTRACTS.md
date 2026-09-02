@@ -1,7 +1,7 @@
 # Contratos de documentos y jobs de ingesta (Sprint 4 → 5)
 
 **Issue:** `S4: Document contracts for documents and ingestion jobs` (#14)  
-**Estado:** contrato + **S5 y S6 implementados** (`source.crawl`, `document.extract`, `document.normalize_dedup`).  
+**Estado:** contrato + **S5, S6 y S7 implementados** (`source.crawl`, `document.extract`, `document.normalize_dedup`, `document.classify`).  
 **Operación S5:** [jobs-crawl.md](./jobs-crawl.md). **S6:** [document-processing.md](./document-processing.md).
 
 Relacionado:
@@ -32,9 +32,11 @@ Relacionado:
 | `client_sources` | Qué fuentes monitorear por cliente |
 | `Document` | Metadatos Storage + `processingStatus` / hash / texto extraído (S6) |
 | `POST /storage/*` | Upload/download/signed-url **sin** crear fila `documents` aún |
-| `Finding` | Placeholder de hallazgo (CRUD inbox = S7–S8) |
+| `Finding` | Hallazgo por documento×cliente (S7 lectura; inbox = S8) |
 | `GET /documents` | Lectura admin/analyst del registro documental |
 | `GET /documents/progress` | Resumen ejecutivo (1 fila/fuente, copy en español) |
+| `GET /findings/progress` | Resumen ejecutivo de análisis (1 fila/fuente, copy en español) |
+| `GET /findings` | Lista de hallazgos clasificados (semáforo; `sourceCode` / `sourceId`; `document.url`) |
 
 Campo de pipeline (`DocumentProcessingStatus` en columna `processing_status`):
 
@@ -50,6 +52,7 @@ DocumentProcessingStatus
 | `HASHED` | Content hash calculado |
 | `DEDUPED` | Evaluado contra duplicados (link a canónico si aplica) |
 | `READY_FOR_AI` | Listo para clasificación (S7) |
+| `CLASSIFIED` | Clasificado: findings persistidos (o skip sin clientes) |
 | `FAILED` | Error recuperable/no; ver `lastError` |
 | `DISCARDED` | Soft-out del pipeline (no borrar bytes) |
 
@@ -80,7 +83,9 @@ Implementación S6: [document-processing.md](./document-processing.md).
                        DEDUPED ─────► DISCARDED (opcional)
                            │
                            ▼
-                     READY_FOR_AI ───► (S7 classification)
+                     READY_FOR_AI ───► CLASSIFIED
+                           │
+                           └── (sin clientes en client_sources: CLASSIFIED, sin LLM)
 ```
 
 Reglas:
@@ -145,7 +150,9 @@ type SourceCrawlResult = {
     fetched: number;
     saved: number;
     skipped: number;
+    failed?: number; // páginas internas que no respondieron (error de origen)
   };
+  originUnreachable?: boolean;
   finishedAt: string; // ISO
 };
 ```
@@ -196,14 +203,33 @@ type DocumentNormalizeJob = {
 };
 ```
 
-Resultado: `NORMALIZED` → `HASHED` → `DEDUPED` | `READY_FOR_AI`.
+Resultado: `NORMALIZED` → `HASHED` → `DEDUPED` | `READY_FOR_AI`. Tras `READY_FOR_AI` el worker encola `document.classify`.
+
+---
+
+### 4.4 `document.classify` — implementado S7
+
+```ts
+type DocumentClassifyJob = {
+  type: 'document.classify';
+  jobId: string;
+  documentId: string;
+  idempotencyKey: string; // `${documentId}:classify:v1`
+};
+```
+
+- Solo canónicos (`READY_FOR_AI` / `CLASSIFIED`, `canonicalDocumentId` null). `DEDUPED` no se clasifica.
+- Fan-out: un `Finding` por cada `Client` ACTIVE en `client_sources` de la fuente. Unique `(documentId, clientId)`.
+- Sin clientes ligados: log + skip (no se llama al modelo); el documento pasa a `CLASSIFIED`.
+- JSON del modelo: `relevant`, `impact`, `title`, `justification`. `suggestedAction` es snapshot de `ClientDeliveryConfig.impactActions`.
+- `POST /documents/:id/classify` (ADMIN) reencola. Lectura: `GET /findings`. No email (S8).
 
 ---
 
 ## 5. Relación con clientes
 
 1. Crawl corre a nivel **Source** (una vez), no N veces por cliente.
-2. Tras `READY_FOR_AI` / findings, la **relevancia** se evalúa por cada `Client` con membership en `client_sources` + `RegulatoryProfile`.
+2. Tras `READY_FOR_AI`, `document.classify` evalúa relevancia por cada `Client` en `client_sources` + `RegulatoryProfile` y persiste `Finding`.
 3. No guardar un Document por cliente si el binario es el mismo; usar `clientId` nullable en metadata o tabla de enlace `document_clients` en S6 si hace falta fan-out.
 
 ---
@@ -252,4 +278,4 @@ clients/{clientId}/...   // si query clientId
 5. [x] `idempotencyKey` (`{code}:{fecha}:scheduled` | `:admin`)
 6. [x] Conectores HTTP: mismo sitio hasta `CRAWL_MAX_PAGES` (gaceta/iniciativas/notas/PDF), no solo GET de la home
 
-**Siguiente:** Sprint 6 extract/normalize/dedup — **hecho:** [document-processing.md](./document-processing.md).
+**Siguiente:** Sprint 8 inbox/email. S7 classify — **hecho:** [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md).

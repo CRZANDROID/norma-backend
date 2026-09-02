@@ -60,4 +60,14 @@ export class DocumentsController {
   reprocess(@Param('id') id: string) {
     return this.documentsService.reprocess(id);
   }
+
+  @Post(':id/classify')
+  @Roles(UserRole.ADMIN)
+  @ApiForbiddenResponse()
+  @ApiOperation({
+    summary: 'Reencolar clasificación OpenAI del documento (ADMIN)',
+  })
+  classify(@Param('id') id: string) {
+    return this.documentsService.classify(id);
+  }
 }

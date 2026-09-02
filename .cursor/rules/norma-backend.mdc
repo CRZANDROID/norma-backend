@@ -28,7 +28,8 @@ Controller → Service → PrismaService
 - Profiles: `ADMIN` + `ANALYST` (roles en HANDOFF / schema).
 - `POST /ai/ask`: lectura de catálogo; no muta datos.
 - `POST /jobs/crawl`: solo `ADMIN`; 503 sin Redis.
-- `GET /jobs/progress` y `GET /documents/progress`: `ADMIN` \| `ANALYST`; resumen ejecutivo (no sustituyen `GET /jobs/runs` ni `GET /documents`).
+- `GET /jobs/progress`, `GET /documents/progress` y `GET /findings/progress`: `ADMIN` \| `ANALYST`; resumen ejecutivo (no sustituyen `GET /jobs/runs`, `GET /documents` ni `GET /findings`).
+- `GET /findings`: `ADMIN` \| `ANALYST`; no-ADMIN filtra memberships. `POST /documents/:id/classify`: `ADMIN`.
 - No-ADMIN: filtrar por memberships activas.
 - Login: `POST /auth/login` → Bearer JWT Nest (no Supabase Auth).
 
@@ -45,4 +46,4 @@ Controller → Service → PrismaService
 
 ## Módulos
 
-Implementar en `src/modules/{clients,sources,users,ai}/` o `src/jobs/`. No inventar prefix `/api` si el resto vive en raíz.
+Implementar en `src/modules/{clients,sources,users,ai,documents,findings}/` o `src/jobs/`. No inventar prefix `/api` si el resto vive en raíz.

@@ -9,8 +9,10 @@ import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { redisJobIsInFlight } from './queue-state';
 import {
+  DOCUMENT_CLASSIFY_QUEUE,
   DOCUMENT_EXTRACT_QUEUE,
   DOCUMENT_NORMALIZE_QUEUE,
+  type DocumentClassifyJob,
   type DocumentExtractJob,
   type DocumentNormalizeJob,
 } from './document-jobs.types';
@@ -21,6 +23,7 @@ export class DocumentJobsProducer implements OnModuleDestroy {
   private readonly redis: Redis | null;
   private readonly extractQueue: Queue<DocumentExtractJob> | null;
   private readonly normalizeQueue: Queue<DocumentNormalizeJob> | null;
+  private readonly classifyQueue: Queue<DocumentClassifyJob> | null;
 
   constructor(private readonly config: ConfigService) {
     const url = this.config.get<string>('REDIS_URL')?.trim();
@@ -28,6 +31,7 @@ export class DocumentJobsProducer implements OnModuleDestroy {
       this.redis = null;
       this.extractQueue = null;
       this.normalizeQueue = null;
+      this.classifyQueue = null;
       return;
     }
 
@@ -52,15 +56,24 @@ export class DocumentJobsProducer implements OnModuleDestroy {
       DOCUMENT_NORMALIZE_QUEUE,
       { connection: this.redis, defaultJobOptions },
     );
+    this.classifyQueue = new Queue<DocumentClassifyJob>(
+      DOCUMENT_CLASSIFY_QUEUE,
+      { connection: this.redis, defaultJobOptions },
+    );
   }
 
   isConfigured(): boolean {
-    return this.extractQueue !== null && this.normalizeQueue !== null;
+    return (
+      this.extractQueue !== null &&
+      this.normalizeQueue !== null &&
+      this.classifyQueue !== null
+    );
   }
 
   async onModuleDestroy() {
     await this.extractQueue?.close();
     await this.normalizeQueue?.close();
+    await this.classifyQueue?.close();
     this.redis?.disconnect();
   }
 
@@ -120,6 +133,32 @@ export class DocumentJobsProducer implements OnModuleDestroy {
     return { enqueued: true, skipped: false, idempotencyKey };
   }
 
+  async enqueueClassify(params: {
+    documentId: string;
+    force?: boolean;
+  }): Promise<{ enqueued: boolean; skipped: boolean; idempotencyKey: string }> {
+    const queue = this.requireClassifyQueue();
+    const idempotencyKey = `${params.documentId}:classify:v1`;
+    const ready = await this.prepareJob(
+      queue,
+      idempotencyKey,
+      params.force === true,
+    );
+    if (!ready) {
+      return { enqueued: false, skipped: true, idempotencyKey };
+    }
+
+    const payload: DocumentClassifyJob = {
+      type: 'document.classify',
+      jobId: idempotencyKey,
+      documentId: params.documentId,
+      idempotencyKey,
+    };
+    await queue.add('classify', payload, { jobId: idempotencyKey });
+    this.logger.log(`enqueued classify document=${params.documentId}`);
+    return { enqueued: true, skipped: false, idempotencyKey };
+  }
+
   private async prepareJob(
     queue: Queue,
     jobId: string,
@@ -161,5 +200,14 @@ export class DocumentJobsProducer implements OnModuleDestroy {
       );
     }
     return this.normalizeQueue;
+  }
+
+  private requireClassifyQueue(): Queue<DocumentClassifyJob> {
+    if (!this.classifyQueue) {
+      throw new ServiceUnavailableException(
+        'Jobs no configurados. Define REDIS_URL.',
+      );
+    }
+    return this.classifyQueue;
   }
 }

@@ -97,7 +97,7 @@ Soft-status: `EntityStatus` (`ACTIVE` | `INACTIVE`). No hard-delete en el piloto
 - `Source` — code, category, platform, jurisdiction, stateCode, schedule (hora/días/zona), status
 - `ClientDeliveryConfig` — canales email/WhatsApp + acciones por nivel de semáforo (config; no envía)
 - `Document` — original en Storage + `processingStatus` / hash / texto (S6)
-- `Finding` — impacto (GREEN…RED), status; CRUD inbox = S7–S8
+- `Finding` — impacto (GREEN…RED) por documento×cliente; lectura S7; inbox = S8
 - `JobRun` — ejecución de crawl (`idempotencyKey`, status, errorCode)
 
 Fuente de verdad del schema: `prisma/schema.prisma`.

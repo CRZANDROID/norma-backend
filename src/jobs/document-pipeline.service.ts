@@ -174,6 +174,7 @@ export class DocumentPipelineService {
           id: { not: doc.id },
           processingStatus: {
             in: [
+              DocumentProcessingStatus.CLASSIFIED,
               DocumentProcessingStatus.READY_FOR_AI,
               DocumentProcessingStatus.HASHED,
               DocumentProcessingStatus.NORMALIZED,

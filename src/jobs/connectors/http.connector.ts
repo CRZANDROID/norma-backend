@@ -1,5 +1,5 @@
 import { crawlSite } from './site-crawl';
-import type { ConnectorFetch, ConnectorSource, SourceConnector } from './types';
+import type { ConnectorSource, CrawlOutcome, SourceConnector } from './types';
 
 export class HttpPageConnector implements SourceConnector {
   constructor(
@@ -7,7 +7,7 @@ export class HttpPageConnector implements SourceConnector {
     readonly label: string,
   ) {}
 
-  crawl(source: ConnectorSource): Promise<ConnectorFetch[]> {
+  crawl(source: ConnectorSource): Promise<CrawlOutcome> {
     return crawlSite(source);
   }
 }

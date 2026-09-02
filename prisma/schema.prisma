@@ -53,7 +53,7 @@ enum JobErrorCode {
   UNKNOWN
 }
 
-/// Pipeline de registro documental (S6). Independiente de EntityStatus.
+/// Pipeline de registro documental (S6) + clasificación (S7). Independiente de EntityStatus.
 enum DocumentProcessingStatus {
   RECEIVED
   EXTRACTED
@@ -61,6 +61,7 @@ enum DocumentProcessingStatus {
   HASHED
   DEDUPED
   READY_FOR_AI
+  CLASSIFIED
   FAILED
   DISCARDED
 }
@@ -307,21 +308,28 @@ model ClientSource {
 }
 
 model Finding {
-  id          String        @id @default(cuid())
-  title       String
-  description String?
-  impact      ImpactLevel   @default(YELLOW)
-  status      FindingStatus @default(OPEN)
-  clientId    String?       @map("client_id")
-  sourceId    String?       @map("source_id")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  id              String        @id @default(cuid())
+  title           String
+  description     String?
+  justification   String        @db.Text
+  impact          ImpactLevel   @default(YELLOW)
+  status          FindingStatus @default(OPEN)
+  suggestedAction String?       @map("suggested_action")
+  clientId        String        @map("client_id")
+  sourceId        String?       @map("source_id")
+  documentId      String        @map("document_id")
+  aiMeta          Json?         @map("ai_meta")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  source Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  source   Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
+  @@unique([documentId, clientId])
   @@index([clientId])
   @@index([sourceId])
+  @@index([documentId])
   @@index([status])
   @@index([impact])
   @@map("findings")
@@ -388,6 +396,7 @@ model Document {
   jobRun            JobRun?   @relation(fields: [jobRunId], references: [id], onDelete: SetNull)
   canonicalDocument Document? @relation("DocumentDedup", fields: [canonicalDocumentId], references: [id], onDelete: SetNull)
   duplicates        Document[] @relation("DocumentDedup")
+  findings          Finding[]
 
   @@unique([bucket, path])
   @@index([clientId])

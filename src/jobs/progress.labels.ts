@@ -1,4 +1,9 @@
 import { JobErrorCode, JobRunStatus } from '../database/prisma-client';
+import {
+  ORIGIN_PAGE_PARTIAL,
+  ORIGIN_PAGE_UNAVAILABLE,
+  isOriginPageFailure,
+} from './origin-page';
 
 export type CrawlProgressStatus =
   | 'pending'
@@ -18,10 +23,10 @@ export const CRAWL_PROGRESS_LABELS: Record<CrawlProgressStatus, string> = {
 };
 
 const FAIL_NOTE_BY_ERROR: Record<JobErrorCode, string> = {
-  [JobErrorCode.NETWORK]: 'No hubo conexión con la fuente.',
-  [JobErrorCode.PARSE]: 'No se pudo leer la página.',
-  [JobErrorCode.AUTH]: 'La fuente pidió autenticación.',
-  [JobErrorCode.RATE_LIMIT]: 'La fuente rechazó por exceso de consultas.',
+  [JobErrorCode.NETWORK]: ORIGIN_PAGE_UNAVAILABLE,
+  [JobErrorCode.PARSE]: 'No se pudo leer la página de la fuente.',
+  [JobErrorCode.AUTH]: 'La página de la fuente pidió autenticación.',
+  [JobErrorCode.RATE_LIMIT]: 'La página de la fuente rechazó por exceso de consultas.',
   [JobErrorCode.UNKNOWN]: 'No se pudo completar el rastreo.',
 };
 
@@ -35,6 +40,12 @@ export function crawlFailNote(
   const trimmed = message?.trim();
   if (trimmed && /demasiado grande/i.test(trimmed)) {
     return 'La página de la fuente es demasiado pesada para el rastreo actual.';
+  }
+  if (trimmed === ORIGIN_PAGE_PARTIAL || trimmed === ORIGIN_PAGE_UNAVAILABLE) {
+    return trimmed;
+  }
+  if (isOriginPageFailure(trimmed) || errorCode === JobErrorCode.NETWORK) {
+    return ORIGIN_PAGE_UNAVAILABLE;
   }
   if (trimmed && !TECHNICAL_FAIL_RE.test(trimmed) && trimmed.length <= 160) {
     return trimmed;
@@ -84,8 +95,17 @@ export function crawlProgressNote(
     }
     return 'El rastreo se omitió.';
   }
-  if (extras.hadFailedAttempt && status === 'crawled') {
-    return 'Un intento de hoy no se pudo completar. El último rastreo sí terminó.';
+  if (status === 'crawled') {
+    const trimmed = message?.trim();
+    if (trimmed === ORIGIN_PAGE_PARTIAL || trimmed === ORIGIN_PAGE_UNAVAILABLE) {
+      return trimmed;
+    }
+    if (isOriginPageFailure(trimmed)) {
+      return ORIGIN_PAGE_PARTIAL;
+    }
+    if (extras.hadFailedAttempt) {
+      return 'Un intento de hoy no se pudo completar. El último rastreo sí terminó.';
+    }
   }
   return null;
 }

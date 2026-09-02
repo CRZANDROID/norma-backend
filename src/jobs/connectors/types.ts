@@ -17,8 +17,14 @@ export type ConnectorFetch = {
   filename: string;
 };
 
+export type CrawlOutcome = {
+  pages: ConnectorFetch[];
+  failedFetches: number;
+  originUnreachable: boolean;
+};
+
 export interface SourceConnector {
   code: string;
   label: string;
-  crawl(source: ConnectorSource): Promise<ConnectorFetch[]>;
+  crawl(source: ConnectorSource): Promise<CrawlOutcome>;
 }

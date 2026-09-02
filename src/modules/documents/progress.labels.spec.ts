@@ -5,6 +5,7 @@ import {
   documentPipelineRank,
   documentProgressNote,
   mapDocumentPipelineStatus,
+  mapDocumentSourceStatus,
   preferHtmlFilename,
 } from './progress.labels';
 
@@ -13,6 +14,9 @@ describe('document progress labels', () => {
     expect(
       mapDocumentPipelineStatus(DocumentProcessingStatus.READY_FOR_AI),
     ).toBe('ready');
+    expect(
+      mapDocumentPipelineStatus(DocumentProcessingStatus.CLASSIFIED),
+    ).toBe('classified');
     expect(mapDocumentPipelineStatus(DocumentProcessingStatus.DEDUPED)).toBe(
       'unchanged',
     );
@@ -75,6 +79,9 @@ describe('document progress labels', () => {
         hadUnchanged: true,
         hadUnread: true,
         hadFailed: false,
+        hasExtracting: false,
+        hasReadyOrClassified: false,
+        crawlInFlight: false,
       }),
     ).toBe(
       'El contenido es el mismo que ya teníamos. Otro intento de hoy no trajo texto usable.',
@@ -84,6 +91,9 @@ describe('document progress labels', () => {
         hadUnchanged: true,
         hadUnread: false,
         hadFailed: true,
+        hasExtracting: false,
+        hasReadyOrClassified: true,
+        crawlInFlight: false,
       }),
     ).toBe('Hay texto listo. Otro intento de hoy no se pudo extraer.');
     expect(
@@ -100,6 +110,9 @@ describe('document progress labels', () => {
       hadUnchanged: true,
       hadUnread: true,
       hadFailed: false,
+      hasExtracting: false,
+      hasReadyOrClassified: false,
+      crawlInFlight: false,
     });
     expect(documentHeadline('  DOF - Diario Oficial\n  Decreto  ')).toBe(
       'DOF - Diario Oficial Decreto',
@@ -111,6 +124,11 @@ describe('document progress labels', () => {
 
   it('ranks canonical HTML over DEDUPED extras', () => {
     expect(
+      documentPipelineRank(DocumentProcessingStatus.CLASSIFIED),
+    ).toBeGreaterThan(
+      documentPipelineRank(DocumentProcessingStatus.READY_FOR_AI),
+    );
+    expect(
       documentPipelineRank(DocumentProcessingStatus.READY_FOR_AI),
     ).toBeGreaterThan(
       documentPipelineRank(DocumentProcessingStatus.DEDUPED),
@@ -118,5 +136,39 @@ describe('document progress labels', () => {
     expect(preferHtmlFilename('page.html')).toBeGreaterThan(
       preferHtmlFilename('extra.pdf'),
     );
+  });
+
+  it('keeps the source extracting while any page is in the extract pipeline', () => {
+    const mixed = documentDaySignals([
+      { processingStatus: DocumentProcessingStatus.READY_FOR_AI },
+      { processingStatus: DocumentProcessingStatus.RECEIVED },
+    ]);
+    expect(mixed.hasExtracting).toBe(true);
+    expect(mixed.hasReadyOrClassified).toBe(true);
+    expect(
+      mapDocumentSourceStatus('ready', mixed, false),
+    ).toBe('extracting');
+    expect(
+      documentProgressNote('extracting', null, mixed),
+    ).toBe('Sigue la extracción de otras páginas.');
+  });
+
+  it('keeps extracting while today crawl is still queued or running', () => {
+    const ready = documentDaySignals([
+      { processingStatus: DocumentProcessingStatus.READY_FOR_AI },
+    ]);
+    expect(mapDocumentSourceStatus('ready', ready, true)).toBe('extracting');
+    expect(mapDocumentSourceStatus(null, documentDaySignals([]), true)).toBe(
+      'extracting',
+    );
+    expect(mapDocumentSourceStatus(null, documentDaySignals([]), false)).toBe(
+      'pending',
+    );
+    expect(
+      documentProgressNote('extracting', null, {
+        ...ready,
+        crawlInFlight: true,
+      }),
+    ).toBe('Sigue llegando material del rastreo.');
   });
 });

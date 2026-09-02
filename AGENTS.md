@@ -13,8 +13,11 @@ Instrucciones de entrada para cualquier agente (Cursor u otro) que trabaje en es
 7. Crawl S5: [docs/jobs-crawl.md](docs/jobs-crawl.md)
 8. Documentos S6: [docs/document-processing.md](docs/document-processing.md) + [docs/DOCUMENT-JOB-CONTRACTS.md](docs/DOCUMENT-JOB-CONTRACTS.md)
 9. Asistente de catálogo: [docs/openai-catalog.md](docs/openai-catalog.md)
+10. Hallazgos S7: [docs/FRONTEND-FINDINGS.md](docs/FRONTEND-FINDINGS.md)
 
 Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
+
+**Local:** API + Redis = `docker compose up --build` ([docs/docker.md](docs/docker.md)). No `pnpm start:dev` sin Redis en el host.
 
 **No uses** `docs/SPRINT-3-BACKEND.md` ni copias Postman del frontend como contrato actual (`frequency` está muerto).
 
@@ -33,8 +36,8 @@ Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
 ## Estructura relevante
 
 ```text
-src/modules/{auth,clients,sources,users,storage,ai,documents}/
-src/jobs/                 # Redis/BullMQ source.crawl + document.extract/normalize_dedup
+src/modules/{auth,clients,sources,users,storage,ai,documents,findings}/
+src/jobs/                 # Redis/BullMQ source.crawl + document.extract/normalize_dedup/classify
 src/common/swagger.ts
 prisma/schema.prisma
 test/*e2e-spec.ts
