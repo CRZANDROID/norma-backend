@@ -74,11 +74,16 @@ src/
 prisma/
   schema.prisma
 docs/
-  README.md          # Índice: qué leer
-  HANDOFF.md         # Estado vivo
+  README.md
+  HANDOFF.md
+  FRONTEND-ADMIN.md
+  FRONTEND-TRACKING.md
+  FRONTEND-ALERTAS.md
+  jobs.md
+  docker.md
   seed-and-tests.md
   sentry-storage.md
-  sql/               # SQL manual del bucket Storage
+  render-deploy.md
 ```
 
 Swagger UI: `http://localhost:3000/docs` (Authorize con JWT de `POST /auth/login`).
@@ -139,5 +144,5 @@ GitHub Project: [NORMA — Piloto Arca](https://github.com/users/CRZANDROID/proj
 
 ## Modelo ER
 
-Modelo administrativo: usuarios con auth propia (email/password + JWT), roles, membresías, clientes, perfiles regulatorios, fuentes, hallazgos, `job_runs` y documentos (pipeline S6).  
-El semáforo operativo del piloto usa 4 niveles: verde, amarillo, naranja y rojo.
+Modelo administrativo: usuarios con auth propia (email/password + JWT), roles, membresías, clientes, perfiles regulatorios, fuentes, hallazgos, informes (`Report`, S9), `job_runs` y documentos (pipeline S6).  
+El semáforo operativo del piloto usa 4 niveles: verde, amarillo, naranja y rojo. Verde no entra al PDF. Flujo: [docs/FRONTEND-ALERTAS.md](docs/FRONTEND-ALERTAS.md).

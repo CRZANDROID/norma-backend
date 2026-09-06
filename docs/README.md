@@ -1,45 +1,40 @@
 # Docs NORMA — Backend
 
-Índice corto. Los contratos de API y de UI viven **aquí**. El frontend no debe copiarlos.
+Índice corto. Los contratos de API y de UI viven **aquí**. El frontend no debe copiarlos.  
+HTTP vivo: Swagger `http://localhost:3000/docs`.
 
-## Qué leer (en este orden)
+## Flujo
+
+```text
+Crawl → extraer → clasificar (S7, hecho)
+  → /alertas: VCGA edita / IA / excluye (S8)
+  → clic «Generar PDF» (S9; siempre un humano)
+       PDF = amarillo + naranja + rojo no enviados (verde nunca)
+       autoSend → ese clic también envía; si no, confirmar
+  → correo a contactos
+  → portal del cliente (S10): el caso es el PDF entero
+```
+
+## Qué leer
 
 | Orden | Doc | Para qué |
 |-------|-----|----------|
 | 1 | [HANDOFF.md](./HANDOFF.md) | Estado vivo y siguiente paso |
 | 2 | [PRODUCT.md](./PRODUCT.md) | Qué es el producto y qué queda fuera |
 | 3 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Stack, JWT Nest, multi-tenant |
-| 4 | [SPRINTS.md](./SPRINTS.md) | Piloto S1–S8 (1 semana = 1 sprint de este plan) |
+| 4 | [SPRINTS.md](./SPRINTS.md) | Piloto S1–S10 |
+| 5 | [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) | `/alertas` + informe S8–S10 |
 
-## Contratos de UI (el front lee estos)
+## Briefs para el front
 
-- [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md) — jurisdicción + `schedule` (ya no `frequency`)
-- [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) — cliente ↔ fuentes + crawl
-- [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)
-- [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) — semáforo/canales (**config**; no es la lista de hallazgos)
-- [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md)
+- [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md) — fuentes, cliente↔fuentes, fiscales, delivery, `ai/ask`
 - [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) — panel `/jobs/progress` + `/documents/progress` + `/findings/progress`
-- [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) — `GET /findings` (array; no inbox; no `/alertas`)
+- [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) — lista en `/alertas`; S8–S10 PDF y portal
 
-## Pipeline (S5–S6)
+## Pipeline y ops
 
-- [jobs-crawl.md](./jobs-crawl.md) — HTTP WEB (no redes). YouTube/X = MVP aparte: [PRODUCT.md](./PRODUCT.md)
-- [document-processing.md](./document-processing.md)
-- [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md)
-- [openai-catalog.md](./openai-catalog.md) — catálogo; no clasifica (S7 = findings)
-
-## Ops / pruebas
-
-- [postman-pruebas.md](./postman-pruebas.md) — guía de endpoints (también Swagger `/docs`)
+- [jobs.md](./jobs.md) — crawl HTTP + extract/normalize/classify
+- [docker.md](./docker.md) — local canónico (API + Redis)
 - [seed-and-tests.md](./seed-and-tests.md)
-- [state-congresses.md](./state-congresses.md)
-- [render-deploy.md](./render-deploy.md)
-- [docker.md](./docker.md) — **local canónico:** Compose (API + Redis); Postgres en Supabase
 - [sentry-storage.md](./sentry-storage.md)
-- [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) — `.env` + Redis; snapshot 2026-08-18 (S6 ya está en HANDOFF)
-
-## Histórico (no usar como contrato actual)
-
-- [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md) — brief S3; ejemplos con `frequency` **obsoletos**
-- [client-sources.md](./client-sources.md) — nota corta N:N; el contrato UI es FRONTEND-CLIENT-SOURCES
-- [data/README-fuentes-piloto.md](./data/README-fuentes-piloto.md) — el camino real es `pnpm prisma:seed`
+- [render-deploy.md](./render-deploy.md)

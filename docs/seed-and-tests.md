@@ -19,7 +19,7 @@ El seed es idempotente (`upsert`) y deja:
 - Cliente `arca-continental`
 - Perfil `seed-arca-profile`
 - Fuentes federales `dof`, `diputados-gaceta` (ACTIVE)
-- 32 congresos estatales (ACTIVE: AGU, BC, BCS, Campeche, Chihuahua, Jalisco; el resto INACTIVE)
+- 32 congresos estatales (ACTIVE crawl: AGU, BC, BCS, Campeche, Chihuahua, Jalisco; el resto INACTIVE). Shape: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md)
 - Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`
 - Config de entrega/semáforo del cliente Arca (acciones sugeridas de la matriz)
 - Usuario ADMIN con el email/password del `.env`
@@ -50,7 +50,7 @@ Los tests crean datos con sufijo temporal (`e2e-*`) y desactivan cliente/fuente 
 
 ## Swagger
 
-Con el server arriba (`pnpm start:dev`):
+Con el API arriba (`docker compose up --build` o `pnpm start:dev`):
 
 - UI: `http://localhost:3000/docs`
 - Auth: botón Authorize → pegar JWT de `POST /auth/login`

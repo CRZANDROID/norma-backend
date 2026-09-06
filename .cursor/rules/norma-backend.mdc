@@ -30,6 +30,7 @@ Controller → Service → PrismaService
 - `POST /jobs/crawl`: solo `ADMIN`; 503 sin Redis.
 - `GET /jobs/progress`, `GET /documents/progress` y `GET /findings/progress`: `ADMIN` \| `ANALYST`; resumen ejecutivo (no sustituyen `GET /jobs/runs`, `GET /documents` ni `GET /findings`).
 - `GET /findings`: `ADMIN` \| `ANALYST`; no-ADMIN filtra memberships. `POST /documents/:id/classify`: `ADMIN`.
+- S8 (aún no en código): `PATCH /findings/:id`, `POST /findings/:id/exclude`, `POST /findings/:id/rewrite`. No inbox ACK/RESOLVE. Contrato: `docs/FRONTEND-ALERTAS.md`.
 - No-ADMIN: filtrar por memberships activas.
 - Login: `POST /auth/login` → Bearer JWT Nest (no Supabase Auth).
 
@@ -46,4 +47,4 @@ Controller → Service → PrismaService
 
 ## Módulos
 
-Implementar en `src/modules/{clients,sources,users,ai,documents,findings}/` o `src/jobs/`. No inventar prefix `/api` si el resto vive en raíz.
+Implementar en `src/modules/{clients,sources,users,ai,documents,findings,reports}/` o `src/jobs/`. No inventar prefix `/api` si el resto vive en raíz. `reports/` nace en S9.

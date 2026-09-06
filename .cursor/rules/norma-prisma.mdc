@@ -21,12 +21,12 @@ alwaysApply: false
 
 ## Dominio
 
-- Hallazgos = modelo `Finding` (unique documento×cliente; lectura S7; inbox S8). No volver a crecer `Alert` legacy.
+- Hallazgos = modelo `Finding` (unique documento×cliente; lectura S7; edición/exclusión S8 en `/alertas`). No volver a crecer `Alert` legacy. No inbox ACK por color.
 - `Source.config` y `RegulatoryProfile.products` son JSON; no scrapers aquí.
 - `Source.jurisdiction` + `stateCode` (null si FEDERAL).
 - `Source.keywordsGuide` y `Source.searchFocus` son `String[]` (`[]` = vacío).
 - Disparador de crawl: `scheduleTime` / `scheduleWeekdays` / `scheduleTimezone` (no `frequency`).
-- Entrega/semáforo: `ClientDeliveryConfig` 1:1 (config; no envía email/WhatsApp).
+- Entrega/semáforo: `ClientDeliveryConfig` 1:1 (config + `autoSend` en S9; no envía WhatsApp). El PDF es modelo `Report` (S9); no “quema” findings hasta `sent`.
 - Crawl: `JobRun` con `idempotencyKey` único; no hard-delete.
 
 ## Seed
