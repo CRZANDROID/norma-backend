@@ -24,11 +24,9 @@ export function parseClassifyResponse(raw: string): ClassifyLlmResult {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 160);
-  const justification = String(
-    parsed.justification ?? parsed.description ?? '',
-  )
-    .replace(/\s+/g, ' ')
-    .trim();
+  const justification = normalizeJustification(
+    String(parsed.justification ?? parsed.description ?? ''),
+  );
 
   if (!title) {
     throw new Error('El modelo no devolvió un título de hallazgo.');
@@ -43,6 +41,17 @@ export function parseClassifyResponse(raw: string): ClassifyLlmResult {
     title: title || (relevant ? 'Hallazgo' : 'Sin relevancia operativa'),
     justification,
   };
+}
+
+/** Conserva saltos de línea del briefing; aplana solo espacios en la misma línea. */
+export function normalizeJustification(raw: string): string {
+  return raw
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trimEnd())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function parseJsonObject(raw: string): Record<string, unknown> {

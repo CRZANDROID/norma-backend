@@ -27,7 +27,7 @@ export class FindingsController {
   @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({
     summary:
-      'Listar hallazgos clasificados (semáforo; filtro sourceId / sourceCode; sin inbox)',
+      'Listar hallazgos paginados. dateFrom/dateTo opcional; counts por impacto; limit = tamaño de página',
   })
   list(@CurrentUser() user: AuthUser, @Query() query: ListFindingsQueryDto) {
     return this.findingsService.list(user, query);

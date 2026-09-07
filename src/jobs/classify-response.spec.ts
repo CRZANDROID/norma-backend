@@ -37,6 +37,21 @@ describe('parseClassifyResponse', () => {
       ),
     ).toThrow(/justificación/);
   });
+
+  it('keeps briefing line breaks in justification', () => {
+    const parsed = parseClassifyResponse(
+      JSON.stringify({
+        relevant: true,
+        impact: 'RED',
+        title: 'Prohibición del uso de Eritrosina (Rojo 3 FD&C)',
+        justification:
+          '## Prohibición del uso de Eritrosina (Rojo 3 FD&C)\n\nEl 26 de mayo de 2026 la Secretaría de Salud publicó en el DOF un Acuerdo.\n\n- Gomitas\n- Gomas de mascar',
+      }),
+    );
+    expect(parsed.justification).toContain('## Prohibición del uso de Eritrosina');
+    expect(parsed.justification).toContain('\n- Gomitas\n');
+    expect(parsed.justification).not.toMatch(/El documento menciona/);
+  });
 });
 
 describe('snapshotSuggestedAction', () => {

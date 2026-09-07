@@ -78,7 +78,17 @@ Copy: “informe”, “generar PDF”, “enviar”, “cliente automático”.
 
 Auth: `ADMIN` \| `ANALYST`. No-ADMIN: recorte por memberships.
 
-**Array JSON.** Vacío = `[]`. **No** `{ items }`. Orden: `createdAt` desc. `limit` 1–200, default 50 (sin cursor). Piloto: `limit=200` por cliente.
+**Ruptura:** ya no es un array en la raíz. Es `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }`. Vacío = `items: []`, `total: 0`. Orden: `createdAt` desc, luego `id` desc.
+
+Una sola lista paginada. **No** hay “ver historial”.
+
+- Sin `dateFrom`/`dateTo` → **toda** la lista, más nuevos primero.
+- `dateFrom` / `dateTo` (`YYYY-MM-DD`, inclusive, `America/Mexico_City`) → rango. Se puede mandar solo uno.
+- `page` (default 1) + `limit` (default 50, máx. 200; el front elige el tamaño).
+- `total` / `totalPages` = la lista **ya filtrada** (incluye `impact` si lo mandaste).
+- `counts` = pastillas Todos / Crítico / Alto / Medio / Informativo. **No** se recortan por `impact` (si filtras verdes, las pastillas siguen mostrando los 4 colores).
+- Scroll infinito: el front pide `page=2`, `page=3`… y concatena `items`. El back no tiene `limit=all`.
+- Páginas numeradas: mismo contrato; usa `totalPages` para saltar.
 
 Registrar `GET /findings/progress` **antes** que `GET /findings/:id` en Axios.
 
@@ -86,57 +96,70 @@ Registrar `GET /findings/progress` **antes** que `GET /findings/:id` en Axios.
 
 | Query | Qué |
 |-------|-----|
-| `clientId` | Un cliente. ANALYST sin membership → **403** |
+| `clientId` | Un cliente. ANALYST sin membership → **403**. Mandarlo en `/alertas` |
 | `sourceId` | Fuente (cuid). Si lo mandas, ignora `sourceCode` |
-| `sourceCode` | `dof`, `diputados-gaceta`, … Desconocido → `[]` |
+| `sourceCode` | `dof`, `diputados-gaceta`, … Desconocido → `items: []` |
 | `documentId` | Tras reclasificar |
-| `impact` | `GREEN` \| `YELLOW` \| `ORANGE` \| `RED` |
-| `status` | `OPEN` \| `ACKNOWLEDGED` \| `RESOLVED` \| `DISMISSED`. Omitir = no filtrar. S7 crea `OPEN`. **No** son inbox: S8 usa exclude. |
-| `limit` | 1–200; default 50 |
+| `impact` | Filtra **items** (`GREEN` \| `YELLOW` \| `ORANGE` \| `RED`). No cambia `counts` |
+| `status` | `OPEN` \| `ACKNOWLEDGED` \| `RESOLVED` \| `DISMISSED`. Omitir = no filtrar |
+| `dateFrom` | Inicio de rango `YYYY-MM-DD`. Omitir = sin piso |
+| `dateTo` | Fin de rango `YYYY-MM-DD` (inclusive). Omitir = sin techo |
+| `page` | Página 1-based. Default 1 |
+| `limit` | Tamaño de página 1–200; default 50 |
 
-ANALYST sin `clientId`: ve todos sus clientes hasta el `limit`. Para un semáforo por cliente, manda `clientId`.
+`dateFrom` > `dateTo` → **400**.
 
-### Ítem
+### Respuesta
 
 ```json
 {
-  "id": "clx...",
-  "title": "Etiquetado y vigilancia sanitaria",
-  "impact": "ORANGE",
-  "status": "OPEN",
-  "suggestedAction": "Elaborar nota y monitorear avance",
-  "justificationShort": "El decreto toca etiquetado de bebidas…",
-  "client": { "id": "…", "name": "Arca Continental", "slug": "arca-continental" },
-  "source": { "id": "…", "name": "Diario Oficial de la Federación", "code": "dof", "url": "https://www.dof.gob.mx/" },
-  "document": {
-    "id": "…",
-    "filename": "page.html",
-    "processingStatus": "CLASSIFIED",
-    "url": "https://www.dof.gob.mx/nota_detalle.php?codigo=5797407"
-  },
-  "createdAt": "2026-09-01T18:00:00.000Z",
-  "updatedAt": "2026-09-01T18:00:00.000Z"
+  "dateFrom": null,
+  "dateTo": null,
+  "page": 1,
+  "limit": 50,
+  "total": 80,
+  "totalPages": 2,
+  "counts": { "total": 80, "red": 0, "orange": 0, "yellow": 0, "green": 80 },
+  "items": [
+    {
+      "id": "clx...",
+      "title": "Sin relevancia operativa",
+      "impact": "GREEN",
+      "status": "OPEN",
+      "suggestedAction": "Registrar como contexto",
+      "justificationShort": "…",
+      "client": { "id": "…", "name": "Arca Continental", "slug": "arca-continental" },
+      "source": { "id": "…", "name": "Diario Oficial de la Federación", "code": "dof", "url": "https://www.dof.gob.mx/" },
+      "document": {
+        "id": "…",
+        "filename": "page.html",
+        "processingStatus": "CLASSIFIED",
+        "url": "https://www.dof.gob.mx/nota_detalle.php?codigo=5797407"
+      },
+      "createdAt": "2026-09-07T18:00:00.000Z",
+      "updatedAt": "2026-09-07T18:00:00.000Z"
+    }
+  ]
 }
 ```
 
-`source`, `source.url`, `document.url` y `suggestedAction` pueden ser `null`.  
-Enlace original = `document.url` (la nota/PDF). `source.url` es la portada del catálogo.  
-Pintar: semáforo + título + cliente + fuente + link. `suggestedAction` es copy, no un botón de correo.  
-Conteos de color: agrupar este array. El dashboard usa `GET /findings/progress`.
+Pastillas: Todos = `counts.total`, Crítico = `red`, Alto = `orange`, Medio = `yellow`, Informativo = `green`.
+
+`source`, `source.url`, `document.url` y `suggestedAction` pueden ser `null`. Enlace original = `document.url`.
 
 ### Detalle — `GET /findings/:id`
 
-Lo mismo **más** `justification`, `description` (nullable), `aiMeta` (`model`, `promptVersion`, `relevant`, `usage`). No mostrar tokens. `404` si no existe o ANALYST sin membership (no es 403).
+Lo mismo **más** `justification` (briefing en Markdown: acto, cifras, listas, plazo si consta; `promptVersion` `classify-v2`), `description` (nullable; recorte ~2000), `aiMeta` (`model`, `promptVersion`, `relevant`, `usage`). No mostrar tokens. La lista solo trae `justificationShort` (~240 caracteres): el detalle largo va aquí. `404` si no existe o ANALYST sin membership (no es 403).
 
 ### Reclasificar — `POST /documents/:id/classify`
 
 Solo ADMIN. Body vacío. **201** no trae el finding. Canónicos en `READY_FOR_AI` o `CLASSIFIED`. `DEDUPED` → `400`. `503` sin Redis o sin `OPENAI_API_KEY`.
 
-Poll: 15 s / 45 s, máx. ~8 intentos. `GET /findings?documentId=` o `GET /documents/:id` hasta `CLASSIFIED`. No pollar listas grandes.
+Poll: 15 s / 45 s, máx. ~8 intentos. `GET /findings?documentId=` (lee `items`) o `GET /documents/:id` hasta `CLASSIFIED`. No pollar listas grandes.
 
 El front debe aceptar `processingStatus: "CLASSIFIED"` en documentos (si no, desaparecen del registro).
 
-`[]` es válido hasta que haya crawl + classify + Arca en `client_sources` + `OPENAI_API_KEY`.
+`items: []` es válido hasta que haya crawl + classify + Arca en `client_sources` + `OPENAI_API_KEY`.
 
 ---
 

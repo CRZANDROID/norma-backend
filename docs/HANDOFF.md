@@ -64,7 +64,7 @@ Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_st
 - Crawl: cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, `job_runs`. Tope `CRAWL_MAX_PAGES`. Sitio caído = error de origen. Seed ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco
 - Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
 - Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
-- Findings: unique documento×cliente; `GET /findings`, `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN)
+- Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }`. `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). Classify `classify-v2`.
 
 Detalle de jobs: [jobs.md](./jobs.md). Admin UI: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md).
 
@@ -116,4 +116,4 @@ API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras 
 
 > Lee `docs/HANDOFF.md` §4 y `docs/FRONTEND-ALERTAS.md`. S8 = editar/excluir en `/alertas` (sin PDF). S9 = generar/enviar. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
 
-**Última actualización:** 2026-09-06 — docs recortados al set vivo. `/alertas` es el loop de VCGA. PDF solo tras validar. Cliente automático: generar = enviar.
+**Última actualización:** 2026-09-07 — `GET /findings`: rango `dateFrom`/`dateTo`, `counts` por impacto, páginas. classify-v2. S8 sigue pendiente.

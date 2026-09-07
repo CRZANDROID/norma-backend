@@ -114,7 +114,7 @@ Paths: `derived/{documentId}/extracted.txt`, `derived/{documentId}/normalized.js
 
 ### Classify (S7, hecho)
 
-Solo canónicos. Fan-out: un `Finding` por `Client` ACTIVE en `client_sources`. Unique `(documentId, clientId)`. Sin clientes: `CLASSIFIED` sin LLM. El modelo devuelve `relevant`, `impact`, `title`, `justification`; `suggestedAction` es snapshot de delivery.
+Solo canónicos. Fan-out: un `Finding` por `Client` ACTIVE en `client_sources`. Unique `(documentId, clientId)`. Sin clientes: `CLASSIFIED` sin LLM. El modelo devuelve `relevant`, `impact`, `title` (la medida, no el cliente) y `justification` (briefing Markdown; `classify-v2`). `suggestedAction` es snapshot de delivery, no lo escribe la IA. Hallazgos viejos siguen `classify-v1` hasta `POST /documents/:id/classify`.
 
 ### API documentos
 

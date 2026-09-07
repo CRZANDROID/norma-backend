@@ -87,10 +87,33 @@ describe('Findings classify (e2e)', () => {
 
   it('GET /findings lists for ADMIN', async () => {
     const res = await request(app.getHttpServer())
-      .get('/findings')
+      .get('/findings?limit=20')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.dateFrom).toBeNull();
+    expect(res.body.dateTo).toBeNull();
+    expect(res.body.page).toBe(1);
+    expect(res.body.limit).toBe(20);
+    expect(typeof res.body.total).toBe('number');
+    expect(typeof res.body.totalPages).toBe('number');
+    expect(res.body.counts).toEqual(
+      expect.objectContaining({
+        total: expect.any(Number),
+        red: expect.any(Number),
+        orange: expect.any(Number),
+        yellow: expect.any(Number),
+        green: expect.any(Number),
+      }),
+    );
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.items.length).toBeLessThanOrEqual(20);
+  });
+
+  it('GET /findings rejects inverted date range', async () => {
+    await request(app.getHttpServer())
+      .get('/findings?dateFrom=2026-09-07&dateTo=2026-09-01')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
   });
 
   it('POST /documents/:id/classify is 401 without token', async () => {
@@ -205,8 +228,8 @@ describe('Findings classify (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    expect(list.body.length).toBeGreaterThanOrEqual(1);
-    const finding = list.body.find(
+    expect(list.body.items.length).toBeGreaterThanOrEqual(1);
+    const finding = list.body.items.find(
       (row: { client?: { slug?: string } }) =>
         row.client?.slug === 'arca-continental',
     );
@@ -223,7 +246,7 @@ describe('Findings classify (e2e)', () => {
       .get(`/findings?sourceCode=dof&documentId=${doc.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(byCode.body.some((row: { id: string }) => row.id === finding.id)).toBe(
+    expect(byCode.body.items.some((row: { id: string }) => row.id === finding.id)).toBe(
       true,
     );
 
@@ -231,7 +254,7 @@ describe('Findings classify (e2e)', () => {
       .get(`/findings?sourceCode=diputados-gaceta&documentId=${doc.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(otherCode.body).toEqual([]);
+    expect(otherCode.body.items).toEqual([]);
 
     const detail = await request(app.getHttpServer())
       .get(`/findings/${finding.id}`)

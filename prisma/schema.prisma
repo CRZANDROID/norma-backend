@@ -327,7 +327,7 @@ model Finding {
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, clientId])
-  @@index([clientId])
+  @@index([clientId, createdAt])
   @@index([sourceId])
   @@index([documentId])
   @@index([status])

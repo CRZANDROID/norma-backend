@@ -47,15 +47,44 @@ export class FindingsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(user: AuthUser, query: ListFindingsQueryDto) {
-    const where = this.buildWhere(user, query);
+    const range = this.resolveDateRange(query);
+    const filters = this.buildWhere(user, query, { includeImpact: false });
+    this.applyDateRange(filters, range);
+
+    const listWhere: Prisma.FindingWhereInput = query.impact
+      ? { AND: [filters, { impact: query.impact }] }
+      : filters;
+
     const limit = query.limit ?? 50;
-    const rows = await this.prisma.finding.findMany({
-      where,
-      include: FINDING_INCLUDE,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
-    return rows.map((row) => this.toListItem(row));
+    const page = query.page ?? 1;
+    const [total, rows, impactGroups] = await Promise.all([
+      this.prisma.finding.count({ where: listWhere }),
+      this.prisma.finding.findMany({
+        where: listWhere,
+        include: FINDING_INCLUDE,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.finding.groupBy({
+        by: ['impact'],
+        where: filters,
+        _count: { _all: true },
+      }),
+    ]);
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+    const counts = this.toImpactCounts(impactGroups);
+
+    return {
+      dateFrom: range.from,
+      dateTo: range.to,
+      page,
+      limit,
+      total,
+      totalPages,
+      counts,
+      items: rows.map((row) => this.toListItem(row)),
+    };
   }
 
   async progress(user: AuthUser, query: ProgressDateQueryDto) {
@@ -199,6 +228,7 @@ export class FindingsService {
   private buildWhere(
     user: AuthUser,
     query: ListFindingsQueryDto,
+    options: { includeImpact: boolean } = { includeImpact: true },
   ): Prisma.FindingWhereInput {
     const where: Prisma.FindingWhereInput = {};
 
@@ -222,7 +252,7 @@ export class FindingsService {
       where.documentId = query.documentId.trim();
     }
 
-    if (query.impact) {
+    if (options.includeImpact && query.impact) {
       where.impact = query.impact;
     }
 
@@ -231,6 +261,80 @@ export class FindingsService {
     }
 
     return where;
+  }
+
+  private resolveDateRange(query: ListFindingsQueryDto): {
+    from: string | null;
+    to: string | null;
+  } {
+    const from = query.dateFrom?.trim() || null;
+    const to = query.dateTo?.trim() || null;
+    if (from && !isValidCalendarDate(from)) {
+      throw new BadRequestException('dateFrom debe ser un día civil YYYY-MM-DD.');
+    }
+    if (to && !isValidCalendarDate(to)) {
+      throw new BadRequestException('dateTo debe ser un día civil YYYY-MM-DD.');
+    }
+    if (from && to && from > to) {
+      throw new BadRequestException('dateFrom no puede ser posterior a dateTo.');
+    }
+    return { from, to };
+  }
+
+  private applyDateRange(
+    where: Prisma.FindingWhereInput,
+    range: { from: string | null; to: string | null },
+  ) {
+    if (!range.from && !range.to) {
+      return;
+    }
+    const createdAt: Prisma.DateTimeFilter = {};
+    const jobCreatedAt: Prisma.DateTimeFilter = {};
+    if (range.from) {
+      const start = zonedDayRange(range.from).start;
+      createdAt.gte = start;
+      jobCreatedAt.gte = start;
+    }
+    if (range.to) {
+      const end = zonedDayRange(range.to).end;
+      createdAt.lt = end;
+      jobCreatedAt.lt = end;
+    }
+    this.pushAnd(where, {
+      OR: [
+        { createdAt },
+        { document: { jobRun: { createdAt: jobCreatedAt } } },
+      ],
+    });
+  }
+
+  private toImpactCounts(
+    groups: Array<{ impact: string; _count: { _all: number } }>,
+  ): { total: number; red: number; orange: number; yellow: number; green: number } {
+    const counts = { total: 0, ...emptyImpactCounts() };
+    for (const group of groups) {
+      const n = group._count._all;
+      counts.total += n;
+      addImpactCount(
+        counts,
+        group.impact as Parameters<typeof addImpactCount>[1],
+        n,
+      );
+    }
+    return counts;
+  }
+
+  private pushAnd(
+    where: Prisma.FindingWhereInput,
+    clause: Prisma.FindingWhereInput,
+  ) {
+    const existing = where.AND;
+    const list = Array.isArray(existing)
+      ? existing
+      : existing
+        ? [existing]
+        : [];
+    where.AND = [...list, clause];
   }
 
   private toListItem(row: FindingRow) {
