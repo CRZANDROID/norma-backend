@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { DocumentProcessingStatus } from '../src/database/prisma-client';
+import { DocumentProcessingStatus, ImpactLevel } from '../src/database/prisma-client';
 import { PrismaService } from '../src/database/prisma.service';
 import { DocumentClassifyService } from '../src/jobs/document-classify.service';
 import { OpenAiClientService } from '../src/modules/ai/openai-client.service';
@@ -87,10 +87,36 @@ describe('Findings classify (e2e)', () => {
 
   it('GET /findings lists for ADMIN', async () => {
     const res = await request(app.getHttpServer())
-      .get('/findings')
+      .get('/findings?limit=20')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.dateFrom).toBeNull();
+    expect(res.body.dateTo).toBeNull();
+    expect(res.body.page).toBe(1);
+    expect(res.body.limit).toBe(20);
+    expect(typeof res.body.total).toBe('number');
+    expect(typeof res.body.totalPages).toBe('number');
+    expect(res.body.counts).toEqual(
+      expect.objectContaining({
+        total: expect.any(Number),
+        red: expect.any(Number),
+        orange: expect.any(Number),
+        yellow: expect.any(Number),
+        green: expect.any(Number),
+      }),
+    );
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.items.length).toBeLessThanOrEqual(20);
+    if (res.body.items[0]) {
+      expect(typeof res.body.items[0].excludedFromNextReport).toBe('boolean');
+    }
+  });
+
+  it('GET /findings rejects inverted date range', async () => {
+    await request(app.getHttpServer())
+      .get('/findings?dateFrom=2026-09-07&dateTo=2026-09-01')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
   });
 
   it('POST /documents/:id/classify is 401 without token', async () => {
@@ -205,8 +231,8 @@ describe('Findings classify (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    expect(list.body.length).toBeGreaterThanOrEqual(1);
-    const finding = list.body.find(
+    expect(list.body.items.length).toBeGreaterThanOrEqual(1);
+    const finding = list.body.items.find(
       (row: { client?: { slug?: string } }) =>
         row.client?.slug === 'arca-continental',
     );
@@ -223,7 +249,7 @@ describe('Findings classify (e2e)', () => {
       .get(`/findings?sourceCode=dof&documentId=${doc.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(byCode.body.some((row: { id: string }) => row.id === finding.id)).toBe(
+    expect(byCode.body.items.some((row: { id: string }) => row.id === finding.id)).toBe(
       true,
     );
 
@@ -231,7 +257,7 @@ describe('Findings classify (e2e)', () => {
       .get(`/findings?sourceCode=diputados-gaceta&documentId=${doc.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(otherCode.body).toEqual([]);
+    expect(otherCode.body.items).toEqual([]);
 
     const detail = await request(app.getHttpServer())
       .get(`/findings/${finding.id}`)
@@ -240,4 +266,162 @@ describe('Findings classify (e2e)', () => {
     expect(detail.body.justification).toContain('Arca Continental');
     expect(detail.body.document?.url).toBe('https://www.dof.gob.mx/');
   });
+
+  it('PATCH /findings/:id updates title and justification, leaving impact as is', async () => {
+    const { finding } = await seedVcgaFinding(ImpactLevel.YELLOW, 'patch');
+    await request(app.getHttpServer())
+      .patch(`/findings/${finding.id}`)
+      .expect(401);
+
+    const res = await request(app.getHttpServer())
+      .patch(`/findings/${finding.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        title: 'Título editado por VCGA',
+        justification: '## Hecho\n\nBriefing editado a mano.',
+      })
+      .expect(200);
+    expect(res.body.title).toBe('Título editado por VCGA');
+    expect(res.body.justification).toContain('Briefing editado a mano');
+    expect(res.body.impact).toBe('YELLOW');
+    expect(res.body.excludedFromNextReport).toBe(false);
+
+    await request(app.getHttpServer())
+      .patch(`/findings/${finding.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({})
+      .expect(400);
+  });
+
+  it('PATCH /findings/:id moves the semáforo by hand; GREEN clears the exclusion', async () => {
+    const { finding } = await seedVcgaFinding(ImpactLevel.YELLOW, 'impact');
+    const excluded = await request(app.getHttpServer())
+      .post(`/findings/${finding.id}/exclude`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(excluded.body.excludedFromNextReport).toBe(true);
+
+    const raised = await request(app.getHttpServer())
+      .patch(`/findings/${finding.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ impact: 'RED' })
+      .expect(200);
+    expect(raised.body.impact).toBe('RED');
+    expect(raised.body.excludedFromNextReport).toBe(true);
+
+    const greened = await request(app.getHttpServer())
+      .patch(`/findings/${finding.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ impact: 'GREEN' })
+      .expect(200);
+    expect(greened.body.impact).toBe('GREEN');
+    expect(greened.body.excludedFromNextReport).toBe(false);
+
+    await request(app.getHttpServer())
+      .patch(`/findings/${finding.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ impact: 'PURPLE' })
+      .expect(400);
+  });
+
+  it('POST exclude rejects GREEN and toggles YELLOW via include', async () => {
+    const green = await seedVcgaFinding(ImpactLevel.GREEN, 'green');
+    await request(app.getHttpServer())
+      .post(`/findings/${green.finding.id}/exclude`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+
+    const yellow = await seedVcgaFinding(ImpactLevel.YELLOW, 'yellow');
+    const excluded = await request(app.getHttpServer())
+      .post(`/findings/${yellow.finding.id}/exclude`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(excluded.body.excludedFromNextReport).toBe(true);
+    expect(excluded.body.impact).toBe('YELLOW');
+
+    const listed = await request(app.getHttpServer())
+      .get(`/findings?excluded=true&documentId=${yellow.doc.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(
+      listed.body.items.some((row: { id: string }) => row.id === yellow.finding.id),
+    ).toBe(true);
+    expect(listed.body.counts.total).toBeGreaterThanOrEqual(listed.body.total);
+
+    const included = await request(app.getHttpServer())
+      .post(`/findings/${yellow.finding.id}/include`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(included.body.excludedFromNextReport).toBe(false);
+  });
+
+  it('ANALYST without membership gets 404 on another client finding', async () => {
+    const { finding } = await seedVcgaFinding(ImpactLevel.ORANGE, 'analyst404');
+    const email = `analyst.findings.${suffix}@norma.local`;
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        email,
+        name: 'Analyst Findings E2E',
+        password: 'Password123!',
+        role: 'ANALYST',
+      })
+      .expect(201);
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: 'Password123!' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/findings/${finding.id}`)
+      .set('Authorization', `Bearer ${login.body.accessToken}`)
+      .send({ title: 'No debe pasar' })
+      .expect(404);
+  });
+
+  it('POST /findings/:id/rewrite returns 503 without OpenAI', async () => {
+    if (process.env.OPENAI_API_KEY?.trim()) {
+      return;
+    }
+    const { finding } = await seedVcgaFinding(ImpactLevel.YELLOW, 'rewrite');
+    await request(app.getHttpServer())
+      .post(`/findings/${finding.id}/rewrite`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ prompt: 'Acorta el briefing.' })
+      .expect(503);
+  });
+
+  async function seedVcgaFinding(impact: ImpactLevel, label: string) {
+    const prisma = app.get(PrismaService);
+    const source = await prisma.source.findUnique({ where: { code: 'dof' } });
+    const arca = await prisma.client.findUnique({
+      where: { slug: 'arca-continental' },
+    });
+    expect(source).toBeTruthy();
+    expect(arca).toBeTruthy();
+    const doc = await prisma.document.create({
+      data: {
+        sourceId: source!.id,
+        bucket: 'e2e',
+        path: `raw/dof/e2e/${suffix}/s8-${label}.html`,
+        filename: 'page.html',
+        mimeType: 'text/html',
+        processingStatus: DocumentProcessingStatus.CLASSIFIED,
+        extractedText: FIXTURE_TEXT,
+      },
+    });
+    createdIds.push(doc.id);
+    const finding = await prisma.finding.create({
+      data: {
+        title: `Hallazgo ${label}`,
+        justification: `Briefing ${label} para el loop VCGA.`,
+        impact,
+        clientId: arca!.id,
+        sourceId: source!.id,
+        documentId: doc.id,
+      },
+    });
+    findingIds.push(finding.id);
+    return { doc, finding };
+  }
 });

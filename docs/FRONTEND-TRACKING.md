@@ -1,11 +1,11 @@
 # Frontend — Panel de rastreo, extracción y análisis
 
 **Audiencia:** `norma-frontend` (JobsPanel / DocumentsRegistry).  
-**Backend:** implementado. Copy en español. Badge `classified` = Sprint 7 ([FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md)).
+**Backend:** implementado. Copy en español. Badge `classified` = Sprint 7 ([FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md)).
 
 Los listados técnicos (`GET /jobs/runs`) siguen para Swagger/ops. El resumen del día es **una fila por fuente**. Al abrir una fuente, el dashboard lista **PDF, Word y HTML** con `GET /documents` (preview) y `GET /documents/:id` (texto extraído).
 
-Detalle backend: [jobs-crawl.md](./jobs-crawl.md), [document-processing.md](./document-processing.md).
+Detalle backend: [jobs.md](./jobs.md).
 
 ## Auth
 
@@ -165,4 +165,4 @@ En `unchanged`, `headline` es el texto que ya teníamos (no HTML) y `note` aclar
 
 `GET /documents` y `GET /documents/:id` **sí** van en el dashboard, en el **detalle de la fuente** (PDF / Word / HTML), no en el resumen ejecutivo.
 
-Clasificación / semáforo **de lista** = [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) (`GET /findings`). El avance por fuente en este panel es `GET /findings/progress`.
+Clasificación / semáforo **de lista** = `/alertas` ([FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md)). El avance por fuente en este panel es `GET /findings/progress`. No generar PDF si alguna fuente del día sigue `classifying`.

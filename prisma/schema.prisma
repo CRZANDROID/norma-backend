@@ -319,6 +319,8 @@ model Finding {
   sourceId        String?       @map("source_id")
   documentId      String        @map("document_id")
   aiMeta          Json?         @map("ai_meta")
+  /// Fuera del próximo informe (S8). No es DISMISSED; S9 lo lee al armar el PDF.
+  excludedFromNextReport Boolean @default(false) @map("excluded_from_next_report")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
@@ -327,7 +329,7 @@ model Finding {
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, clientId])
-  @@index([clientId])
+  @@index([clientId, createdAt])
   @@index([sourceId])
   @@index([documentId])
   @@index([status])

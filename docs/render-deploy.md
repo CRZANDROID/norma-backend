@@ -67,8 +67,6 @@ No uses la URL **external** (`rediss://`) desde el Web Service. Verifica: `GET /
 
 Alternativa: URL de Upstash/Redis Cloud pegada en la misma variable. Sin `REDIS_URL`, la API vive; el crawl responde 503.
 
-Detalle también en [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) § Redis en Render.
-
 Opcional si el **build** también OOM:
 
 ```text
@@ -84,10 +82,6 @@ curl https://<tu-servicio>.onrender.com/docs
 
 ## Local
 
-Sigue usando:
+Canónico: [docker.md](./docker.md) (`docker compose up --build`).
 
-```bash
-pnpm start:dev
-```
-
-`pnpm start` / `yarn start` ahora ejecutan `node dist/main` (requiere `pnpm build` previo).
+`pnpm start` / `yarn start` ejecutan `node dist/main` (requiere build previo).

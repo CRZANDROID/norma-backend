@@ -1,4 +1,14 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -13,6 +23,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ListFindingsQueryDto } from './dto/list-findings.query.dto';
+import { RewriteFindingDto } from './dto/rewrite-finding.dto';
+import { UpdateFindingDto } from './dto/update-finding.dto';
 import { FindingsService } from './findings.service';
 
 @ApiTags('findings')
@@ -27,7 +39,7 @@ export class FindingsController {
   @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({
     summary:
-      'Listar hallazgos clasificados (semáforo; filtro sourceId / sourceCode; sin inbox)',
+      'Listar hallazgos paginados. dateFrom/dateTo opcional; counts por impacto; limit = tamaño de página',
   })
   list(@CurrentUser() user: AuthUser, @Query() query: ListFindingsQueryDto) {
     return this.findingsService.list(user, query);
@@ -44,6 +56,55 @@ export class FindingsController {
     @Query() query: ProgressDateQueryDto,
   ) {
     return this.findingsService.progress(user, query);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({
+    summary:
+      'Editar título, justificación y/o semáforo (impact) a mano. No cambia status.',
+  })
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateFindingDto,
+  ) {
+    return this.findingsService.update(user, id, dto);
+  }
+
+  @Post(':id/exclude')
+  @HttpCode(200)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({
+    summary: 'Sacar el hallazgo del próximo informe (Y/O/R). GREEN → 400.',
+  })
+  exclude(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.findingsService.exclude(user, id);
+  }
+
+  @Post(':id/include')
+  @HttpCode(200)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({
+    summary: 'Volver a incluir el hallazgo en el próximo informe.',
+  })
+  include(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.findingsService.include(user, id);
+  }
+
+  @Post(':id/rewrite')
+  @HttpCode(200)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({
+    summary:
+      'Reescribir con OpenAI (edita el borrador vigente). 422 con el limitante si la IA no cambia nada.',
+  })
+  rewrite(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: RewriteFindingDto,
+  ) {
+    return this.findingsService.rewrite(user, id, dto);
   }
 
   @Get(':id')

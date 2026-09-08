@@ -8,11 +8,12 @@
 | ORM | Prisma 6 | Única vía a datos de negocio |
 | DB | PostgreSQL en Supabase | Migraciones con Prisma; Supabase = hosting DB |
 | Auth | JWT propio (Nest) | `passwordHash` + `POST /auth/login`; Bearer en rutas |
-| Jobs | Redis + BullMQ | `source.crawl` HTTP (mismo host, no redes) + extract/normalize. YouTube/X = conectores MVP aparte |
+| Jobs | Redis + BullMQ | crawl HTTP + extract/normalize + classify. YouTube/X = MVP **después de S10** |
 | Storage | Supabase Storage | Originales de crawl + upload admin (`/storage/*`) |
 | IA catálogo | OpenAI | `POST /ai/ask` — solo datos admin; no clasifica |
-| IA (futuro) | OpenAI | Clasificación y semáforo desde Sprint 7 |
-| Email (futuro) | Resend | Solo tras aprobación humana |
+| IA clasificación | OpenAI | `document.classify` + `GET /findings` (S7, hecho) |
+| IA reescritura | OpenAI | S8: prompt sobre **un** hallazgo; solo texto del documento |
+| Email | Correo a contactos (S9) | Tras generar PDF; confirmar o `autoSend`. No WhatsApp |
 
 ## Flujo canónico
 
@@ -51,8 +52,10 @@ src/
     users/           # admin usuarios + memberships
     storage/         # upload / signed-url / download
     ai/              # POST /ai/ask (catálogo)
-    documents/       # GET /documents + progress + reprocess
-  jobs/              # BullMQ source.crawl + document.extract/normalize_dedup
+    documents/       # GET /documents + progress + reprocess + classify
+    findings/        # GET /findings + progress + PATCH/exclude/include/rewrite
+    reports/         # S9–S10: PDF, envío, historial (aún no existe)
+  jobs/              # BullMQ source.crawl + extract/normalize + classify
   app.module.ts
   main.ts
 ```
@@ -95,9 +98,10 @@ Soft-status: `EntityStatus` (`ACTIVE` | `INACTIVE`). No hard-delete en el piloto
 - `ClientMembership` — unique(userId, clientId)
 - `RegulatoryProfile` — keywords, categories, products (Json)
 - `Source` — code, category, platform, jurisdiction, stateCode, schedule (hora/días/zona), status
-- `ClientDeliveryConfig` — canales email/WhatsApp + acciones por nivel de semáforo (config; no envía)
+- `ClientDeliveryConfig` — canales + `suggestedAction` por color + `autoSend` (S9). No es inbox
 - `Document` — original en Storage + `processingStatus` / hash / texto (S6)
-- `Finding` — impacto (GREEN…RED) por documento×cliente; lectura S7; inbox = S8
+- `Finding` — impacto (GREEN…RED) por documento×cliente; lista S7; edición S8
+- `Report` — (S9) PDF por cliente; el caso del cliente es este objeto, no el finding
 - `JobRun` — ejecución de crawl (`idempotencyKey`, status, errorCode)
 
 Fuente de verdad del schema: `prisma/schema.prisma`.
@@ -126,4 +130,5 @@ Variables: ver `.env.example`. Secretos nunca en Git.
 - [PRODUCT.md](./PRODUCT.md)
 - [SPRINTS.md](./SPRINTS.md)
 - [HANDOFF.md](./HANDOFF.md)
-- [postman-pruebas.md](./postman-pruebas.md)
+- [jobs.md](./jobs.md)
+- [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md)

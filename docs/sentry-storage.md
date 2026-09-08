@@ -87,7 +87,7 @@ Con bucket **privado**, usa `signed-url` o `download` en lugar de `publicUrl`.
 
 Límite actual: **20 MB** por archivo.
 
-Pruebas Postman: sección Storage en [postman-pruebas.md](./postman-pruebas.md).
+Pruebas: Swagger `/docs` (grupo Storage).
 
 ---
 
@@ -102,7 +102,7 @@ prisma/migrations/20260803180000_documents_storage_meta/migration.sql
 Guarda metadatos (`bucket`, `path`, `filename`, `mimeType`, `clientId`, …). El binario sigue en Storage.
 
 **Estado:** la migración debe estar aplicada (`pnpm prisma:deploy`).  
-**Comportamiento API:** `/storage/*` opera contra el bucket y **no** crea filas `documents`. El pipeline de crawl S5–S6 **sí** crea/actualiza `Document` (extract/normalize). Ver [document-processing.md](./document-processing.md) y [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md).
+**Comportamiento API:** `/storage/*` opera contra el bucket y **no** crea filas `documents`. El pipeline de crawl **sí** crea/actualiza `Document`. Ver [jobs.md](./jobs.md).
 
 ```bash
 pnpm prisma:deploy
@@ -130,4 +130,4 @@ pnpm prisma:deploy
 - UI de archivos en el front
 - Exponer `service_role` al browser
 
-(Crawl/extract S5–S6: [jobs-crawl.md](./jobs-crawl.md), [document-processing.md](./document-processing.md).)
+(Crawl/extract: [jobs.md](./jobs.md).)

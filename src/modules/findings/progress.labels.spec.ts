@@ -1,5 +1,7 @@
 import { DocumentProcessingStatus } from '../../database/prisma-client';
+import { ImpactLevel } from '../../database/prisma-client';
 import {
+  addImpactCount,
   analysisDaySignals,
   analysisProgressLabel,
   analysisProgressNote,
@@ -133,5 +135,12 @@ describe('analysis progress labels', () => {
       yellow: 0,
       green: 0,
     });
+  });
+
+  it('adds the group size, not one per impact bucket', () => {
+    const counts = emptyImpactCounts();
+    addImpactCount(counts, ImpactLevel.GREEN, 80);
+    addImpactCount(counts, ImpactLevel.RED, 3);
+    expect(counts).toEqual({ red: 3, orange: 0, yellow: 0, green: 80 });
   });
 });

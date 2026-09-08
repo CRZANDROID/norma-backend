@@ -1,8 +1,7 @@
-# HANDOFF — Estado NORMA Backend (2026-09-02)
+# HANDOFF — Estado NORMA Backend (2026-09-08)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
-Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de trabajo.  
-Índice de docs: [README.md](./README.md).
+Índice: [README.md](./README.md). Informe: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 
 ---
 
@@ -13,17 +12,19 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 | 1–2 | Hecho | Nest + Prisma + JWT propio (`POST /auth/login`) |
 | 3 CRUD admin | **API hecha** | clients, profiles, sources, users/memberships |
 | 3 extensión | **API hecha** | N:N **client ↔ sources** (`sourceIds` / `clientIds`) |
-| 3+ ajustes | **API hecha** | Datos fiscales 1:1 + contactos 1:N del cliente |
-| Pre-S5 modelo | **API hecha** | Entidad federativa, disparador, catálogo 32 congresos, delivery/semáforo |
+| 3+ ajustes | **API hecha** | Fiscales 1:1 + contactos 1:N |
+| Pre-S5 modelo | **API hecha** | Entidad federativa, disparador, 32 congresos, delivery |
 | Bloque 1 OpenAI | **API hecha** | `GET /ai/status` + `POST /ai/ask` (catálogo; no clasifica) |
-| 5 crawl | **Hecho** | Redis/BullMQ + `job_runs` + crawl del mismo sitio (no solo portada) |
+| 5 crawl | **Hecho** | Redis/BullMQ + crawl del mismo sitio (no solo portada) |
 | 6 documentos | **Hecho** | extract / normalize / SHA-256 / dedup + `GET /documents` |
-| 7 clasificación | **Hecho** | cola `document.classify` + `GET /findings` (semáforo; no inbox) |
-| 3 front | Fuera de este repo | Wire UI → [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) + [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) + [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) + [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) + [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) |
-| 4 | **Hecho en código/verificado** | Sentry + Storage OK en local |
-| 8+ | Pendiente | Inbox / folio / Resend |
+| 7 clasificación | **Hecho** | `document.classify` + `GET /findings` en `/alertas` |
+| 3 front | Fuera de este repo | `/alertas` = hallazgos. Brief: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) |
+| 4 | **Hecho** | Sentry + Storage OK en local |
+| 8 | **Hecho (API)** | Loop VCGA: editar / IA / excluir |
+| 9 | Pendiente | PDF + envío (confirmar o `autoSend`) |
+| 10 | Pendiente | Portal `CLIENT_USER`; el caso es el PDF |
 
-**Siguiente en este repo:** Sprint 8 (inbox humano + email tras aprobación). Crawl: sigue links legislativos del mismo host (tope `CRAWL_MAX_PAGES`); no es solo la home. Detalle: [jobs-crawl.md](./jobs-crawl.md). S6: [document-processing.md](./document-processing.md). S7: [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md).
+**Siguiente en este repo:** Sprint 9 — generar/enviar PDF. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). Pipeline: [jobs.md](./jobs.md).
 
 ---
 
@@ -40,22 +41,13 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 |---------|------------|
 | API | `http://localhost:3000` |
 | Swagger | `http://localhost:3000/docs` |
-| Postman | [postman-pruebas.md](./postman-pruebas.md) |
 | Seed/e2e | [seed-and-tests.md](./seed-and-tests.md) |
-| Índice docs | [README.md](./README.md) |
-| Client↔sources (UI) | [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) |
-| Front fiscal/contactos | [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) |
-| Front delivery/semáforo | [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) |
-| Fuentes v2 (estado + schedule) | [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md) |
-| Congresos estatales | [state-congresses.md](./state-congresses.md) |
-| Jobs/docs contracts | [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
-| OpenAI catálogo | [openai-catalog.md](./openai-catalog.md) |
-| Front AI ask | [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) |
-| Front panel rastreo | [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) |
-| Front hallazgos S7 | [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md) |
-| Jobs crawl S5 | [jobs-crawl.md](./jobs-crawl.md) |
-| Registro documental S6 | [document-processing.md](./document-processing.md) |
-| Entrega front + `.env` (snapshot) | [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) |
+| Índice | [README.md](./README.md) |
+| Admin UI | [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md) |
+| Panel rastreo | [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) |
+| `/alertas` + informe | [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) |
+| Jobs | [jobs.md](./jobs.md) |
+| Docker | [docker.md](./docker.md) |
 | Sentry/Storage | [sentry-storage.md](./sentry-storage.md) |
 | Render | [render-deploy.md](./render-deploy.md) |
 
@@ -63,94 +55,64 @@ Fuente de verdad viva: este archivo + links. Actualízalo al cerrar un bloque de
 
 ## 3. Qué ya está implementado (backend)
 
-### Auth / CRUD / client↔sources / fiscales / contactos / delivery
-Ver Postman. Migraciones relevantes: `client_sources`, `documents`, `client_fiscal_contacts`, `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`, `search_focus_array`. Aplicar con `pnpm prisma:deploy` si falta.
+Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`, `search_focus_array`. `pnpm prisma:deploy` si falta.
 
-- Fiscales 1:1: `fiscal` en create/PATCH client → respuesta `fiscalData`
-- Contactos: `contacts[]` en create/PATCH client (**replace** en PATCH); rutas `/clients/:clientId/contacts`
-- Fuentes: `jurisdiction` + `stateCode`; `schedule`; `searchFocus` (`string[]`, igual que `keywordsGuide`) / `notes` (matriz VCGA)
-- Delivery 1:1: `deliveryConfig` con `suggestedAction` por nivel (registrar / seguir / nota / alertar)
-- Asistente de catálogo: `GET /ai/status`, `POST /ai/ask` (OpenAI; 503 sin `OPENAI_API_KEY`)
-- Crawl S5: Redis/BullMQ cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, tabla `job_runs` (503 sin `REDIS_URL`). Cada job trae hasta `CRAWL_MAX_PAGES` HTML/PDF/Word del mismo sitio (gaceta, iniciativas, notas DOF, etc.), no solo la portada. Sitio caído / TLS inválido = **error de la página de origen** (copy en el panel); circuito + tope de intentos para no dejar el job en “Rastreando”. Admin reencola FAILED/QUEUED huérfanos; el scheduler no reintenta FAILED el mismo día. Seed ACTIVE: DOF, Gaceta Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. DB ya sembrada → `pnpm prisma:seed`.
-- Panel ejecutivo: `GET /jobs/progress`, `GET /documents/progress` y `GET /findings/progress` (una fila por fuente **ACTIVE**: rastreo → extracción → análisis). Extract/análisis: `status` = lote en curso (`extracting` / `classifying` si queda página pendiente o el crawl del día sigue vivo); `headline`/`counts` pueden ir adelantados. El dashboard lista cada página con `GET /documents` y el texto con `GET /documents/:id`. Lista de hallazgos: `GET /findings`.
-- Registro documental S6: colas `document.extract` y `document.normalize_dedup`, `GET /documents`, `GET /documents/:id`, `POST /documents/:id/reprocess` (ADMIN). Extrae HTML, PDF (`unpdf`) y Word (`.doc`/`.docx`, p. ej. DOF `nota_to_doc`). PDF escaneado (sin capa de texto) falla con copy **PDF escaneado**; no hay OCR en este sprint. Detalle: [document-processing.md](./document-processing.md).
-- Clasificación S7: cola `document.classify` al pasar a `READY_FOR_AI`; fan-out por `client_sources`; `Finding` único por documento×cliente; `GET /findings`, `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). 503 sin Redis o sin `OPENAI_API_KEY`. No email/inbox. UI: [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md).
+- Fiscales 1:1: `fiscal` → `fiscalData`. Contactos: `contacts[]` (**replace** en PATCH)
+- Fuentes: `jurisdiction` + `stateCode` + `schedule`; `searchFocus` / `keywordsGuide` (`string[]`)
+- Delivery 1:1: `suggestedAction` por nivel + `autoSend` (S9)
+- `GET /ai/status`, `POST /ai/ask` (503 sin `OPENAI_API_KEY`)
+- Crawl: cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, `job_runs`. Tope `CRAWL_MAX_PAGES`. Sitio caído = error de origen. Seed ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco
+- Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
+- Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
+- Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }` (`excludedFromNextReport`). `PATCH /findings/:id` (`title`/`justification`/`impact`), `POST /findings/:id/exclude|include|rewrite` (`rewrite-v6`: `rewriteNote`, o 422 con el limitante si el pedido no se sostiene con el documento). `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). Classify `classify-v2`.
 
-### Sprint 4
-
-| Issue | Estado |
-|-------|--------|
-| #11 Swagger + validation | **Hecho** — `/docs`, ValidationPipe |
-| #12 Seed + indexes + e2e | **Hecho** — `pnpm test:e2e` |
-| #13 Sentry + Storage | **Cerrado** — Sentry + upload/signed-url/download verificados en local |
-| #14 Document/job contracts | **Hecho (doc)** — [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) |
+Detalle de jobs: [jobs.md](./jobs.md). Admin UI: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md).
 
 ### Módulos
 ```text
 src/modules/{auth,clients,sources,users,storage,ai,documents,findings}/
-src/jobs/            # BullMQ source.crawl + document.extract/normalize_dedup/classify
-src/common/swagger.ts
-test/*e2e-spec.ts
+src/modules/reports/ # S9 (aún no existe)
+src/jobs/            # BullMQ source.crawl + extract/normalize_dedup/classify
 ```
 
 ---
 
 ## 4. Qué falta (prioridad)
 
-1. **Sprint 8:** inbox humano (ACK/RESOLVE), folio / borrador ejecutivo, Resend solo tras aprobación. Findings S7 ya existen (`GET /findings`).
-2. **Conectores MVP (contrato, no opcional):** YouTube / X / Facebook como jobs de plataforma — [PRODUCT.md](./PRODUCT.md) § social/multimedia. No ampliar el crawl HTTP a redes ni a players en vivo.
-3. Redis en staging/prod (`REDIS_URL`) para que el scheduler crawlee a las 07:00.
-4. Front: contratos de UI en este repo ([README.md](./README.md)); hallazgos — [FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md). Panel de rastreo: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
+1. **Sprint 9:** Generar PDF (bloqueado si `classifying`); regenerar; `autoSend` o confirmar; correo a contactos; reabrir si hash distinto. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+2. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
+3. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
+4. Redis en staging/prod (`REDIS_URL`) para el scheduler a las 07:00 (crawl, no empaque de PDF).
 
 ---
 
 ## 5. Operación local
 
-**Canónico: Docker** ([docs/docker.md](./docker.md)). Redis va en Compose; no hace falta `redis-server` en Windows.
+**Canónico: Docker** ([docker.md](./docker.md)).
 
 ```bash
 docker compose up --build
 ```
 
-API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras cambiar código: `--build`, no solo `restart`.
+API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras cambiar código: `--build`.
 
-`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY` (classify). Compose pisa `REDIS_URL` y `PORT=3000`.
+`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY`. Compose pisa `REDIS_URL` y `PORT=3000`.
 
-`pnpm start:dev` en el host usa `REDIS_URL=redis://127.0.0.1:6379` → `ECONNREFUSED` si Redis no está. No es el flujo soportado.
+`pnpm start:dev` en el host sin Redis → `ECONNREFUSED`. No es el flujo soportado.
 
 ---
 
 ## 6. Para el agente de FRONTEND
 
-Índice: **[README.md](./README.md)**. `.env` / Redis: [ENTREGA-FRONT-ENV.md](./ENTREGA-FRONT-ENV.md) (snapshot; S6 ya está hecho).
-
-1. Fuentes: **[FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md)** (`jurisdiction`, `stateCode`, `schedule`; ya no `frequency`).
-2. Vínculos: **[FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md)**.
-3. Fiscales + contactos: **[FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md)**.
-4. Entrega / semáforo (config, no inbox): **[FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md)**.
-5. Asistente de catálogo: **[FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md)**.
-6. Crawl (botón ADMIN): [jobs-crawl.md](./jobs-crawl.md) / sección 2.5 de la entrega.
-7. Panel rastreo/extracción/análisis: **[FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)** (`GET /jobs/progress`, `GET /documents/progress`, `GET /findings/progress`).
-8. Hallazgos / semáforo (S7, no inbox): **[FRONTEND-FINDINGS.md](./FRONTEND-FINDINGS.md)**.
+1. Admin (fuentes, vínculos, fiscales, delivery, `ai/ask`): **[FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md)**
+2. Panel rastreo: **[FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)**
+3. `/alertas` + informe S8–S10: **[FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md)**
+4. Local API: [docker.md](./docker.md). HTTP: Swagger `/docs`.
 
 ---
 
-## 7. Issues GitHub (`norma-backend`)
+## 7. Plantilla siguiente agente
 
-| # | Título | Acción |
-|---|--------|--------|
-| 8–10 | S3 CRUD | CLOSED |
-| 11 | Swagger/validation | Cerrar si confirman `/docs` + 400 |
-| 12 | Seed/tests | Cerrar si `pnpm test:e2e` OK |
-| 13 | Sentry+Storage | CLOSED — verificado local |
-| 14 | Document contracts | Cerrar — doc entregada |
-| 15–16 | S5 workers/connectors | **Hecho** — [jobs-crawl.md](./jobs-crawl.md) |
-| 17–18 | S6 documentos | **Hecho** — [document-processing.md](./document-processing.md) |
+> Lee `docs/HANDOFF.md` §4 y `docs/FRONTEND-ALERTAS.md`. S9 = generar/enviar PDF. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
 
----
-
-## 8. Plantilla siguiente agente
-
-> Lee `docs/HANDOFF.md` §4. S8 inbox/email sobre findings ya clasificados. Conectores YouTube/X son **MVP** ([PRODUCT.md](./PRODUCT.md)); no van en el spider WEB. S7: `FRONTEND-FINDINGS.md`. S6: `document-processing.md`. Crawl S5: `jobs-crawl.md`. Front: `FRONTEND-SOURCES-V2.md` + `FRONTEND-CLIENT-DELIVERY.md` + `FRONTEND-AI-ASK.md` + `FRONTEND-TRACKING.md` + `FRONTEND-FINDINGS.md`.
-
-**Última actualización:** 2026-09-02 — tablero `progress`: `status` de extract/análisis es del lote (no de la mejor página / primer hallazgo); crawl `queued`/`running` mantiene esas columnas en curso. Solo fuentes `ACTIVE`. S8 inbox/email sigue.
+**Última actualización:** 2026-09-08 — S8 API: PATCH / exclude / include / rewrite. S9 sigue pendiente.

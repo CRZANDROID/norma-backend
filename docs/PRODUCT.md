@@ -16,12 +16,13 @@ Equipos regulatorios revisan manualmente muchas fuentes (DOF, congresos, autorid
 - Multi-tenant por **cliente** (Arca primero), con datos fiscales y contactos de soporte
 - Catálogo de **fuentes** con entidad federativa: federales (DOF, Diputados) + 32 congresos locales (piloto crawlea AGU, BC, BCS, Campeche, Chihuahua, Jalisco)
 - **Perfil regulatorio** del cliente (keywords, categorías, portafolio)
-- Config de **semáforo y canales** por cliente (acciones por nivel; correo por defecto; WhatsApp como opción, sin envío)
+- Config de **semáforo y canales** por cliente (acciones por nivel; correo por defecto; WhatsApp como opción, sin envío). En S9: flag **cliente automático** (`autoSend`)
 - **Asistente de catálogo** (`POST /ai/ask`): el modelo responde sobre clientes, perfiles y fuentes ya registrados
 - **Crawl HTTP** de fuentes `ACTIVE` (`POST /jobs/crawl`): mismo sitio (gaceta, iniciativas, notas, PDFs), no solo la portada
 - **Registro documental** (extract / normalize / SHA-256 / dedup + `GET /documents`)
-- Más adelante en el mismo piloto (S7–S8): clasificación, semáforo operativo, borrador ejecutivo, inbox de validación humana, email solo tras aprobación
-- **Conectores de plataforma (MVP, obligatorios):** YouTube, X/Twitter, Facebook y transmisiones oficiales. Van **después** del crawl WEB + S7, como jobs distintos — no se implementan siguiendo links de redes desde el HTML de un congreso. Detalle abajo.
+- **Clasificación S7** (hecho): semáforo GREEN/YELLOW/ORANGE/RED en `/alertas`
+- **Informe S8–S10:** VCGA valida en esa misma lista → PDF (sin verdes; solo no enviados) → correo a contactos → portal del cliente. Detalle: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md)
+- **Conectores de plataforma (MVP, obligatorios):** YouTube, X/Twitter, Facebook y transmisiones oficiales. Van **después de S10**, como jobs distintos — no se implementan siguiendo links de redes desde el HTML de un congreso. Detalle abajo.
 
 ## Conectores social / multimedia (compromiso de MVP)
 
@@ -36,7 +37,7 @@ Cómo **sí**: un conector por plataforma (API oficial o RSS; transcripto si el 
 1. Conferencia mañanera — YouTube **o** versión estenográfica en gob.mx (`mananera-presidencia`)
 2. Al menos una cuenta X oficial del sector (p. ej. COFEPRIS)
 
-Orden: cerrar WEB (S5–S6) → clasificar (S7) → estos conectores. No adelantar scraping de redes “porque el menú del congreso tiene Facebook”.
+Orden: cerrar WEB (S5–S6) → clasificar (S7) → informe (S8–S10) → estos conectores. No adelantar scraping de redes “porque el menú del congreso tiene Facebook”.
 
 ## Fuera de alcance (por ahora)
 
@@ -44,8 +45,10 @@ Orden: cerrar WEB (S5–S6) → clasificar (S7) → estos conectores. No adelant
 - Fastify (se mantiene Express en NestJS)
 - Supabase Auth / identidad externalizada (Postgres en Supabase sí; auth es de Nest)
 - Consultas de negocio desde el frontend directo a tablas Supabase
-- Clasificar normas con OpenAI (Sprint 7) ni Resend “por checklist”
-- 32 scrapers distintos el día uno (el catálogo sí existe; el crawl HTTP ACTIVE es un subconjunto). Los conectores YouTube/X/Facebook **sí** son del MVP; no se construyen reciclando el spider WEB (ver sección anterior).
+- Inbox por finding / ACK por color (`requireHumanApproval` no abre una cola)
+- Borrador en la bandeja Gmail de VCGA (S9 envía el PDF a contactos; no es “dejar draft en Gmail”)
+- WhatsApp, newsletter, IA que explora fuera del documento
+- 32 scrapers distintos el día uno (el catálogo sí existe; el crawl HTTP ACTIVE es un subconjunto). Los conectores YouTube/X/Facebook **sí** son del MVP **después de S10**; no se construyen reciclando el spider WEB (ver sección anterior).
 
 ## Actores
 
@@ -58,7 +61,7 @@ Orden: cerrar WEB (S5–S6) → clasificar (S7) → estos conectores. No adelant
 
 ## Principios de producto
 
-1. **Humano en el loop:** nada ejecutivo se envía sin aprobación.
+1. **Humano en el loop:** el PDF lo dispara siempre un clic VCGA. En cliente automático ese clic también envía; en el resto hay un segundo clic de confirmar.
 2. **Auditoría:** estados, versiones y trazas importan más que borrar datos.
 3. **Soft-status:** `ACTIVE` / `INACTIVE` en lugar de hard-delete.
 4. **Piloto estrecho, arquitectura multi-cliente:** modelar bien el tenant desde el inicio.
@@ -74,18 +77,10 @@ Tablero: GitHub Project **NORMA — Piloto Arca**.
 
 ## Documentación relacionada
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — stack y reglas técnicas
-- [README.md](./README.md) — índice de docs
-- [SPRINTS.md](./SPRINTS.md) — piloto S1–S8 (iteraciones semanales)
-- [SPRINT-3-BACKEND.md](./SPRINT-3-BACKEND.md) — brief histórico CRUD admin (no es contrato actual)
-- [postman-pruebas.md](./postman-pruebas.md) — guía de pruebas de endpoints
-- [seed-and-tests.md](./seed-and-tests.md) — seed + e2e + Swagger `/docs`
-- [DOCUMENT-JOB-CONTRACTS.md](./DOCUMENT-JOB-CONTRACTS.md) — state machine docs + jobs S5
-- [HANDOFF.md](./HANDOFF.md) — estado actual y siguientes pasos (agentes)
-- [FRONTEND-CLIENT-SOURCES.md](./FRONTEND-CLIENT-SOURCES.md) — contrato UI client↔fuentes
-- [FRONTEND-CLIENT-FISCAL-CONTACTS.md](./FRONTEND-CLIENT-FISCAL-CONTACTS.md) — fiscales + contactos
-- [FRONTEND-CLIENT-DELIVERY.md](./FRONTEND-CLIENT-DELIVERY.md) — canales y semáforo (config)
-- [FRONTEND-SOURCES-V2.md](./FRONTEND-SOURCES-V2.md) — jurisdicción + disparador
-- [state-congresses.md](./state-congresses.md) — catálogo 32 entidades
-- [openai-catalog.md](./openai-catalog.md) — `POST /ai/ask`
-- [FRONTEND-AI-ASK.md](./FRONTEND-AI-ASK.md) — contrato UI del asistente
+- [README.md](./README.md) — índice
+- [HANDOFF.md](./HANDOFF.md) — estado y siguientes pasos
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [SPRINTS.md](./SPRINTS.md)
+- [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) — `/alertas` + informe
+- [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md) — fuentes, cliente, catálogo
+- [jobs.md](./jobs.md)

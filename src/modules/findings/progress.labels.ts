@@ -120,15 +120,16 @@ export function emptyImpactCounts(): Record<'red' | 'orange' | 'yellow' | 'green
 export function addImpactCount(
   counts: ReturnType<typeof emptyImpactCounts>,
   impact: ImpactLevel,
+  n = 1,
 ): void {
   if (impact === ImpactLevel.RED) {
-    counts.red += 1;
+    counts.red += n;
   } else if (impact === ImpactLevel.ORANGE) {
-    counts.orange += 1;
+    counts.orange += n;
   } else if (impact === ImpactLevel.YELLOW) {
-    counts.yellow += 1;
+    counts.yellow += n;
   } else {
-    counts.green += 1;
+    counts.green += n;
   }
 }
 
