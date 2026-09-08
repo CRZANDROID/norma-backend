@@ -30,7 +30,7 @@ export function setupSwagger(app: INestApplication): void {
     .addTag('ai', 'Asistente de catálogo (OpenAI; no clasifica normas)')
     .addTag('jobs', 'Crawl de fuentes (Redis/BullMQ)')
     .addTag('documents', 'Registro documental (extract / normalize / dedup / classify)')
-    .addTag('findings', 'Hallazgos clasificados (semáforo; sin inbox)')
+    .addTag('findings', 'Hallazgos: lista, edición VCGA, exclude/rewrite (sin inbox)')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

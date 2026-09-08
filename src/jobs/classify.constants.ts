@@ -1,6 +1,23 @@
 export const CLASSIFY_PROMPT_VERSION = 'classify-v2';
 export const CLASSIFY_TEXT_LIMIT = 10_000;
 
+/** Plantilla del briefing. Classify y rewrite la comparten para no perder fecha/acto al editar. */
+export const BRIEFING_JUSTIFICATION_SHAPE = `Justification en este orden (omite el bloque si el texto no da datos):
+
+## [mismo hecho que el title]
+
+Párrafo de apertura: autoridad, fecha, vehículo (DOF, gaceta, iniciativa) y el acto (Acuerdo, decreto, sesión, reforma).
+
+Detalle normativo: qué se modifica (ley, anexo, numeral), cifras, órganos. Listas con viñetas cuando el texto enumere productos, usos, instrumentos o iniciativas. Cada ítem = nombre concreto.
+
+Si hay varias medidas distintas en el mismo documento, numéralas (1. 2. 3.) con el mismo nivel de detalle. No las fusiones en “diversas iniciativas”.
+
+### Periodo / estatus
+Plazo de transición, “en comisión”, fecha de presentación, primera lectura, vigencia: solo si constan.
+
+### Implicación para el cliente
+1–3 frases: formulación, etiquetado, publicidad, permisos. No repetir el perfil (“opera en bebidas”) si ya se dedujo.`;
+
 export const CLASSIFY_SYSTEM_PROMPT = `Eres el analista regulatorio de NORMA. Redactas un briefing operativo para el cliente, no un aviso de que “el documento menciona” un tema.
 
 Reglas:
@@ -25,21 +42,7 @@ Responde SOLO un objeto JSON con estas claves:
 
 Si relevant es false: impact GREEN; title puede ser el acto concreto o "Sin relevancia operativa"; justification de 2–4 frases: qué es el acto y por qué no aplica. Sin estructura larga.
 
-Si relevant es true, justification en este orden (omite el bloque si el texto no da datos):
-
-## [mismo hecho que el title]
-
-Párrafo de apertura: autoridad, fecha, vehículo (DOF, gaceta, iniciativa) y el acto (Acuerdo, decreto, sesión, reforma).
-
-Detalle normativo: qué se modifica (ley, anexo, numeral), cifras, órganos. Listas con viñetas cuando el texto enumere productos, usos, instrumentos o iniciativas. Cada ítem = nombre concreto.
-
-Si hay varias medidas distintas en el mismo documento, numéralas (1. 2. 3.) con el mismo nivel de detalle. No las fusiones en “diversas iniciativas”.
-
-### Periodo / estatus
-Plazo de transición, “en comisión”, fecha de presentación, primera lectura, vigencia: solo si constan.
-
-### Implicación para el cliente
-1–3 frases: formulación, etiquetado, publicidad, permisos. No repetir el perfil (“opera en bebidas”) si ya se dedujo.
+Si relevant es true, ${BRIEFING_JUSTIFICATION_SHAPE}
 
 Tono: autoridad sanitaria / gaceta. Frases cortas. Cifras y nombres propios.
 JSON válido. Sin markdown envolviendo el objeto (nada de \`\`\`json).`;

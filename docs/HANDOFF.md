@@ -1,4 +1,4 @@
-# HANDOFF — Estado NORMA Backend (2026-09-06)
+# HANDOFF — Estado NORMA Backend (2026-09-08)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
 Índice: [README.md](./README.md). Informe: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
@@ -20,11 +20,11 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 | 7 clasificación | **Hecho** | `document.classify` + `GET /findings` en `/alertas` |
 | 3 front | Fuera de este repo | `/alertas` = hallazgos. Brief: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) |
 | 4 | **Hecho** | Sentry + Storage OK en local |
-| 8 | Pendiente | Loop VCGA: editar / IA / excluir |
+| 8 | **Hecho (API)** | Loop VCGA: editar / IA / excluir |
 | 9 | Pendiente | PDF + envío (confirmar o `autoSend`) |
 | 10 | Pendiente | Portal `CLIENT_USER`; el caso es el PDF |
 
-**Siguiente en este repo:** Sprint 8 — validación en `/alertas`, **sin** PDF. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). Pipeline: [jobs.md](./jobs.md).
+**Siguiente en este repo:** Sprint 9 — generar/enviar PDF. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). Pipeline: [jobs.md](./jobs.md).
 
 ---
 
@@ -64,7 +64,7 @@ Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_st
 - Crawl: cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, `job_runs`. Tope `CRAWL_MAX_PAGES`. Sitio caído = error de origen. Seed ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco
 - Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
 - Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
-- Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }`. `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). Classify `classify-v2`.
+- Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }` (`excludedFromNextReport`). `PATCH /findings/:id` (`title`/`justification`/`impact`), `POST /findings/:id/exclude|include|rewrite` (`rewrite-v6`: `rewriteNote`, o 422 con el limitante si el pedido no se sostiene con el documento). `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). Classify `classify-v2`.
 
 Detalle de jobs: [jobs.md](./jobs.md). Admin UI: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md).
 
@@ -79,11 +79,10 @@ src/jobs/            # BullMQ source.crawl + extract/normalize_dedup/classify
 
 ## 4. Qué falta (prioridad)
 
-1. **Sprint 8:** loop en `/alertas` — editar, reescribir con IA (solo documento), excluir de **este** PDF. No generar PDF. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
-2. **Sprint 9:** Generar PDF (bloqueado si `classifying`); regenerar; `autoSend` o confirmar; correo a contactos; reabrir si hash distinto.
-3. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
-4. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
-5. Redis en staging/prod (`REDIS_URL`) para el scheduler a las 07:00 (crawl, no empaque de PDF).
+1. **Sprint 9:** Generar PDF (bloqueado si `classifying`); regenerar; `autoSend` o confirmar; correo a contactos; reabrir si hash distinto. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+2. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
+3. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
+4. Redis en staging/prod (`REDIS_URL`) para el scheduler a las 07:00 (crawl, no empaque de PDF).
 
 ---
 
@@ -114,6 +113,6 @@ API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras 
 
 ## 7. Plantilla siguiente agente
 
-> Lee `docs/HANDOFF.md` §4 y `docs/FRONTEND-ALERTAS.md`. S8 = editar/excluir en `/alertas` (sin PDF). S9 = generar/enviar. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
+> Lee `docs/HANDOFF.md` §4 y `docs/FRONTEND-ALERTAS.md`. S9 = generar/enviar PDF. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
 
-**Última actualización:** 2026-09-07 — `GET /findings`: rango `dateFrom`/`dateTo`, `counts` por impacto, páginas. classify-v2. S8 sigue pendiente.
+**Última actualización:** 2026-09-08 — S8 API: PATCH / exclude / include / rewrite. S9 sigue pendiente.

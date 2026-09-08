@@ -30,7 +30,7 @@ Controller → Service → PrismaService
 - `POST /jobs/crawl`: solo `ADMIN`; 503 sin Redis.
 - `GET /jobs/progress`, `GET /documents/progress` y `GET /findings/progress`: `ADMIN` \| `ANALYST`; resumen ejecutivo (no sustituyen `GET /jobs/runs`, `GET /documents` ni `GET /findings`).
 - `GET /findings`: `ADMIN` \| `ANALYST`; no-ADMIN filtra memberships. `POST /documents/:id/classify`: `ADMIN`.
-- S8 (aún no en código): `PATCH /findings/:id`, `POST /findings/:id/exclude`, `POST /findings/:id/rewrite`. No inbox ACK/RESOLVE. Contrato: `docs/FRONTEND-ALERTAS.md`.
+- S8: `PATCH /findings/:id` (`title`/`justification`/`impact` a mano), `POST /findings/:id/exclude`, `POST /findings/:id/include`, `POST /findings/:id/rewrite` (`rewrite-v6`; edita el borrador vigente, `rewriteNote` si aplicó a medias, **422** con el limitante —y sin persistir— si el modelo reporta `applied: none` o no cambia nada). Solo el PATCH mueve el semáforo. No inbox ACK/RESOLVE. Contrato: `docs/FRONTEND-ALERTAS.md`.
 - No-ADMIN: filtrar por memberships activas.
 - Login: `POST /auth/login` → Bearer JWT Nest (no Supabase Auth).
 

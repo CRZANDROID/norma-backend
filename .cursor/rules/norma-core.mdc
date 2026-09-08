@@ -22,12 +22,12 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 - Redis/BullMQ de crawl, extract/normalize y classify están permitidos. **Local: Docker Compose** (`docs/docker.md`), no Redis suelto en Windows.
 - Crawl: mismo host, links legislativos, tope `CRAWL_MAX_PAGES` — no solo la portada. No redes ni players en vivo. Detalle: `docs/jobs.md`.
 - Conectores YouTube / X / Facebook son **MVP de contrato** (después de S10); no se implementan reciclando el crawl HTTP. Ver `docs/PRODUCT.md`.
-- OpenAI de catálogo (`POST /ai/ask`) y clasificación S7 (`document.classify` / `GET /findings`) están permitidos. Informe S8–S10: `docs/FRONTEND-ALERTAS.md` (editar en `/alertas`; PDF/email en S9).
+- OpenAI de catálogo (`POST /ai/ask`), clasificación S7 y reescritura S8 (`POST /findings/:id/rewrite`) están permitidos. Informe S9–S10: `docs/FRONTEND-ALERTAS.md` (PDF/email en S9).
 - Conventional Commits; ramas `main` / `dev` / `feature/*`.
 - Desarrollo local del API: **Docker Compose** (`docs/docker.md`). No asumir `pnpm start:dev` + Redis en el host.
 
 ## Sprint / foco actual
 
 - S3–S7 **hechos** (CRUD, crawl, documentos, clasificación/semáforo en `/alertas`).
-- Siguiente backend: S8 loop VCGA (editar / IA / excluir) **sin PDF**. Luego S9 PDF+envío, S10 portal. Contrato: `docs/FRONTEND-ALERTAS.md`.
+- Siguiente backend: S9 PDF+envío. S10 portal. Contrato: `docs/FRONTEND-ALERTAS.md`.
 - Índice de docs: [docs/README.md](docs/README.md).

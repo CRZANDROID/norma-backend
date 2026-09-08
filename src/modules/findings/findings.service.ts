@@ -1,6 +1,27 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DocumentProcessingStatus, Prisma } from '../../database/prisma-client';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { APIError } from 'openai';
+import {
+  DocumentProcessingStatus,
+  EntityStatus,
+  ImpactLevel,
+  Prisma,
+} from '../../database/prisma-client';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  CLASSIFY_TEXT_LIMIT,
+} from '../../jobs/classify.constants';
+import {
+  normalizeJustification,
+  parseRewriteResponse,
+} from '../../jobs/classify-response';
 import { isExtractableCrawlFile, isMetaCrawlFilename } from '../../jobs/document-text';
 import {
   listTrackingSources,
@@ -14,7 +35,16 @@ import {
 } from '../../jobs/schedule-window';
 import type { AuthUser } from '../auth/auth.types';
 import { assertClientAccess, isAdmin } from '../clients/client-access.util';
+import { OpenAiClientService } from '../ai/openai-client.service';
 import type { ListFindingsQueryDto } from './dto/list-findings.query.dto';
+import type { RewriteFindingDto } from './dto/rewrite-finding.dto';
+import type { UpdateFindingDto } from './dto/update-finding.dto';
+import {
+  REWRITE_NOTE_LIMIT,
+  REWRITE_PROMPT_VERSION,
+  REWRITE_SYSTEM_PROMPT,
+  rewriteFailureMessage,
+} from './rewrite.constants';
 import {
   addImpactCount,
   analysisDaySignals,
@@ -44,16 +74,28 @@ type FindingRow = Prisma.FindingGetPayload<{ include: typeof FINDING_INCLUDE }>;
 
 @Injectable()
 export class FindingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(FindingsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly openai: OpenAiClientService,
+  ) {}
 
   async list(user: AuthUser, query: ListFindingsQueryDto) {
     const range = this.resolveDateRange(query);
-    const filters = this.buildWhere(user, query, { includeImpact: false });
+    const filters = this.buildWhere(user, query, {
+      includeImpact: false,
+      includeExcluded: false,
+    });
     this.applyDateRange(filters, range);
 
-    const listWhere: Prisma.FindingWhereInput = query.impact
-      ? { AND: [filters, { impact: query.impact }] }
-      : filters;
+    const listWhere: Prisma.FindingWhereInput = { AND: [filters] };
+    if (query.impact) {
+      this.pushAnd(listWhere, { impact: query.impact });
+    }
+    if (query.excluded !== undefined) {
+      this.pushAnd(listWhere, { excludedFromNextReport: query.excluded });
+    }
 
     const limit = query.limit ?? 50;
     const page = query.page ?? 1;
@@ -212,6 +254,206 @@ export class FindingsService {
   }
 
   async findOne(user: AuthUser, id: string) {
+    const row = await this.loadAccessibleRow(user, id);
+    return this.toDetail(row);
+  }
+
+  async update(user: AuthUser, id: string, dto: UpdateFindingDto) {
+    await this.loadAccessibleRow(user, id);
+    const data: Prisma.FindingUpdateInput = {};
+    if (dto.title !== undefined) {
+      const title = dto.title.replace(/\s+/g, ' ').trim().slice(0, 160);
+      if (!title) {
+        throw new BadRequestException('title no puede quedar vacío.');
+      }
+      data.title = title;
+    }
+    if (dto.justification !== undefined) {
+      const justification = normalizeJustification(dto.justification);
+      if (!justification) {
+        throw new BadRequestException('justification no puede quedar vacío.');
+      }
+      data.justification = justification;
+      data.description = justification.slice(0, 2000);
+    }
+    if (dto.impact !== undefined) {
+      data.impact = dto.impact;
+      // GREEN nunca entra al informe: el flag de exclusión pierde sentido.
+      if (dto.impact === ImpactLevel.GREEN) {
+        data.excludedFromNextReport = false;
+      }
+    }
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('Envía title, justification y/o impact.');
+    }
+    const updated = await this.prisma.finding.update({
+      where: { id },
+      data,
+      include: FINDING_INCLUDE,
+    });
+    return this.toDetail(updated);
+  }
+
+  async exclude(user: AuthUser, id: string) {
+    const row = await this.loadAccessibleRow(user, id);
+    if (row.impact === ImpactLevel.GREEN) {
+      throw new BadRequestException(
+        'Los hallazgos informativos (GREEN) no entran al informe.',
+      );
+    }
+    const updated = await this.prisma.finding.update({
+      where: { id },
+      data: { excludedFromNextReport: true },
+      include: FINDING_INCLUDE,
+    });
+    return this.toDetail(updated);
+  }
+
+  async include(user: AuthUser, id: string) {
+    await this.loadAccessibleRow(user, id);
+    const updated = await this.prisma.finding.update({
+      where: { id },
+      data: { excludedFromNextReport: false },
+      include: FINDING_INCLUDE,
+    });
+    return this.toDetail(updated);
+  }
+
+  async rewrite(user: AuthUser, id: string, dto: RewriteFindingDto) {
+    const row = await this.loadAccessibleRow(user, id);
+    if (!this.openai.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'OpenAI no configurado. Define OPENAI_API_KEY.',
+      );
+    }
+    const document = await this.prisma.document.findUnique({
+      where: { id: row.documentId },
+      select: {
+        extractedText: true,
+        source: {
+          select: {
+            name: true,
+            code: true,
+            searchFocus: true,
+            keywordsGuide: true,
+          },
+        },
+      },
+    });
+    const excerpt = (document?.extractedText ?? '').trim();
+    if (!excerpt) {
+      throw new BadRequestException(
+        'El documento no tiene texto extraído para reescribir.',
+      );
+    }
+    const client = await this.prisma.client.findUnique({
+      where: { id: row.clientId },
+      include: {
+        profiles: {
+          where: { status: EntityStatus.ACTIVE },
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+        },
+      },
+    });
+    const profile = client?.profiles[0];
+    const userPrompt = [
+      `Cliente: ${client?.name ?? row.client.name}`,
+      profile
+        ? `Perfil: ${profile.name}`
+        : 'Perfil: no hay perfil regulatorio activo.',
+      profile?.description ? `Descripción: ${profile.description}` : '',
+      `Palabras clave: ${(profile?.keywords ?? []).join(', ') || '(ninguna)'}`,
+      `Fuente: ${document?.source?.name ?? document?.source?.code ?? 'fuente'}`,
+      `Título actual (conservar salvo que pidan cambiarlo): ${row.title}`,
+      '',
+      'Borrador vigente (justification; puede haberlo editado el consultor a mano). Edítalo; no lo sustituyas salvo que la indicación lo pida:',
+      row.justification,
+      '',
+      `Indicación del consultor (delta sobre la plantilla NORMA; no hace falta repetir fecha ni acto): ${dto.prompt.trim()}`,
+      '',
+      'Texto del documento (solo fuente de hechos; no es un briefing nuevo):',
+      excerpt.slice(0, CLASSIFY_TEXT_LIMIT),
+    ]
+      .filter((line) => line !== '')
+      .join('\n');
+
+    const openai = this.openai.ensureClient();
+    const model = this.openai.getModel();
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
+        model,
+        temperature: 0.1,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: REWRITE_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+      });
+    } catch (error) {
+      this.rethrowOpenAi(error);
+    }
+
+    const raw = completion.choices[0]?.message?.content?.trim() ?? '';
+    let parsed;
+    try {
+      parsed = parseRewriteResponse(raw, REWRITE_NOTE_LIMIT);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new InternalServerErrorException(message);
+    }
+
+    const usage = completion.usage
+      ? {
+          promptTokens: completion.usage.prompt_tokens ?? 0,
+          completionTokens: completion.usage.completion_tokens ?? 0,
+          totalTokens: completion.usage.total_tokens ?? 0,
+        }
+      : null;
+
+    // `none` gana sobre el texto: el modelo pudo devolver un cambio cosmético
+    // sabiendo que la indicación no se sostiene. Ese borrador no se guarda.
+    const unchanged =
+      parsed.title === row.title &&
+      parsed.justification === row.justification;
+    if (parsed.applied === 'none' || unchanged) {
+      this.logger.warn(
+        `rewrite sin aplicar finding=${id} applied=${parsed.applied} unchanged=${unchanged} tokens=${usage?.totalTokens ?? 0} note=${parsed.note ?? '(sin nota)'}`,
+      );
+      throw new UnprocessableEntityException(
+        rewriteFailureMessage(parsed.note),
+      );
+    }
+
+    const existingMeta = asRecord(row.aiMeta);
+    const aiMeta: Prisma.InputJsonValue = {
+      ...existingMeta,
+      lastRewrite: {
+        at: new Date().toISOString(),
+        model: completion.model ?? model,
+        promptVersion: REWRITE_PROMPT_VERSION,
+        prompt: dto.prompt.trim(),
+        applied: parsed.applied,
+        note: parsed.note,
+        usage,
+      },
+    };
+
+    const updated = await this.prisma.finding.update({
+      where: { id },
+      data: {
+        title: parsed.title,
+        justification: parsed.justification,
+        description: parsed.justification.slice(0, 2000),
+        aiMeta,
+      },
+      include: FINDING_INCLUDE,
+    });
+    return { ...this.toDetail(updated), rewriteNote: parsed.note };
+  }
+
+  private async loadAccessibleRow(user: AuthUser, id: string): Promise<FindingRow> {
     const row = await this.prisma.finding.findUnique({
       where: { id },
       include: FINDING_INCLUDE,
@@ -222,13 +464,15 @@ export class FindingsService {
     if (!isAdmin(user) && !user.memberships.some((m) => m.clientId === row.clientId)) {
       throw new NotFoundException('Hallazgo no encontrado.');
     }
-    return this.toDetail(row);
+    return row;
   }
 
   private buildWhere(
     user: AuthUser,
     query: ListFindingsQueryDto,
-    options: { includeImpact: boolean } = { includeImpact: true },
+    options: { includeImpact: boolean; includeExcluded?: boolean } = {
+      includeImpact: true,
+    },
   ): Prisma.FindingWhereInput {
     const where: Prisma.FindingWhereInput = {};
 
@@ -258,6 +502,10 @@ export class FindingsService {
 
     if (query.status) {
       where.status = query.status;
+    }
+
+    if (options.includeExcluded && query.excluded !== undefined) {
+      where.excludedFromNextReport = query.excluded;
     }
 
     return where;
@@ -349,6 +597,7 @@ export class FindingsService {
       impact: row.impact,
       status: row.status,
       suggestedAction: row.suggestedAction,
+      excludedFromNextReport: row.excludedFromNextReport,
       justificationShort: row.justification.slice(0, JUSTIFICATION_SHORT),
       client: row.client,
       source: row.source
@@ -377,6 +626,20 @@ export class FindingsService {
       description: row.description,
       aiMeta: row.aiMeta,
     };
+  }
+
+  private rethrowOpenAi(error: unknown): never {
+    if (error instanceof APIError) {
+      const retryable = error.status === 429 || (error.status ?? 0) >= 500;
+      throw new ServiceUnavailableException(
+        retryable
+          ? 'OpenAI no disponible por ahora. Intenta de nuevo.'
+          : 'OpenAI rechazó la solicitud. Revisa el modelo o la API key.',
+      );
+    }
+    throw new ServiceUnavailableException(
+      'No se pudo contactar a OpenAI. Intenta de nuevo.',
+    );
   }
 }
 

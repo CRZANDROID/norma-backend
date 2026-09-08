@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -45,6 +46,26 @@ export class ListFindingsQueryDto {
   @IsOptional()
   @IsEnum(FindingStatus)
   status?: FindingStatus;
+
+  @ApiPropertyOptional({
+    description:
+      'Filtra items por exclusión del próximo informe. No cambia counts.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+    if (value === true || value === 'true' || value === '1') {
+      return true;
+    }
+    if (value === false || value === 'false' || value === '0') {
+      return false;
+    }
+    return value;
+  })
+  @IsBoolean()
+  excluded?: boolean;
 
   @ApiPropertyOptional({
     example: '2026-09-02',

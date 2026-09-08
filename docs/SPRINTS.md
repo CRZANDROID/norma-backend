@@ -118,10 +118,10 @@ Estado vivo: [HANDOFF.md](./HANDOFF.md).
 
 La mesa de validación **es** `/alertas` (no un inbox nuevo).
 
-- [ ] Editar hallazgo a mano (título / justificación)
-- [ ] Reescribir con OpenAI: prompt libre, **solo** el texto del documento
-- [ ] Excluir hallazgo de **este** PDF (puede volver en el siguiente)
-- [ ] Candidatos que sugiere el agente: `YELLOW` / `ORANGE` / `RED` no enviados. `GREEN` no entra al informe
+- [x] Editar hallazgo a mano (título / justificación)
+- [x] Reescribir con OpenAI: prompt libre, **solo** el texto del documento
+- [x] Excluir hallazgo de **este** PDF (puede volver en el siguiente)
+- [x] Candidatos que sugiere el agente: `YELLOW` / `ORANGE` / `RED` no enviados. `GREEN` no entra al informe
 
 **No** generar PDF ni enviar correo en S8.  
 Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).

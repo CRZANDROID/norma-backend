@@ -53,7 +53,7 @@ src/
     storage/         # upload / signed-url / download
     ai/              # POST /ai/ask (catálogo)
     documents/       # GET /documents + progress + reprocess + classify
-    findings/        # GET /findings + progress; S8: edit / rewrite / exclude
+    findings/        # GET /findings + progress + PATCH/exclude/include/rewrite
     reports/         # S9–S10: PDF, envío, historial (aún no existe)
   jobs/              # BullMQ source.crawl + extract/normalize + classify
   app.module.ts

@@ -116,6 +116,8 @@ Paths: `derived/{documentId}/extracted.txt`, `derived/{documentId}/normalized.js
 
 Solo canónicos. Fan-out: un `Finding` por `Client` ACTIVE en `client_sources`. Unique `(documentId, clientId)`. Sin clientes: `CLASSIFIED` sin LLM. El modelo devuelve `relevant`, `impact`, `title` (la medida, no el cliente) y `justification` (briefing Markdown; `classify-v2`). `suggestedAction` es snapshot de delivery, no lo escribe la IA. Hallazgos viejos siguen `classify-v1` hasta `POST /documents/:id/classify`.
 
+Reescritura VCGA (S8): `POST /findings/:id/rewrite` es síncrono; no usa esta cola ni `POST /ai/ask`.
+
 ### API documentos
 
 Lectura: `ADMIN` \| `ANALYST`. Reproceso/classify: `ADMIN`.

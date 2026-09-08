@@ -32,6 +32,15 @@ Requisitos: `.env` con `DATABASE_URL` + `JWT_SECRET`, migraciones aplicadas, see
 pnpm test:e2e
 ```
 
+Corren en el **host**, contra la DB de Supabase. Redis vive solo dentro de Compose (sin puerto publicado), así que el worker de BullMQ reintenta `127.0.0.1:6379` y llena la salida de `ECONNREFUSED` hasta parecer colgado. Para una corrida limpia:
+
+```powershell
+$env:JOBS_WORKER="false"; $env:JOBS_SCHEDULER="false"; $env:REDIS_URL=""
+pnpm test:e2e
+```
+
+`test/jobs-crawl.e2e-spec.ts` valida justamente el 503 sin Redis, así que no pierde cobertura.
+
 Cobertura:
 
 | Archivo | Qué valida |
@@ -44,7 +53,7 @@ Cobertura:
 | `test/ai-ask.e2e-spec.ts` | `/ai/ask` 401/400 y 503 sin API key |
 | `test/jobs-crawl.e2e-spec.ts` | `/jobs/*` 401/400 y 503 sin Redis; `/jobs/progress` shape |
 | `test/documents.e2e-spec.ts` | `/documents` 401/404 + HTML fixture → `READY_FOR_AI` / `DEDUPED`; `/documents/progress` shape |
-| `test/findings.e2e-spec.ts` | `/findings` `{ counts, page, items }` + classify; `/findings/progress` shape |
+| `test/findings.e2e-spec.ts` | `/findings` `{ counts, page, items }` + PATCH (título/briefing/`impact`) / exclude / include + classify; `/findings/progress` shape |
 
 Los tests crean datos con sufijo temporal (`e2e-*`) y desactivan cliente/fuente al final.
 
