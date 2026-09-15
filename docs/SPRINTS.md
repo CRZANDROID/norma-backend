@@ -19,7 +19,7 @@ Flujo de informe (S8–S10): [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 | 6 | Documentos | Registro, storage, extract/normalize/dedup | **Hecho** |
 | 7 | IA | OpenAI client, clasificación, relevancia, semáforo | **Hecho** |
 | 8 | Loop VCGA | Editar / IA / descartar hallazgos en `/alertas` | Pendiente |
-| 9 | Informe y envío | PDF + confirmar o auto-enviar a contactos | Pendiente |
+| 9 | Informe y envío | PDF + confirmar o auto-enviar a contactos | En curso (`lote` + `/informes`; envío pendiente) |
 | 10 | Portal cliente | Historial de informes; caso = el PDF | Pendiente |
 
 Fechas de iteración en el Project (aprox.): Sprint 1 desde 2026-07-06, duración 7 días c/u.
@@ -132,14 +132,17 @@ Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 
 ## Sprint 9 — Informe PDF y envío
 
-- [ ] Clic **Generar PDF** (siempre humano VCGA). Bloquear si el día sigue `classifying`
-- [ ] Regenerar mientras el informe no esté enviado
+- [x] **D1** `POST /reports` (humano VCGA vía API). 409 si el día sigue `classifying`. Lote Y/O/R no excluidos ni en un `sent`
+- [x] Render PDF + `GET /reports/:id/file` (ver / descargar)
+- [x] Regenerar mientras el informe no esté enviado
+- [x] Front `/alertas`: Generar PDF + pastillas Incluidos / Excluidos / Enviados
+- [x] Front `/informes`: lista VCGA (borradores / enviados); Ver / Descargar / Regenerar
 - [ ] `autoSend` por cliente: generar = enviar. Si no: confirmar envío
 - [ ] Descartar el informe (los hallazgos vuelven a candidatos)
 - [ ] Correo a los **contactos** del cliente
 - [ ] Reabrir automático si crawl + hash distinto sobre una norma ya enviada
 
-**Entregable:** ciclo VCGA cerrado (validar → PDF → mail).  
+**Entregable de esta semana:** PDF draft descargable (sin correo). Entregable S9 completo: ciclo VCGA cerrado (validar → PDF → mail).  
 Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 
 ---

@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { DocumentProcessingStatus, ImpactLevel } from '../src/database/prisma-client';
+import { DocumentProcessingStatus, ImpactLevel, ReportStatus } from '../src/database/prisma-client';
 import { PrismaService } from '../src/database/prisma.service';
 import { DocumentClassifyService } from '../src/jobs/document-classify.service';
 import { OpenAiClientService } from '../src/modules/ai/openai-client.service';
@@ -17,6 +17,7 @@ describe('Findings classify (e2e)', () => {
   const suffix = Date.now();
   const createdIds: string[] = [];
   const findingIds: string[] = [];
+  const reportIds: string[] = [];
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -30,6 +31,9 @@ describe('Findings classify (e2e)', () => {
   afterAll(async () => {
     const prisma = app?.get(PrismaService);
     if (prisma) {
+      if (reportIds.length) {
+        await prisma.report.deleteMany({ where: { id: { in: reportIds } } });
+      }
       if (findingIds.length) {
         await prisma.finding.deleteMany({ where: { id: { in: findingIds } } });
       }
@@ -103,6 +107,9 @@ describe('Findings classify (e2e)', () => {
         orange: expect.any(Number),
         yellow: expect.any(Number),
         green: expect.any(Number),
+        included: expect.any(Number),
+        excluded: expect.any(Number),
+        sent: expect.any(Number),
       }),
     );
     expect(Array.isArray(res.body.items)).toBe(true);
@@ -353,6 +360,93 @@ describe('Findings classify (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(included.body.excludedFromNextReport).toBe(false);
+  });
+
+  it('GET /findings lote filters included / excluded / sent like POST /reports', async () => {
+    const prisma = app.get(PrismaService);
+    const included = await seedVcgaFinding(ImpactLevel.YELLOW, 'lote-in');
+    const green = await seedVcgaFinding(ImpactLevel.GREEN, 'lote-green');
+    const parked = await seedVcgaFinding(ImpactLevel.ORANGE, 'lote-ex');
+    await prisma.finding.update({
+      where: { id: parked.finding.id },
+      data: { excludedFromNextReport: true },
+    });
+    const burned = await seedVcgaFinding(ImpactLevel.RED, 'lote-sent');
+    const admin = await prisma.user.findUnique({
+      where: { email: adminCredentials().email },
+    });
+    expect(admin).toBeTruthy();
+    const sent = await prisma.report.create({
+      data: {
+        clientId: burned.finding.clientId,
+        status: ReportStatus.SENT,
+        generatedByUserId: admin!.id,
+        sentAt: new Date(),
+        items: {
+          create: {
+            findingId: burned.finding.id,
+            impact: ImpactLevel.RED,
+            sortOrder: 0,
+          },
+        },
+      },
+    });
+    reportIds.push(sent.id);
+
+    await request(app.getHttpServer())
+      .get(`/findings?lote=incluidos&excluded=true&documentId=${included.doc.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/findings?lote=nope')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+
+    const inLote = await request(app.getHttpServer())
+      .get(`/findings?lote=incluidos&documentId=${included.doc.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(inLote.body.items.map((row: { id: string }) => row.id)).toEqual([
+      included.finding.id,
+    ]);
+    expect(inLote.body.counts).toEqual(
+      expect.objectContaining({
+        included: 1,
+        excluded: 0,
+        sent: 0,
+        yellow: 1,
+        total: 1,
+      }),
+    );
+
+    const greenLote = await request(app.getHttpServer())
+      .get(`/findings?lote=incluidos&documentId=${green.doc.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(greenLote.body.items).toEqual([]);
+    expect(greenLote.body.counts.included).toBe(0);
+    expect(greenLote.body.counts.green).toBe(1);
+
+    const excludedLote = await request(app.getHttpServer())
+      .get(`/findings?lote=excluidos&documentId=${parked.doc.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(excludedLote.body.items.map((row: { id: string }) => row.id)).toEqual([
+      parked.finding.id,
+    ]);
+    expect(excludedLote.body.counts.excluded).toBe(1);
+    expect(excludedLote.body.counts.included).toBe(0);
+
+    const sentLote = await request(app.getHttpServer())
+      .get(`/findings?lote=enviados&documentId=${burned.doc.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(sentLote.body.items.map((row: { id: string }) => row.id)).toEqual([
+      burned.finding.id,
+    ]);
+    expect(sentLote.body.counts.sent).toBe(1);
+    expect(sentLote.body.counts.included).toBe(0);
   });
 
   it('ANALYST without membership gets 404 on another client finding', async () => {

@@ -26,7 +26,7 @@ alwaysApply: false
 - `Source.jurisdiction` + `stateCode` (null si FEDERAL).
 - `Source.keywordsGuide` y `Source.searchFocus` son `String[]` (`[]` = vacío).
 - Disparador de crawl: `scheduleTime` / `scheduleWeekdays` / `scheduleTimezone` (no `frequency`).
-- Entrega/semáforo: `ClientDeliveryConfig` 1:1 (config + `autoSend` en S9; no envía WhatsApp). El PDF es modelo `Report` (S9); no “quema” findings hasta `sent`.
+- Entrega/semáforo: `ClientDeliveryConfig` 1:1 (config + `autoSend` en S9; no envía WhatsApp). El PDF es modelo `Report` (`draft` no quema; solo `sent`). `ReportFinding` guarda el lote.
 - Crawl: `JobRun` con `idempotencyKey` único; no hard-delete.
 
 ## Seed

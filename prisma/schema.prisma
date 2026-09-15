@@ -66,6 +66,13 @@ enum DocumentProcessingStatus {
   DISCARDED
 }
 
+/// Informe S9. Solo SENT quema hallazgos; draft/discarded no.
+enum ReportStatus {
+  DRAFT
+  SENT
+  DISCARDED
+}
+
 enum SourceCategory {
   OFFICIAL
   MEDIA
@@ -136,6 +143,7 @@ model User {
 
   memberships ClientMembership[]
   documents   Document[]
+  reports     Report[]
 
   @@map("users")
 }
@@ -158,6 +166,7 @@ model Client {
   fiscalData      ClientFiscalData?
   contacts        ClientContact[]
   deliveryConfig  ClientDeliveryConfig?
+  reports         Report[]
 
   @@map("clients")
 }
@@ -324,9 +333,10 @@ model Finding {
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  source   Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  source      Source?         @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  document    Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  reportItems ReportFinding[]
 
   @@unique([documentId, clientId])
   @@index([clientId, createdAt])
@@ -410,4 +420,47 @@ model Document {
   @@index([jobRunId])
   @@index([canonicalDocumentId])
   @@map("documents")
+}
+
+/// Informe PDF por cliente + rango. El binario vive en Storage (D2); D1 solo metadatos.
+model Report {
+  id                 String       @id @default(cuid())
+  clientId           String       @map("client_id")
+  /// Día civil YYYY-MM-DD (America/Mexico_City). Null = sin piso.
+  dateFrom           String?      @map("date_from")
+  /// Día civil YYYY-MM-DD inclusive. Null = sin techo.
+  dateTo             String?      @map("date_to")
+  status             ReportStatus @default(DRAFT)
+  generatedByUserId  String       @map("generated_by_user_id")
+  fileBucket         String?      @map("file_bucket")
+  filePath           String?      @map("file_path")
+  sentAt             DateTime?    @map("sent_at")
+  discardedAt        DateTime?    @map("discarded_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  generatedBy User            @relation(fields: [generatedByUserId], references: [id], onDelete: Restrict)
+  items       ReportFinding[]
+
+  @@index([clientId, createdAt])
+  @@index([status])
+  @@map("reports")
+}
+
+/// Snapshot de hallazgos incluidos. Solo el informe SENT impide volver a candidatar.
+model ReportFinding {
+  id        String      @id @default(cuid())
+  reportId  String      @map("report_id")
+  findingId String      @map("finding_id")
+  impact    ImpactLevel
+  sortOrder Int         @map("sort_order")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  report  Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, findingId])
+  @@index([findingId])
+  @@map("report_findings")
 }

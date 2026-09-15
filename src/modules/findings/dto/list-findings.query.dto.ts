@@ -3,6 +3,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -14,6 +15,10 @@ import {
   FindingStatus,
   ImpactLevel,
 } from '../../../database/prisma-client';
+import {
+  FINDING_LOTES,
+  type FindingLote,
+} from '../lote.where';
 
 export class ListFindingsQueryDto {
   @IsOptional()
@@ -66,6 +71,15 @@ export class ListFindingsQueryDto {
   })
   @IsBoolean()
   excluded?: boolean;
+
+  @ApiPropertyOptional({
+    enum: FINDING_LOTES,
+    description:
+      'Cubeta del próximo informe. incluidos = candidatos del PDF; excluidos = flag y no quemados; enviados = en un PDF sent. Gana sobre excluded. No recorta counts de color.',
+  })
+  @IsOptional()
+  @IsIn(FINDING_LOTES)
+  lote?: FindingLote;
 
   @ApiPropertyOptional({
     example: '2026-09-02',

@@ -1,4 +1,4 @@
-# HANDOFF — Estado NORMA Backend (2026-09-08)
+# HANDOFF — Estado NORMA Backend (2026-09-15)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
 Índice: [README.md](./README.md). Informe: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
@@ -21,10 +21,10 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 | 3 front | Fuera de este repo | `/alertas` = hallazgos. Brief: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) |
 | 4 | **Hecho** | Sentry + Storage OK en local |
 | 8 | **Hecho (API)** | Loop VCGA: editar / IA / excluir |
-| 9 | Pendiente | PDF + envío (confirmar o `autoSend`) |
-| 10 | Pendiente | Portal `CLIENT_USER`; el caso es el PDF |
+| 9 | PDF draft + lote + `/informes` VCGA | Generar en `/alertas`; ver/descargar/regenerar en Informes; envío pendiente |
+| 10 | Pendiente | Portal `CLIENT_USER`; reutiliza `/informes` (solo enviados) |
 
-**Siguiente en este repo:** Sprint 9 — generar/enviar PDF. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). Pipeline: [jobs.md](./jobs.md).
+**Siguiente en este repo:** Sprint 9 resto — envío/`autoSend`. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 
 ---
 
@@ -55,7 +55,7 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 
 ## 3. Qué ya está implementado (backend)
 
-Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`, `search_focus_array`. `pnpm prisma:deploy` si falta.
+Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_state_schedule_delivery`, `matrix_source_notes_semaphore`, `job_runs`, `search_focus_array`, `reports`. `pnpm prisma:deploy` si falta.
 
 - Fiscales 1:1: `fiscal` → `fiscalData`. Contactos: `contacts[]` (**replace** en PATCH)
 - Fuentes: `jurisdiction` + `stateCode` + `schedule`; `searchFocus` / `keywordsGuide` (`string[]`)
@@ -64,14 +64,14 @@ Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_st
 - Crawl: cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, `job_runs`. Tope `CRAWL_MAX_PAGES`. Sitio caído = error de origen. Seed ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco
 - Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
 - Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
-- Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }` (`excludedFromNextReport`). `PATCH /findings/:id` (`title`/`justification`/`impact`), `POST /findings/:id/exclude|include|rewrite` (`rewrite-v6`: `rewriteNote`, o 422 con el limitante si el pedido no se sostiene con el documento). `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). Classify `classify-v2`.
+- Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }` (`excludedFromNextReport`, `lote`, `counts.included/excluded/sent`). `PATCH /findings/:id` (`title`/`justification`/`impact`), `POST /findings/:id/exclude|include|rewrite` (`rewrite-v6`: `rewriteNote`, o 422 con el limitante si el pedido no se sostiene con el documento). `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). Classify `classify-v2`.
+- Informes: `POST /reports` + `GET /reports/:id/file` + regenerate. PDF = briefing sin portada (franja NORMA, fichas por hallazgo). `GET /findings?lote=` (`incluidos` \| `excluidos` \| `enviados`) y `counts.included/excluded/sent`. Front: Generar PDF en `/alertas`; mesa `/informes` (borradores/enviados). Esta semana **no** envía correo.
 
 Detalle de jobs: [jobs.md](./jobs.md). Admin UI: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md).
 
 ### Módulos
 ```text
-src/modules/{auth,clients,sources,users,storage,ai,documents,findings}/
-src/modules/reports/ # S9 (aún no existe)
+src/modules/{auth,clients,sources,users,storage,ai,documents,findings,reports}/
 src/jobs/            # BullMQ source.crawl + extract/normalize_dedup/classify
 ```
 
@@ -79,7 +79,7 @@ src/jobs/            # BullMQ source.crawl + extract/normalize_dedup/classify
 
 ## 4. Qué falta (prioridad)
 
-1. **Sprint 9:** Generar PDF (bloqueado si `classifying`); regenerar; `autoSend` o confirmar; correo a contactos; reabrir si hash distinto. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+1. **Sprint 9 resto:** envío/`autoSend`, descartar, correo a contactos. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 2. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
 3. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
 4. Redis en staging/prod (`REDIS_URL`) para el scheduler a las 07:00 (crawl, no empaque de PDF).
@@ -113,6 +113,6 @@ API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras 
 
 ## 7. Plantilla siguiente agente
 
-> Lee `docs/HANDOFF.md` §4 y `docs/FRONTEND-ALERTAS.md`. S9 = generar/enviar PDF. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
+> Lee `docs/HANDOFF.md` §4 y `docs/FRONTEND-ALERTAS.md`. S9 = PDF + lote + `/informes` VCGA. Envío pendiente. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
 
-**Última actualización:** 2026-09-08 — S8 API: PATCH / exclude / include / rewrite. S9 sigue pendiente.
+**Última actualización:** 2026-09-15 — PDF briefing sin portada. Envío pendiente.

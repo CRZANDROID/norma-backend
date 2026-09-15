@@ -2,7 +2,8 @@
 
 **Audiencia:** backend y `norma-frontend`.  
 **Hecho:** S7 — `GET /findings` en `/alertas` (nav: **Clasificación**). S8 — editar / IA / excluir.  
-**Pendiente:** S9 PDF+envío · S10 portal.  
+**Pendiente:** S9 envío/`autoSend` · S10 portal `CLIENT_USER`. PDF draft: generar en `/alertas`; ver / descargar / regenerar en `/informes`.  
+Pastillas de lote en Clasificación: Incluidos / Excluidos / Enviados.  
 Panel de rastreo: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). Config `autoSend`: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md). Pipeline: [jobs.md](./jobs.md).
 
 Este archivo gana si otro sitio habla de “inbox”, `/hallazgos` o envío a las 07:00.
@@ -65,10 +66,11 @@ El PDF no se regenera en cada tecla. Se puede regenerar mientras no esté `sent`
 
 | Vista | Ruta | Quién | Sprint |
 |-------|------|-------|--------|
-| Clasificación | `/alertas`, `/alertas/:findingId` | VCGA | 7 lista; S8 edita (API hecha) |
-| Generar PDF | modal / misma área | VCGA | 9 |
+| Clasificación | `/alertas`, `/alertas/:findingId` | VCGA | 7 lista; S8 edita; lote Incluidos/Excluidos/Enviados |
+| Generar PDF | `/alertas` (botón) | VCGA | 9 |
+| Informes VCGA | `/informes`, `/informes/:reportId` | VCGA | 9 — borradores / enviados |
 | `autoSend` | ficha cliente | ADMIN | 9 |
-| Historial | p. ej. `/informes` | `CLIENT_USER` | 10 |
+| Historial cliente | `/informes` (solo enviados) | `CLIENT_USER` | 10 |
 
 Copy: “informe”, “generar PDF”, “enviar”, “cliente automático”. Evitar “inbox”, “folio”.
 
@@ -85,8 +87,9 @@ Una sola lista paginada. **No** hay “ver historial”.
 - Sin `dateFrom`/`dateTo` → **toda** la lista, más nuevos primero.
 - `dateFrom` / `dateTo` (`YYYY-MM-DD`, inclusive, `America/Mexico_City`) → rango. Se puede mandar solo uno.
 - `page` (default 1) + `limit` (default 50, máx. 200; el front elige el tamaño).
-- `total` / `totalPages` = la lista **ya filtrada** (incluye `impact` / `excluded` si los mandaste).
-- `counts` = pastillas Todos / Crítico / Alto / Medio / Informativo. **No** se recortan por `impact` ni por `excluded`.
+- `total` / `totalPages` = la lista **ya filtrada** (incluye `impact` / `excluded` / `lote` si los mandaste).
+- `counts` de color = pastillas Todos / Crítico / Alto / Medio / Informativo. **No** se recortan por `impact`, `excluded` ni `lote`.
+- `counts.included` / `excluded` / `sent` = pastillas de lote. Tampoco las recorta el semáforo.
 - Scroll infinito: el front pide `page=2`, `page=3`… y concatena `items`. El back no tiene `limit=all`.
 - Páginas numeradas: mismo contrato; usa `totalPages` para saltar.
 
@@ -101,7 +104,8 @@ Registrar `GET /findings/progress` **antes** que `GET /findings/:id` en Axios.
 | `sourceCode` | `dof`, `diputados-gaceta`, … Desconocido → `items: []` |
 | `documentId` | Tras reclasificar |
 | `impact` | Filtra **items** (`GREEN` \| `YELLOW` \| `ORANGE` \| `RED`). No cambia `counts` |
-| `excluded` | `true` / `false` — fuera o dentro del próximo informe. No cambia `counts` |
+| `excluded` | `true` / `false` — fuera o dentro del próximo informe. Compatibilidad. Si mandas `lote`, no lo uses (**400**) |
+| `lote` | `incluidos` \| `excluidos` \| `enviados`. Cubeta del próximo PDF. `incluidos` = mismos candidatos que `POST /reports` |
 | `status` | `OPEN` \| `ACKNOWLEDGED` \| `RESOLVED` \| `DISMISSED`. Omitir = no filtrar |
 | `dateFrom` | Inicio de rango `YYYY-MM-DD`. Omitir = sin piso |
 | `dateTo` | Fin de rango `YYYY-MM-DD` (inclusive). Omitir = sin techo |
@@ -120,7 +124,16 @@ Registrar `GET /findings/progress` **antes** que `GET /findings/:id` en Axios.
   "limit": 50,
   "total": 80,
   "totalPages": 2,
-  "counts": { "total": 80, "red": 0, "orange": 0, "yellow": 0, "green": 80 },
+  "counts": {
+    "total": 80,
+    "red": 0,
+    "orange": 0,
+    "yellow": 0,
+    "green": 80,
+    "included": 0,
+    "excluded": 0,
+    "sent": 0
+  },
   "items": [
     {
       "id": "clx...",
@@ -145,7 +158,7 @@ Registrar `GET /findings/progress` **antes** que `GET /findings/:id` en Axios.
 }
 ```
 
-Pastillas: Todos = `counts.total`, Crítico = `red`, Alto = `orange`, Medio = `yellow`, Informativo = `green`.
+Pastillas: Todos = `counts.total`, Crítico = `red`, Alto = `orange`, Medio = `yellow`, Informativo = `green`. Lote: Incluidos = `included`, Excluidos = `excluded`, Enviados = `sent`. Default de la lista: Todos (sin `lote`).
 
 `source`, `source.url`, `document.url` y `suggestedAction` pueden ser `null`. Enlace original = `document.url`.
 
@@ -210,19 +223,36 @@ El borrador que edita la IA es **el vigente**, incluido lo que VCGA escribió a 
 
 ---
 
-## API prevista (S9–S10 — no existe hoy)
+## API S9–S10
 
-### S9
+### S9 — D3–D4 hecho (PDF + lote + `/informes`)
 
 | Método | Ruta | Quién | Qué |
 |--------|------|--------|-----|
-| `POST` | `/reports` | ADMIN / ANALYST | Genera PDF. **400/409** si el día sigue `classifying`. Y/O/R no enviados y no excluded |
-| `POST` | `/reports/:id/regenerate` | ADMIN / ANALYST | Solo si no está `sent` |
+| `POST` | `/reports` | ADMIN / ANALYST | Crea `draft` y genera el PDF. Body: `{ clientId, dateFrom?, dateTo? }`. **409** si el día (`dateTo` o hoy) sigue `classifying`. **400** si no hay candidatos. Y/O/R no enviados y no excluded. `fileUrl` = `/reports/:id/file` |
+| `POST` | `/reports/:id/regenerate` | ADMIN / ANALYST | Reescribe el lote y el PDF. Solo `draft`. **409** si `sent`/`discarded` o classifying |
+| `GET` | `/reports` | ADMIN / ANALYST | Lista. Query: `clientId`, `status` (`draft` \| `sent` \| `discarded`), `page`, `limit` |
+| `GET` | `/reports/:id` | ADMIN / ANALYST | Detalle + `findings[]`. ANALYST sin membership → **404** |
+| `GET` | `/reports/:id/file` | ADMIN / ANALYST | PDF. `inline` (ver). `?download=1` → `attachment`. Auth Bearer |
+
+UI `/alertas`: **Generar PDF** (cliente obligatorio) + pastillas de lote. Tras generar, toast con enlace a `/informes/:id`. Copy: informe, no inbox.
+
+UI `/informes`: lista VCGA (Borradores / Enviados). Ver / Descargar; **Regenerar** solo en `draft`. El archivo se pide con Bearer y se abre como blob.
+
+`clientId` es obligatorio al generar: un informe no mezcla tenants. Esta semana **no** manda correo.
+
+El PDF: briefing sin portada. Franja NORMA + documento de trabajo; cliente, razón social, periodo y contadores Crítico / Alto / Medio en la primera página. Hallazgos en ficha (acción sugerida, justificación, «Ver documento»). Pie: no enviado. Verde no entra.
+
+`lote=incluidos` es el mismo criterio que `POST /reports`. Enviados = hallazgo en un `ReportFinding` de un informe `sent`. Excluidos = flag y todavía no quemados.
+
+### S9 — pendiente
+
+| Método | Ruta | Quién | Qué |
+|--------|------|--------|-----|
 | `POST` | `/reports/:id/send` | ADMIN / ANALYST | Confirmar (cliente no automático) |
 | `POST` | `/reports/:id/discard` | ADMIN / ANALYST | Draft fuera; hallazgos vuelven |
-| `GET` | `/reports`, `/reports/:id` | VCGA o `CLIENT_USER` (solo `sent` de su cliente) | Detalle + archivo |
 
-`autoSend: true` → `POST /reports` deja `sent` y manda correo. Estados: `draft` → `sent` \| `discarded`.
+`autoSend: true` → `POST /reports` deja `sent` y manda correo (**no esta semana**). Estados: `draft` → `sent` \| `discarded`.
 
 ### S10
 
