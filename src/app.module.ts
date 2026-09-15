@@ -14,6 +14,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { JobsModule } from './jobs/jobs.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { FindingsModule } from './modules/findings/findings.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { readProjectEnvFile } from './config/project-env';
 
 @Module({
@@ -37,6 +38,7 @@ import { readProjectEnvFile } from './config/project-env';
     JobsModule,
     DocumentsModule,
     FindingsModule,
+    ReportsModule,
   ],
   providers: [
     {

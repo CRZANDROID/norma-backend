@@ -54,7 +54,7 @@ src/
     ai/              # POST /ai/ask (catálogo)
     documents/       # GET /documents + progress + reprocess + classify
     findings/        # GET /findings + progress + PATCH/exclude/include/rewrite
-    reports/         # S9–S10: PDF, envío, historial (aún no existe)
+    reports/         # S9: PDF + GET file; lote findings; envío pendiente
   jobs/              # BullMQ source.crawl + extract/normalize + classify
   app.module.ts
   main.ts

@@ -16,4 +16,5 @@ export {
   JobRunStatus,
   JobErrorCode,
   DocumentProcessingStatus,
+  ReportStatus,
 } from '../../generated/prisma';

@@ -53,7 +53,8 @@ Cobertura:
 | `test/ai-ask.e2e-spec.ts` | `/ai/ask` 401/400 y 503 sin API key |
 | `test/jobs-crawl.e2e-spec.ts` | `/jobs/*` 401/400 y 503 sin Redis; `/jobs/progress` shape |
 | `test/documents.e2e-spec.ts` | `/documents` 401/404 + HTML fixture → `READY_FOR_AI` / `DEDUPED`; `/documents/progress` shape |
-| `test/findings.e2e-spec.ts` | `/findings` `{ counts, page, items }` + PATCH (título/briefing/`impact`) / exclude / include + classify; `/findings/progress` shape |
+| `test/findings.e2e-spec.ts` | `/findings` `{ counts, page, items }` + `lote` incluidos/excluidos/enviados; PATCH / exclude / include + classify; `/findings/progress` shape |
+| `test/reports.e2e-spec.ts` | `POST /reports` 401/400/409; GREEN/exclude/sent no entran; `GET /file` es `%PDF`; regenerate refleja exclude y bloquea `sent` |
 
 Los tests crean datos con sufijo temporal (`e2e-*`) y desactivan cliente/fuente al final.
 

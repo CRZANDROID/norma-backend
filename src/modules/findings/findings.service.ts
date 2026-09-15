@@ -39,6 +39,7 @@ import { OpenAiClientService } from '../ai/openai-client.service';
 import type { ListFindingsQueryDto } from './dto/list-findings.query.dto';
 import type { RewriteFindingDto } from './dto/rewrite-finding.dto';
 import type { UpdateFindingDto } from './dto/update-finding.dto';
+import { loteWhere } from './lote.where';
 import {
   REWRITE_NOTE_LIMIT,
   REWRITE_PROMPT_VERSION,
@@ -93,29 +94,54 @@ export class FindingsService {
     if (query.impact) {
       this.pushAnd(listWhere, { impact: query.impact });
     }
-    if (query.excluded !== undefined) {
+    if (query.lote) {
+      if (query.excluded !== undefined) {
+        throw new BadRequestException(
+          'Usa lote o excluded, no los dos. lote gana el contrato nuevo.',
+        );
+      }
+      this.pushAnd(listWhere, loteWhere(query.lote));
+    } else if (query.excluded !== undefined) {
       this.pushAnd(listWhere, { excludedFromNextReport: query.excluded });
     }
 
     const limit = query.limit ?? 50;
     const page = query.page ?? 1;
-    const [total, rows, impactGroups] = await Promise.all([
-      this.prisma.finding.count({ where: listWhere }),
-      this.prisma.finding.findMany({
-        where: listWhere,
-        include: FINDING_INCLUDE,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.finding.groupBy({
-        by: ['impact'],
-        where: filters,
-        _count: { _all: true },
-      }),
-    ]);
+    const includedWhere: Prisma.FindingWhereInput = {
+      AND: [filters, loteWhere('incluidos')],
+    };
+    const excludedWhere: Prisma.FindingWhereInput = {
+      AND: [filters, loteWhere('excluidos')],
+    };
+    const sentWhere: Prisma.FindingWhereInput = {
+      AND: [filters, loteWhere('enviados')],
+    };
+    const [total, rows, impactGroups, included, excluded, sent] =
+      await Promise.all([
+        this.prisma.finding.count({ where: listWhere }),
+        this.prisma.finding.findMany({
+          where: listWhere,
+          include: FINDING_INCLUDE,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        this.prisma.finding.groupBy({
+          by: ['impact'],
+          where: filters,
+          _count: { _all: true },
+        }),
+        this.prisma.finding.count({ where: includedWhere }),
+        this.prisma.finding.count({ where: excludedWhere }),
+        this.prisma.finding.count({ where: sentWhere }),
+      ]);
     const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
-    const counts = this.toImpactCounts(impactGroups);
+    const counts = {
+      ...this.toImpactCounts(impactGroups),
+      included,
+      excluded,
+      sent,
+    };
 
     return {
       dateFrom: range.from,

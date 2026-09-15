@@ -5,9 +5,9 @@ export function setupSwagger(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('NORMA API')
     .setDescription(
-      'API administrativa NORMA — auth JWT propia, clients, profiles, sources, users, storage, entrega/semáforo, asistente de catálogo, jobs de crawl, registro documental y hallazgos.',
+      'API administrativa NORMA — auth JWT propia, clients, profiles, sources, users, storage, entrega/semáforo, asistente de catálogo, jobs de crawl, registro documental, hallazgos e informes PDF.',
     )
-    .setVersion('0.7.0')
+    .setVersion('0.8.0')
     .addBearerAuth(
       {
         type: 'http',
@@ -31,6 +31,7 @@ export function setupSwagger(app: INestApplication): void {
     .addTag('jobs', 'Crawl de fuentes (Redis/BullMQ)')
     .addTag('documents', 'Registro documental (extract / normalize / dedup / classify)')
     .addTag('findings', 'Hallazgos: lista, edición VCGA, exclude/rewrite (sin inbox)')
+    .addTag('reports', 'Informes PDF (S9): generar draft; envío pendiente')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

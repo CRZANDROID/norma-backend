@@ -39,7 +39,7 @@ export class FindingsController {
   @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({
     summary:
-      'Listar hallazgos paginados. dateFrom/dateTo opcional; counts por impacto; limit = tamaño de página',
+      'Listar hallazgos paginados. lote=incluidos|excluidos|enviados; counts incluye included/excluded/sent y semáforo',
   })
   list(@CurrentUser() user: AuthUser, @Query() query: ListFindingsQueryDto) {
     return this.findingsService.list(user, query);

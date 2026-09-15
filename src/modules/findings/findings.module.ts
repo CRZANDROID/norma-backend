@@ -8,5 +8,6 @@ import { FindingsService } from './findings.service';
   imports: [AuthModule, AiModule],
   controllers: [FindingsController],
   providers: [FindingsService],
+  exports: [FindingsService],
 })
 export class FindingsModule {}
