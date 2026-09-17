@@ -14,6 +14,7 @@ import { PrismaService } from '../database/prisma.service';
 import { SOURCE_CRAWL_QUEUE } from './types';
 import type { CrawlTriggeredBy, SourceCrawlJob } from './types';
 import { redisJobIsInFlight } from './queue-state';
+import { countsFromQueue, workerCountFromQueue, type QueueCounts } from './queue-counts';
 import {
   adminIdempotencyKey,
   scheduledIdempotencyKey,
@@ -66,6 +67,14 @@ export class CrawlProducer implements OnModuleDestroy {
 
   isConfigured(): boolean {
     return this.queue !== null;
+  }
+
+  async queueCounts(): Promise<QueueCounts | null> {
+    return countsFromQueue(this.queue);
+  }
+
+  async consumerCount(): Promise<number> {
+    return workerCountFromQueue(this.queue);
   }
 
   workerEnabled(): boolean {

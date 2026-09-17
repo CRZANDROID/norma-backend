@@ -19,12 +19,12 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 - Multi-tenant por `Client` + `ClientMembership`. `ADMIN` ve todo.
 - Clientes ↔ fuentes: N:N (`client_sources`). UI: `docs/FRONTEND-ADMIN.md`.
 - No agregar Resend/scrapers extra fuera del sprint que los consume.
-- Redis/BullMQ de crawl, extract/normalize y classify están permitidos. **Local: Docker Compose** (`docs/docker.md`), no Redis suelto en Windows.
+- Redis/BullMQ de crawl, extract/normalize y classify están permitidos. **Local: Docker Compose** (`api` HTTP + `worker` + Redis, `docs/docker.md`), no Redis suelto en Windows.
 - Crawl: mismo host, links legislativos, tope `CRAWL_MAX_PAGES` — no solo la portada. No redes ni players en vivo. Detalle: `docs/jobs.md`.
 - Conectores YouTube / X / Facebook son **MVP de contrato** (después de S10); no se implementan reciclando el crawl HTTP. Ver `docs/PRODUCT.md`.
 - OpenAI de catálogo (`POST /ai/ask`), clasificación S7 y reescritura S8 (`POST /findings/:id/rewrite`) están permitidos. Informe S9–S10: `docs/FRONTEND-ALERTAS.md` (PDF/email en S9).
 - Conventional Commits; ramas `main` / `dev` / `feature/*`.
-- Desarrollo local del API: **Docker Compose** (`docs/docker.md`). No asumir `pnpm start:dev` + Redis en el host.
+- Desarrollo local: **Docker Compose** (`docs/docker.md`) — `api` con `JOBS_WORKER=false`. No asumir `pnpm start:dev` + Redis en el host.
 
 ## Sprint / foco actual
 

@@ -13,8 +13,9 @@ Variables (`.env`):
 |---|---|---|
 | `AUTH_SEED_EMAIL` | `admin@norma.local` | Admin creado/actualizado por seed |
 | `AUTH_SEED_PASSWORD` | `ChangeMe123!` | Password en claro (se hashea) |
+| `SEED_CATALOG` | `true` | `false` = solo ADMIN. Default siembra Arca + fuentes |
 
-El seed es idempotente (`upsert`) y deja:
+El seed es idempotente (`upsert`). **Default** deja:
 
 - Cliente `arca-continental`
 - Perfil `seed-arca-profile`
@@ -23,6 +24,17 @@ El seed es idempotente (`upsert`) y deja:
 - Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`
 - Config de entrega/semáforo del cliente Arca (acciones sugeridas de la matriz)
 - Usuario ADMIN con el email/password del `.env`
+
+`SEED_CATALOG=false` (capacitación): solo upsert del ADMIN. No recrea clientes ni fuentes.
+
+Wipe de negocio (irreversible; deja el ADMIN de `AUTH_SEED_EMAIL`):
+
+```bash
+pnpm prisma:reset-training          # dry-run: host + conteos
+pnpm prisma:reset-training -- --yes
+```
+
+Detalle y guión: [TRAINING.md](./TRAINING.md). Tras el wipe **no** corras `pnpm prisma:seed` sin `SEED_CATALOG=false`.
 
 ## Tests e2e (Sprint 4)
 

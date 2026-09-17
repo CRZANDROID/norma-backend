@@ -19,6 +19,10 @@ import {
 } from './document-jobs.types';
 import { DocumentJobsProducer } from './document-jobs.producer';
 import { DocumentPipelineService } from './document-pipeline.service';
+import {
+  DEFAULT_QUEUE_CONCURRENCY,
+  parsePositiveInt,
+} from './concurrency';
 
 @Injectable()
 export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
@@ -53,7 +57,14 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`Redis document worker: ${err.message}`);
     });
 
-    const concurrency = Number(this.config.get('JOBS_CONCURRENCY') || 2);
+    const concurrency = parsePositiveInt(
+      this.config.get<string>('JOBS_CONCURRENCY'),
+      DEFAULT_QUEUE_CONCURRENCY,
+    );
+    const classifyConcurrency = parsePositiveInt(
+      this.config.get<string>('CLASSIFY_CONCURRENCY'),
+      concurrency,
+    );
     this.extractWorker = new Worker<DocumentExtractJob>(
       DOCUMENT_EXTRACT_QUEUE,
       (job) => this.handleExtract(job),
@@ -67,7 +78,7 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
     this.classifyWorker = new Worker<DocumentClassifyJob>(
       DOCUMENT_CLASSIFY_QUEUE,
       (job) => this.handleClassify(job),
-      { connection: this.redis, concurrency },
+      { connection: this.redis, concurrency: classifyConcurrency },
     );
     this.extractWorker.on('failed', (job, err) => {
       this.logger.error(
@@ -85,7 +96,7 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
       );
     });
     this.logger.log(
-      `workers document.extract + document.normalize_dedup + document.classify concurrency=${concurrency}`,
+      `workers document.extract + document.normalize_dedup concurrency=${concurrency} classify=${classifyConcurrency}`,
     );
   }
 

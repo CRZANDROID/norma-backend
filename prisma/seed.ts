@@ -61,7 +61,47 @@ const DEFAULT_IMPACT_ACTIONS = [
   },
 ];
 
+function seedCatalogEnabled(): boolean {
+  const raw = process.env.SEED_CATALOG?.trim().toLowerCase();
+  return raw !== 'false' && raw !== '0' && raw !== 'off';
+}
+
+async function upsertAdmin() {
+  const seedEmail = (
+    process.env.AUTH_SEED_EMAIL ?? 'admin@norma.local'
+  ).toLowerCase();
+  const seedPassword = process.env.AUTH_SEED_PASSWORD ?? 'ChangeMe123!';
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
+
+  const admin = await prisma.user.upsert({
+    where: { email: seedEmail },
+    update: {
+      name: 'Admin NORMA',
+      role: UserRole.ADMIN,
+      status: 'ACTIVE',
+      passwordHash,
+    },
+    create: {
+      email: seedEmail,
+      name: 'Admin NORMA',
+      role: UserRole.ADMIN,
+      status: 'ACTIVE',
+      passwordHash,
+    },
+  });
+
+  return { admin, seedEmail };
+}
+
 async function main() {
+  if (!seedCatalogEnabled()) {
+    const { seedEmail } = await upsertAdmin();
+    console.log(
+      `Seed completed: ADMIN only (${seedEmail}). Catálogo omitido (SEED_CATALOG=false).`,
+    );
+    return;
+  }
+
   const arca = await prisma.client.upsert({
     where: { slug: 'arca-continental' },
     update: {
@@ -271,26 +311,7 @@ async function main() {
     });
   }
 
-  const seedEmail = (process.env.AUTH_SEED_EMAIL ?? 'admin@norma.local').toLowerCase();
-  const seedPassword = process.env.AUTH_SEED_PASSWORD ?? 'ChangeMe123!';
-  const passwordHash = await bcrypt.hash(seedPassword, 12);
-
-  const admin = await prisma.user.upsert({
-    where: { email: seedEmail },
-    update: {
-      name: 'Admin NORMA',
-      role: UserRole.ADMIN,
-      status: 'ACTIVE',
-      passwordHash,
-    },
-    create: {
-      email: seedEmail,
-      name: 'Admin NORMA',
-      role: UserRole.ADMIN,
-      status: 'ACTIVE',
-      passwordHash,
-    },
-  });
+  const { admin, seedEmail } = await upsertAdmin();
 
   await prisma.clientMembership.upsert({
     where: {

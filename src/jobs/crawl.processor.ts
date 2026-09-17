@@ -33,6 +33,12 @@ import type {
   SourceCrawlResult,
 } from './types';
 import {
+  DEFAULT_CRAWL_LOCK_MS,
+  DEFAULT_CRAWL_LOCK_RENEW_MS,
+  DEFAULT_QUEUE_CONCURRENCY,
+  parsePositiveInt,
+} from './concurrency';
+import {
   ORIGIN_PAGE_PARTIAL,
   storedCrawlFailureMessage,
 } from './origin-page';
@@ -68,18 +74,33 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`Redis worker: ${err.message}`);
     });
 
-    const concurrency = Number(this.config.get('JOBS_CONCURRENCY') || 2);
+    const concurrency = parsePositiveInt(
+      this.config.get<string>('CRAWL_CONCURRENCY') ||
+        this.config.get<string>('JOBS_CONCURRENCY'),
+      DEFAULT_QUEUE_CONCURRENCY,
+    );
+    const lockDuration = parsePositiveInt(
+      this.config.get<string>('CRAWL_LOCK_MS'),
+      DEFAULT_CRAWL_LOCK_MS,
+    );
     this.worker = new Worker<SourceCrawlJob>(
       SOURCE_CRAWL_QUEUE,
       (job) => this.handle(job),
-      { connection: this.redis, concurrency },
+      {
+        connection: this.redis,
+        concurrency,
+        lockDuration,
+        lockRenewTime: DEFAULT_CRAWL_LOCK_RENEW_MS,
+      },
     );
     this.worker.on('failed', (job, err) => {
       this.logger.error(
         `job failed source=${job?.data?.sourceCode} key=${job?.id}: ${err.message}`,
       );
     });
-    this.logger.log(`worker source.crawl concurrency=${concurrency}`);
+    this.logger.log(
+      `worker source.crawl concurrency=${concurrency} lockMs=${lockDuration}`,
+    );
   }
 
   async onModuleDestroy() {

@@ -4,6 +4,7 @@ import { PrismaService } from '../database/prisma.service';
 import { StorageService } from '../modules/storage/storage.service';
 import { listPilotConnectors } from './connectors/registry';
 import { CrawlProducer, type EnqueueResult } from './crawl.producer';
+import { DocumentJobsProducer } from './document-jobs.producer';
 import type { ListJobRunsQueryDto } from './dto/list-job-runs.query.dto';
 import type { ProgressDateQueryDto } from './dto/progress-date.query.dto';
 import type { TriggerCrawlDto } from './dto/trigger-crawl.dto';
@@ -19,24 +20,50 @@ import {
   isValidCalendarDate,
   trackingCalendarDate,
 } from './schedule-window';
+import {
+  DOCUMENT_CLASSIFY_QUEUE,
+  DOCUMENT_EXTRACT_QUEUE,
+  DOCUMENT_NORMALIZE_QUEUE,
+} from './document-jobs.types';
 import { SOURCE_CRAWL_QUEUE } from './types';
 
 @Injectable()
 export class JobsService {
   constructor(
     private readonly producer: CrawlProducer,
+    private readonly documentJobs: DocumentJobsProducer,
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
   ) {}
 
   async status() {
     const redis = await this.producer.redisStatus();
+    const [crawl, documents, crawlConsumers, documentConsumers] =
+      await Promise.all([
+        this.producer.queueCounts(),
+        this.documentJobs.queueCounts(),
+        this.producer.consumerCount(),
+        this.documentJobs.consumerCounts(),
+      ]);
+    const consumers = {
+      [SOURCE_CRAWL_QUEUE]: crawlConsumers,
+      [DOCUMENT_EXTRACT_QUEUE]: documentConsumers.extract,
+      [DOCUMENT_NORMALIZE_QUEUE]: documentConsumers.normalize,
+      [DOCUMENT_CLASSIFY_QUEUE]: documentConsumers.classify,
+    };
     return {
       configured: this.producer.isConfigured(),
       redis,
-      worker: this.producer.workerEnabled(),
+      worker: crawlConsumers > 0,
       scheduler: this.producer.schedulerEnabled(),
       queue: SOURCE_CRAWL_QUEUE,
+      queues: {
+        [SOURCE_CRAWL_QUEUE]: crawl,
+        [DOCUMENT_EXTRACT_QUEUE]: documents.extract,
+        [DOCUMENT_NORMALIZE_QUEUE]: documents.normalize,
+        [DOCUMENT_CLASSIFY_QUEUE]: documents.classify,
+      },
+      consumers,
       storage: this.storage.isConfigured() ? 'supabase' : 'local-fallback',
       connectors: listPilotConnectors(),
     };

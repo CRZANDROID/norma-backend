@@ -8,7 +8,7 @@
 | ORM | Prisma 6 | Única vía a datos de negocio |
 | DB | PostgreSQL en Supabase | Migraciones con Prisma; Supabase = hosting DB |
 | Auth | JWT propio (Nest) | `passwordHash` + `POST /auth/login`; Bearer en rutas |
-| Jobs | Redis + BullMQ | crawl HTTP + extract/normalize + classify. YouTube/X = MVP **después de S10** |
+| Jobs | Redis + BullMQ | HTTP encola; un proceso `worker` consume. YouTube/X = MVP **después de S10** |
 | Storage | Supabase Storage | Originales de crawl + upload admin (`/storage/*`) |
 | IA catálogo | OpenAI | `POST /ai/ask` — solo datos admin; no clasifica |
 | IA clasificación | OpenAI | `document.classify` + `GET /findings` (S7, hecho) |
@@ -69,6 +69,17 @@ Guards en el controller
 ```
 
 Cuando crezca la complejidad, se puede separar presentation / application / domain / infrastructure **sin** romper el flujo anterior.
+
+## Procesos (HTTP vs jobs)
+
+La imagen es la misma (`node dist/main.js`). El catálogo entero se encola; no se crawlea en paralelo al tamaño del catálogo.
+
+| Proceso | Env | Rol |
+|---------|-----|-----|
+| `api` | `JOBS_WORKER=false`, `JOBS_SCHEDULER=false` | HTTP (`/health`, `/alertas`, `POST /jobs/crawl`) |
+| `worker` | `JOBS_WORKER` on, scheduler on | Consume `source.crawl` (`CRAWL_CONCURRENCY`, default 2) + extract/normalize/classify |
+
+Local: [docker.md](./docker.md). Render: Web Service + Background Worker ([render-deploy.md](./render-deploy.md)). Picos: [PERFORMANCE.md](./PERFORMANCE.md).
 
 ## Multi-tenancy
 

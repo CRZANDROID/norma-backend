@@ -20,10 +20,11 @@ Crawl → extraer → clasificar (S7, hecho)
 | Orden | Doc | Para qué |
 |-------|-----|----------|
 | 1 | [HANDOFF.md](./HANDOFF.md) | Estado vivo y siguiente paso |
-| 2 | [PRODUCT.md](./PRODUCT.md) | Qué es el producto y qué queda fuera |
-| 3 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Stack, JWT Nest, multi-tenant |
-| 4 | [SPRINTS.md](./SPRINTS.md) | Piloto S1–S10 |
-| 5 | [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) | `/alertas` + informe S8–S10 |
+| 2 | [TRAINING.md](./TRAINING.md) | Staging limpio / capacitación (S9 envío sigue pendiente) |
+| 3 | [PRODUCT.md](./PRODUCT.md) | Qué es el producto y qué queda fuera |
+| 4 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Stack, JWT Nest, multi-tenant |
+| 5 | [SPRINTS.md](./SPRINTS.md) | Piloto S1–S10 |
+| 6 | [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) | `/alertas` + informe S8–S10 |
 
 ## Briefs para el front
 
@@ -34,7 +35,9 @@ Crawl → extraer → clasificar (S7, hecho)
 ## Pipeline y ops
 
 - [jobs.md](./jobs.md) — crawl HTTP + extract/normalize/classify
-- [docker.md](./docker.md) — local canónico (API + Redis)
+- [PERFORMANCE.md](./PERFORMANCE.md) — laboratorio de colas / health
+- [docker.md](./docker.md) — local canónico (`api` HTTP + `worker` + Redis)
 - [seed-and-tests.md](./seed-and-tests.md)
+- [TRAINING.md](./TRAINING.md)
 - [sentry-storage.md](./sentry-storage.md)
 - [render-deploy.md](./render-deploy.md)

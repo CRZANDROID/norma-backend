@@ -1,7 +1,7 @@
-# HANDOFF — Estado NORMA Backend (2026-09-15)
+# HANDOFF — Estado NORMA Backend (2026-09-17)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
-Índice: [README.md](./README.md). Informe: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+Índice: [README.md](./README.md). Informe: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). Capacitación: [TRAINING.md](./TRAINING.md).
 
 ---
 
@@ -24,7 +24,7 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 | 9 | PDF draft + lote + `/informes` VCGA | Generar en `/alertas`; ver/descargar/regenerar en Informes; envío pendiente |
 | 10 | Pendiente | Portal `CLIENT_USER`; reutiliza `/informes` (solo enviados) |
 
-**Siguiente en este repo:** Sprint 9 resto — envío/`autoSend`. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+**Siguiente en este repo:** capacitación en staging (catálogo vacío; los usuarios crean clientes/fuentes). S9 resto (envío/`autoSend`) sigue pendiente. Contrato: [TRAINING.md](./TRAINING.md), [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 
 ---
 
@@ -42,11 +42,13 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 | API | `http://localhost:3000` |
 | Swagger | `http://localhost:3000/docs` |
 | Seed/e2e | [seed-and-tests.md](./seed-and-tests.md) |
+| Capacitación | [TRAINING.md](./TRAINING.md) |
 | Índice | [README.md](./README.md) |
 | Admin UI | [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md) |
 | Panel rastreo | [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md) |
 | `/alertas` + informe | [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) |
 | Jobs | [jobs.md](./jobs.md) |
+| Rendimiento | [PERFORMANCE.md](./PERFORMANCE.md) |
 | Docker | [docker.md](./docker.md) |
 | Sentry/Storage | [sentry-storage.md](./sentry-storage.md) |
 | Render | [render-deploy.md](./render-deploy.md) |
@@ -61,7 +63,7 @@ Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_st
 - Fuentes: `jurisdiction` + `stateCode` + `schedule`; `searchFocus` / `keywordsGuide` (`string[]`)
 - Delivery 1:1: `suggestedAction` por nivel + `autoSend` (S9)
 - `GET /ai/status`, `POST /ai/ask` (503 sin `OPENAI_API_KEY`)
-- Crawl: cola `source.crawl`, `GET /jobs/status`, `POST /jobs/crawl`, `job_runs`. Tope `CRAWL_MAX_PAGES`. Sitio caído = error de origen. Seed ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco
+- Crawl: cola `source.crawl`, `GET /jobs/status` (`queues` + `consumers`; `worker` = hay consumidor, no el flag del API), `POST /jobs/crawl` / `crawl/all`, `job_runs`. Tope `CRAWL_MAX_PAGES`. Concurrencia de sitios: `CRAWL_CONCURRENCY` (default 2). Lock crawl ~15 min. Sitio caído = error de origen. Compose: `api` sin workers + `worker`. El seed completo (`SEED_CATALOG` default) deja ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. **DB actual (capacitación):** catálogo vacío; no corras seed completo.
 - Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
 - Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
 - Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }` (`excludedFromNextReport`, `lote`, `counts.included/excluded/sent`). `PATCH /findings/:id` (`title`/`justification`/`impact`), `POST /findings/:id/exclude|include|rewrite` (`rewrite-v6`: `rewriteNote`, o 422 con el limitante si el pedido no se sostiene con el documento). `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). Classify `classify-v2`.
@@ -79,10 +81,11 @@ src/jobs/            # BullMQ source.crawl + extract/normalize_dedup/classify
 
 ## 4. Qué falta (prioridad)
 
-1. **Sprint 9 resto:** envío/`autoSend`, descartar, correo a contactos. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
-2. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
-3. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
-4. Redis en staging/prod (`REDIS_URL`) para el scheduler a las 07:00 (crawl, no empaque de PDF).
+1. **Capacitación / staging limpio:** catálogo vacío; ADMIN de pruebas; usuarios crean clientes y fuentes. [TRAINING.md](./TRAINING.md).
+2. **Sprint 9 resto:** envío/`autoSend`, descartar, correo a contactos. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+3. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
+4. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
+5. Redis en staging/prod (`REDIS_URL`) + **Background Worker** (el Web Service va con `JOBS_WORKER=false`). Scheduler 07:00 en el worker. Durante la sesión de capacitación el scheduler va **off** en ese worker.
 
 ---
 
@@ -96,7 +99,7 @@ docker compose up --build
 
 API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras cambiar código: `--build`.
 
-`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY`. Compose pisa `REDIS_URL` y `PORT=3000`.
+`.env`: `DATABASE_URL`, `JWT_SECRET`, `AUTH_SEED_*`; `SEED_CATALOG=false` en capacitación. Opcional `SENTRY_DSN`, `SUPABASE_*`, `OPENAI_API_KEY`. Compose pisa `REDIS_URL` y `PORT=3000`. `api` = HTTP sin workers; `worker` = colas + cron.
 
 `pnpm start:dev` en el host sin Redis → `ECONNREFUSED`. No es el flujo soportado.
 
@@ -108,11 +111,12 @@ API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras 
 2. Panel rastreo: **[FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)**
 3. `/alertas` + informe S8–S10: **[FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md)**
 4. Local API: [docker.md](./docker.md). HTTP: Swagger `/docs`.
+5. Capacitación: [TRAINING.md](./TRAINING.md) (catálogo vacío; no Enviar).
 
 ---
 
 ## 7. Plantilla siguiente agente
 
-> Lee `docs/HANDOFF.md` §4 y `docs/FRONTEND-ALERTAS.md`. S9 = PDF + lote + `/informes` VCGA. Envío pendiente. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
+> Lee `docs/HANDOFF.md` §4 y `docs/TRAINING.md`. Foco: staging limpio para capacitación. S9 envío pendiente. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
 
-**Última actualización:** 2026-09-15 — PDF briefing sin portada. Envío pendiente.
+**Última actualización:** 2026-09-17 — split API/worker (picos de catálogo). Wipe de capacitación (solo ADMIN). Envío S9 pendiente.

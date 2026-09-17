@@ -1,7 +1,7 @@
 # Jobs — crawl, documentos y clasificación
 
-Redis + BullMQ en el mismo proceso Nest. Local: [docker.md](./docker.md) (no Redis suelto en Windows).  
-UI del panel: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). Hallazgos: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+Redis + BullMQ. **HTTP y workers son procesos distintos** (Compose `api` + `worker`; Render Web Service + Background Worker). Local: [docker.md](./docker.md) (no Redis suelto en Windows).  
+UI del panel: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). Hallazgos: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). El pico de catálogo se encola; [PERFORMANCE.md](./PERFORMANCE.md).
 
 ```text
 crawl SUCCESS (HTML/PDF/Word del mismo sitio)
@@ -23,9 +23,12 @@ Crawl no extrae ni clasifica. Extract no es LLM. Informe PDF = S9.
 | Variable | Default | Notas |
 |----------|---------|-------|
 | `REDIS_URL` | — | Vacío → `POST /jobs/crawl` 503. Compose pisa `redis://redis:6379` |
-| `JOBS_WORKER` | on salvo `false` | |
-| `JOBS_SCHEDULER` | off en dev/test salvo `true`; on en prod salvo `false` | Cron cada minuto |
-| `JOBS_CONCURRENCY` | `2` | |
+| `JOBS_WORKER` | on salvo `false` | Compose `api` = `false`; `worker` = on |
+| `JOBS_SCHEDULER` | off en dev/test salvo `true`; on en prod salvo `false` | Cron en el **worker**. Compose `api` = `false`, `worker` = `true` |
+| `CRAWL_CONCURRENCY` | `2` | Sitios a la vez. Da igual si hay 8 o 800 ACTIVE |
+| `JOBS_CONCURRENCY` | `2` | extract + normalize |
+| `CLASSIFY_CONCURRENCY` | igual que `JOBS_CONCURRENCY` | Solo cola `document.classify` (bajar si OpenAI 429) |
+| `CRAWL_LOCK_MS` | `900000` (15 min) | Lock BullMQ del crawl + renew 15 s |
 | `CRAWL_MAX_BYTES` | `10000000` | Homes de congresos a veces > 2–3 MB |
 | `CRAWL_MAX_PAGES` | `80` | Páginas del mismo sitio por job |
 | `OPENAI_API_KEY` | — | Classify y `POST /ai/ask`; vacío → 503 |
@@ -33,7 +36,9 @@ Crawl no extrae ni clasifica. Extract no es LLM. Informe PDF = S9.
 Render: **New → Key Value** (misma región) → Internal URL → `REDIS_URL`. Detalle: [render-deploy.md](./render-deploy.md).  
 Storage: `SUPABASE_*` → bucket; si no, `data/crawl/` (gitignored).
 
-`GET /jobs/status` → `{ configured, redis, worker, scheduler }`.
+`GET /jobs/status` → `{ configured, redis, worker, scheduler, queues, consumers }`.  
+`worker` = hay al menos un consumidor de `source.crawl` (el proceso `worker`), no “este HTTP process tiene JOBS_WORKER”. `scheduler` = si **este** proceso tiene el cron (en Compose el API es `false`; el 07:00 corre en `worker`).  
+`queues` = las 4 colas (`source.crawl`, `document.extract`, `document.normalize_dedup`, `document.classify`) con `waiting` / `active` / `delayed` / `failed` / `paused` / `stalled`. `waiting` alto tras un pico es normal. Sin Redis cada valor es `null`. Lab: [PERFORMANCE.md](./PERFORMANCE.md).
 
 ---
 
@@ -60,7 +65,7 @@ YouTube / X / Facebook: conectores **después de S10**, no este spider ([PRODUCT
 
 | Método | Ruta | Notas |
 |--------|------|-------|
-| `GET` | `/jobs/status` | Redis / worker / scheduler |
+| `GET` | `/jobs/status` | Redis / consumidores / `queues` (conteos). `waiting` alto ≠ error |
 | `POST` | `/jobs/crawl` | `{ sourceCode }` o `{ sourceId }`. Clave `{code}:{fecha}:admin` |
 | `POST` | `/jobs/crawl/all` | Todas las ACTIVE |
 | `GET` | `/jobs/runs` | Historial técnico |
