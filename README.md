@@ -11,7 +11,7 @@ Auth propia con JWT. Monitoreo de errores con Sentry.
 
 ## Setup local
 
-**Canónico:** Docker Compose (API + Redis). Postgres/Storage = Supabase.
+**Canónico:** Docker Compose (API HTTP + worker + Redis). Postgres/Storage = Supabase.
 
 ```bash
 cp .env.example .env   # si aún no tienes .env
@@ -100,7 +100,8 @@ Swagger UI: `http://localhost:3000/docs` (Authorize con JWT de `POST /auth/login
 | `pnpm prisma:migrate` | Migraciones en desarrollo |
 | `pnpm prisma:studio` | UI de Prisma Studio |
 | `pnpm prisma:deploy` | Aplica migraciones (staging/prod) |
-| `pnpm prisma:seed` | Seed Arca + fuentes + admin |
+| `pnpm prisma:seed` | Seed Arca + fuentes + admin (`SEED_CATALOG=false` = solo ADMIN) |
+| `pnpm prisma:reset-training` | Dry-run del wipe de capacitación; `-- --yes` borra el negocio |
 
 ## Ambientes
 

@@ -33,7 +33,8 @@ export class JobsController {
     UserRole.CLIENT_USER,
   )
   @ApiOperation({
-    summary: 'Estado de Redis, worker y conectores piloto (no encola)',
+    summary:
+      'Redis, consumidores BullMQ (worker=true si hay crawl worker), scheduler de este proceso, queues y consumers. waiting alto es normal. No encola.',
   })
   status() {
     return this.jobsService.status();

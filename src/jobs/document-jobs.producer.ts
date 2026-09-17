@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { redisJobIsInFlight } from './queue-state';
+import { countsFromQueue, workerCountFromQueue, type QueueCounts } from './queue-counts';
 import {
   DOCUMENT_CLASSIFY_QUEUE,
   DOCUMENT_EXTRACT_QUEUE,
@@ -68,6 +69,32 @@ export class DocumentJobsProducer implements OnModuleDestroy {
       this.normalizeQueue !== null &&
       this.classifyQueue !== null
     );
+  }
+
+  async queueCounts(): Promise<{
+    extract: QueueCounts | null;
+    normalize: QueueCounts | null;
+    classify: QueueCounts | null;
+  }> {
+    const [extract, normalize, classify] = await Promise.all([
+      countsFromQueue(this.extractQueue),
+      countsFromQueue(this.normalizeQueue),
+      countsFromQueue(this.classifyQueue),
+    ]);
+    return { extract, normalize, classify };
+  }
+
+  async consumerCounts(): Promise<{
+    extract: number;
+    normalize: number;
+    classify: number;
+  }> {
+    const [extract, normalize, classify] = await Promise.all([
+      workerCountFromQueue(this.extractQueue),
+      workerCountFromQueue(this.normalizeQueue),
+      workerCountFromQueue(this.classifyQueue),
+    ]);
+    return { extract, normalize, classify };
   }
 
   async onModuleDestroy() {

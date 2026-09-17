@@ -14,7 +14,7 @@ Instrucciones de entrada para cualquier agente (Cursor u otro) que trabaje en es
 
 Las reglas en `.cursor/rules/` se aplican automáticamente; no las contradigas.
 
-**Local:** API + Redis = `docker compose up --build` ([docs/docker.md](docs/docker.md)). No `pnpm start:dev` sin Redis en el host.
+**Local:** API HTTP + worker BullMQ + Redis = `docker compose up --build` ([docs/docker.md](docs/docker.md)). No `pnpm start:dev` sin Redis en el host.
 
 HTTP vivo: Swagger `/docs`. No uses briefs históricos (`frequency` está muerto).
 

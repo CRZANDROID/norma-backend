@@ -33,7 +33,39 @@ describe('Jobs crawl (e2e)', () => {
       .expect(200);
 
     expect(typeof res.body.configured).toBe('boolean');
+    expect(typeof res.body.worker).toBe('boolean');
     expect(res.body.queue).toBe('source.crawl');
+    expect(res.body.consumers).toEqual(
+      expect.objectContaining({
+        'source.crawl': expect.any(Number),
+        'document.extract': expect.any(Number),
+        'document.normalize_dedup': expect.any(Number),
+        'document.classify': expect.any(Number),
+      }),
+    );
+    expect(res.body.queues).toEqual(
+      expect.objectContaining({
+        'source.crawl': expect.anything(),
+        'document.extract': expect.anything(),
+        'document.normalize_dedup': expect.anything(),
+        'document.classify': expect.anything(),
+      }),
+    );
+    for (const counts of Object.values(res.body.queues as Record<string, unknown>)) {
+      if (counts === null) {
+        continue;
+      }
+      expect(counts).toEqual(
+        expect.objectContaining({
+          waiting: expect.any(Number),
+          active: expect.any(Number),
+          delayed: expect.any(Number),
+          failed: expect.any(Number),
+          paused: expect.any(Number),
+          stalled: expect.any(Number),
+        }),
+      );
+    }
     expect(Array.isArray(res.body.connectors)).toBe(true);
   });
 

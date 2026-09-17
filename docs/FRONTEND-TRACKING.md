@@ -15,7 +15,7 @@ Detalle backend: [jobs.md](./jobs.md).
 
 Query opcional `date=YYYY-MM-DD`. Default: hoy en `America/Mexico_City` (igual que el schedule de fuentes). Fecha inválida → `400`.
 
-Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los tres `progress`. Documentos y hallazgos **no se borran**; se leen con `GET /documents?sourceId=` y `GET /findings?sourceId=`. El crawl guarda **varias** páginas por fuente; este GET sigue siendo **una fila por fuente**.
+Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los tres `progress`. Documentos y hallazgos **no se borran**; se leen con `GET /documents?sourceId=` y `GET /findings?sourceId=`. El crawl guarda **varias** páginas por fuente; este GET sigue siendo **una fila por fuente**. Muchas filas `queued` a la vez (catálogo entero encolado) es el drenaje esperado: `waiting` alto no es un error.
 
 ## Endpoints
 

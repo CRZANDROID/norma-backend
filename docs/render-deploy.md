@@ -10,6 +10,19 @@
 
 Flujo correcto: **build en el build step** → **arrancar JS compilado**.
 
+## Dos servicios, el mismo build
+
+El catálogo entero se **encola**; no crawlea 200 sitios a la vez. HTTP y BullMQ **no** pueden vivir en el mismo proceso en Render (Free se va a 502).
+
+| Servicio Render | Rol | Env extra |
+|-----------------|-----|-----------|
+| **Web Service** | Solo HTTP (`/health`, `/alertas`, `POST /jobs/crawl`) | `JOBS_WORKER=false`, `JOBS_SCHEDULER=false`. Health Check Path `/health`. |
+| **Background Worker** | Consume las 4 colas + cron 07:00 | `JOBS_WORKER` on (no pongas `false`). `JOBS_SCHEDULER` on salvo capacitación. `SKIP_PRISMA_MIGRATE` no aplica (el start no usa el entrypoint de Docker). Sin `PORT` de UI. |
+
+Mismo repo, mismo **Build Command**, mismo `REDIS_URL` / `DATABASE_URL` / `OPENAI_*` / `SUPABASE_*`. Start Command en ambos: `yarn start:prod` (JS compilado).
+
+El worker no necesita Health Check Path. Verifica desde el Web Service: `GET /jobs/status` → `redis: up`, `worker: true` (`consumers["source.crawl"]` ≥ 1).
+
 ## Comandos en el Web Service
 
 | Campo | Valor |
@@ -61,9 +74,11 @@ El Web Service **no** trae Redis. Hay que crear un servicio aparte (**New → Ke
 1. Misma **región** que el backend NORMA.
 2. Plan Free/Starter para el piloto. Política de memoria: **noeviction** si el plan lo permite (BullMQ no debe perder jobs).
 3. En la instancia → **Connect** → copiar **Internal URL** (`redis://red-…:6379`).
-4. En el Web Service → Environment → `REDIS_URL=<Internal URL>`. Render reinicia solo.
+4. En el **Web Service y el Background Worker** → Environment → `REDIS_URL=<Internal URL>`. Render reinicia solo.
 
-No uses la URL **external** (`rediss://`) desde el Web Service. Verifica: `GET /jobs/status` → `configured: true`, `redis: up`.
+No uses la URL **external** (`rediss://`) desde esos servicios. Verifica: `GET /jobs/status` → `configured: true`, `redis: up`, `worker: true`.
+
+Si el Web Service **no** tiene `JOBS_WORKER=false`, HTTP y los workers vuelven al mismo proceso: es el 502 de siempre.
 
 Alternativa: URL de Upstash/Redis Cloud pegada en la misma variable. Sin `REDIS_URL`, la API vive; el crawl responde 503.
 
