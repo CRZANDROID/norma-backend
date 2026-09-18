@@ -1,6 +1,7 @@
 import {
   DEFAULT_DOCUMENT_LOCK_MS,
   DEFAULT_LOCK_RENEW_MS,
+  DEFAULT_MAX_STALLED_COUNT,
   DEFAULT_QUEUE_CONCURRENCY,
   parsePositiveInt,
   workerLockOptions,
@@ -26,6 +27,7 @@ describe('workerLockOptions', () => {
     expect(workerLockOptions(DEFAULT_DOCUMENT_LOCK_MS)).toEqual({
       lockDuration: DEFAULT_DOCUMENT_LOCK_MS,
       lockRenewTime: DEFAULT_LOCK_RENEW_MS,
+      maxStalledCount: DEFAULT_MAX_STALLED_COUNT,
     });
   });
 });

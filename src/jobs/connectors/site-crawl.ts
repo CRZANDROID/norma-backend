@@ -4,7 +4,12 @@ import { ORIGIN_PAGE_UNAVAILABLE } from '../origin-page';
 import { urlLooksLikePdf, urlLooksLikeWord } from '../document-text';
 import { fetchPage, pageFilename, sniffCrawlExtension, type FetchedPage } from './fetch-page';
 import { discoverLinks, metaRefreshStubTarget, sectionHints } from './discover-links';
-import type { ConnectorFetch, ConnectorSource, CrawlOutcome } from './types';
+import type {
+  ConnectorCrawlDeps,
+  ConnectorFetch,
+  ConnectorSource,
+  CrawlOutcome,
+} from './types';
 
 const DEFAULT_MAX_PAGES = 80;
 const ABSOLUTE_MAX_PAGES = 80;
@@ -44,7 +49,7 @@ function filenameFor(page: FetchedPage, index: number): string {
   return `doc-${String(index).padStart(2, '0')}-${hash}.${ext}`;
 }
 
-export type SiteCrawlDeps = {
+export type SiteCrawlDeps = ConnectorCrawlDeps & {
   fetch?: typeof fetchPage;
   maxPages?: number;
   maxDepth?: number;
@@ -156,6 +161,11 @@ export async function crawlSite(
     pages.push({
       page,
       filename: filenameFor(page, pages.length),
+    });
+    deps.onProgress?.({
+      saved: pages.length,
+      maxPages,
+      url: finalUrl,
     });
 
     const isHtml = sniffed === 'html';

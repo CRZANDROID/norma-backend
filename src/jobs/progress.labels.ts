@@ -1,5 +1,6 @@
 import { JobErrorCode, JobRunStatus } from '../database/prisma-client';
 import {
+  CRAWL_INTERRUPTED_PARTIAL,
   ORIGIN_PAGE_PARTIAL,
   ORIGIN_PAGE_UNAVAILABLE,
   isOriginPageFailure,
@@ -97,7 +98,11 @@ export function crawlProgressNote(
   }
   if (status === 'crawled') {
     const trimmed = message?.trim();
-    if (trimmed === ORIGIN_PAGE_PARTIAL || trimmed === ORIGIN_PAGE_UNAVAILABLE) {
+    if (
+      trimmed === ORIGIN_PAGE_PARTIAL ||
+      trimmed === ORIGIN_PAGE_UNAVAILABLE ||
+      trimmed === CRAWL_INTERRUPTED_PARTIAL
+    ) {
       return trimmed;
     }
     if (isOriginPageFailure(trimmed)) {

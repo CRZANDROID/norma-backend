@@ -77,6 +77,17 @@ export class CrawlProducer implements OnModuleDestroy {
     return workerCountFromQueue(this.queue);
   }
 
+  async redisJobState(idempotencyKey: string): Promise<string | null> {
+    if (!this.queue) {
+      return null;
+    }
+    const job = await this.queue.getJob(idempotencyKey);
+    if (!job) {
+      return null;
+    }
+    return job.getState();
+  }
+
   workerEnabled(): boolean {
     return (
       this.isConfigured() &&

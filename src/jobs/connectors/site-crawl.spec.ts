@@ -232,4 +232,18 @@ describe('crawlSite', () => {
     expect(outcome.failedFetches).toBe(3);
     expect(fetches).toBe(4);
   });
+
+  it('reports each saved page so the worker can log crawl progress', async () => {
+    const progress: Array<{ saved: number; maxPages: number }> = [];
+    await crawlSite(source, {
+      maxPages: 2,
+      maxDepth: 0,
+      delayMs: 0,
+      onProgress: (event) => {
+        progress.push({ saved: event.saved, maxPages: event.maxPages });
+      },
+      fetch: async (url) => page(url, '<article>Portada con texto suficiente.</article>'),
+    });
+    expect(progress).toEqual([{ saved: 1, maxPages: 2 }]);
+  });
 });

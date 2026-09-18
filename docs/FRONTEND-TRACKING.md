@@ -141,6 +141,8 @@ No pintar `justification`, `aiMeta`, título de un hallazgo ni un color único d
 
 Un fallo de **extracción** (captcha, PDF escaneado, página caída) no marca esta columna como `failed`: eso vive en `/documents/progress` o `/jobs/progress`.
 
+Si el worker se reinicia o BullMQ marca el job `stalled`, el backend **cierra** la fila: crawl `failed` (o `crawled` con nota si ya había páginas), extract/classify `failed`. El orbe no debe quedar en `running` / `extracting` / `classifying` para siempre. Copy: “El rastreo se interrumpió; se guardó lo que sí estaba disponible.” / “No se pudo extraer” / “No se pudo analizar”.
+
 ## Flujo piloto (hasta S7)
 
 ```text

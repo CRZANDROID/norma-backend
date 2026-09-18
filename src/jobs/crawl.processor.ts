@@ -38,7 +38,9 @@ import {
   parsePositiveInt,
   workerLockOptions,
 } from './concurrency';
+import { isFinalBullMqFailure } from './job-lifetime';
 import {
+  CRAWL_INTERRUPTED_PARTIAL,
   ORIGIN_PAGE_PARTIAL,
   storedCrawlFailureMessage,
 } from './origin-page';
@@ -96,6 +98,7 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
       this.logger.error(
         `job failed source=${job?.data?.sourceCode} key=${job?.id}: ${err.message}`,
       );
+      void this.onCrawlJobFailed(job, err);
     });
     this.logger.log(
       `worker source.crawl concurrency=${concurrency} lockMs=${lockDuration}`,
@@ -174,7 +177,13 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
 
     try {
       const connector = getConnector(source.code);
-      const outcome = await connector.crawl(source);
+      const outcome = await connector.crawl(source, {
+        onProgress: (event) => {
+          this.logger.log(
+            `crawl page ${event.saved}/${event.maxPages} source=${source.code}`,
+          );
+        },
+      });
       const pages = outcome.pages;
       const originNote =
         outcome.originUnreachable || outcome.failedFetches > 0
@@ -340,6 +349,49 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
       return new UnrecoverableError(err.message);
     }
     return err;
+  }
+
+  private async onCrawlJobFailed(
+    job: Job<SourceCrawlJob> | undefined,
+    err: Error,
+  ) {
+    if (!job?.data || !isFinalBullMqFailure(job, err)) {
+      return;
+    }
+    const payload = job.data;
+    const existing = await this.prisma.jobRun.findUnique({
+      where: { id: payload.jobId },
+      select: { id: true, status: true },
+    });
+    if (
+      !existing ||
+      (existing.status !== JobRunStatus.QUEUED &&
+        existing.status !== JobRunStatus.RUNNING)
+    ) {
+      return;
+    }
+    const saved = await this.prisma.document.count({
+      where: { jobRunId: payload.jobId },
+    });
+    if (saved > 0) {
+      await this.prisma.jobRun.update({
+        where: { id: payload.jobId },
+        data: {
+          status: JobRunStatus.SUCCESS,
+          message: CRAWL_INTERRUPTED_PARTIAL,
+          errorCode: null,
+          finishedAt: new Date(),
+        },
+      });
+      this.logger.warn(
+        `crawl interrupted with pages source=${payload.sourceCode} saved=${saved}`,
+      );
+      return;
+    }
+    await this.fail(
+      payload,
+      new CrawlError('No se pudo completar el rastreo.', 'UNKNOWN', false),
+    );
   }
 
   private async enqueueDocumentExtract(params: {

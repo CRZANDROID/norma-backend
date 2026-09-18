@@ -284,6 +284,22 @@ export class DocumentPipelineService {
     }
   }
 
+  async failIfStatus(
+    documentId: string,
+    allowed: DocumentProcessingStatus[],
+    message: string,
+  ): Promise<boolean> {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: { id: true, processingStatus: true, processingHistory: true },
+    });
+    if (!doc || !allowed.includes(doc.processingStatus)) {
+      return false;
+    }
+    await this.markFailed(doc.id, doc.processingHistory, message);
+    return true;
+  }
+
   private async markFailed(
     documentId: string,
     history: Prisma.JsonValue | null,
