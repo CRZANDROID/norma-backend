@@ -23,8 +23,21 @@ export type CrawlOutcome = {
   originUnreachable: boolean;
 };
 
+export type CrawlProgressEvent = {
+  saved: number;
+  maxPages: number;
+  url: string;
+};
+
+export type ConnectorCrawlDeps = {
+  onProgress?: (event: CrawlProgressEvent) => void;
+};
+
 export interface SourceConnector {
   code: string;
   label: string;
-  crawl(source: ConnectorSource): Promise<CrawlOutcome>;
+  crawl(
+    source: ConnectorSource,
+    deps?: ConnectorCrawlDeps,
+  ): Promise<CrawlOutcome>;
 }

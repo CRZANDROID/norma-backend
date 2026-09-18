@@ -1,5 +1,6 @@
 import { JobErrorCode, JobRunStatus } from '../database/prisma-client';
 import {
+  CRAWL_INTERRUPTED_PARTIAL,
   ORIGIN_PAGE_PARTIAL,
   ORIGIN_PAGE_UNAVAILABLE,
 } from './origin-page';
@@ -66,6 +67,9 @@ describe('crawl progress labels', () => {
     expect(crawlProgressNote('crawled', null, null)).toBeNull();
     expect(crawlProgressNote('crawled', ORIGIN_PAGE_PARTIAL, null)).toBe(
       ORIGIN_PAGE_PARTIAL,
+    );
+    expect(crawlProgressNote('crawled', CRAWL_INTERRUPTED_PARTIAL, null)).toBe(
+      CRAWL_INTERRUPTED_PARTIAL,
     );
     expect(
       crawlProgressNote('failed', ORIGIN_PAGE_UNAVAILABLE, JobErrorCode.NETWORK),

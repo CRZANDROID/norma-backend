@@ -314,6 +314,35 @@ export class DocumentClassifyService {
     };
   }
 
+  async failIfClassifying(
+    documentId: string,
+    message: string,
+  ): Promise<boolean> {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: { id: true, processingStatus: true, processingHistory: true },
+    });
+    if (
+      !doc ||
+      doc.processingStatus !== DocumentProcessingStatus.READY_FOR_AI
+    ) {
+      return false;
+    }
+    await this.prisma.document.update({
+      where: { id: documentId },
+      data: {
+        processingStatus: DocumentProcessingStatus.FAILED,
+        lastError: message.slice(0, 1000),
+        processingHistory: appendProcessingHistory(
+          doc.processingHistory,
+          DocumentProcessingStatus.FAILED,
+        ) as unknown as Prisma.InputJsonValue,
+      },
+    });
+    this.logger.warn(`classify failed document=${documentId}: ${message}`);
+    return true;
+  }
+
   private async setLastError(documentId: string, message: string) {
     await this.prisma.document.update({
       where: { id: documentId },

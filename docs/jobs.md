@@ -16,6 +16,8 @@ crawl SUCCESS (HTML/PDF/Word del mismo sitio)
 
 Crawl no extrae ni clasifica. Extract no es LLM. Informe PDF = S9.
 
+Si extract/classify/crawl se quedan `stalled` (restart del worker, PDF que bloquea el event loop), BullMQ falla el job. El worker **actualiza Postgres**: `job_runs` deja de estar `RUNNING` y el documento pasa a `FAILED` si seguía a medias. Si no, el panel se queda en “Rastreando / Extrayendo / Analizando” aunque Redis ya no tenga trabajo. Al arrancar, el worker reencola documentos huérfanos de las últimas 48 h y cierra crawls abandonados. Logs: `crawl page N/M` y `extract start` (el crawl ya no calla hasta el final).
+
 ---
 
 ## Env

@@ -25,6 +25,12 @@ import {
   parsePositiveInt,
   workerLockOptions,
 } from './concurrency';
+import {
+  CLASSIFY_INTERRUPTED,
+  EXTRACT_INTERRUPTED,
+  isFinalBullMqFailure,
+  NORMALIZE_INTERRUPTED,
+} from './job-lifetime';
 
 @Injectable()
 export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
@@ -95,16 +101,19 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
       this.logger.error(
         `extract failed document=${job?.data?.documentId}: ${err.message}`,
       );
+      void this.onExtractFailed(job, err);
     });
     this.normalizeWorker.on('failed', (job, err) => {
       this.logger.error(
         `normalize failed document=${job?.data?.documentId}: ${err.message}`,
       );
+      void this.onNormalizeFailed(job, err);
     });
     this.classifyWorker.on('failed', (job, err) => {
       this.logger.error(
         `classify failed document=${job?.data?.documentId}: ${err.message}`,
       );
+      void this.onClassifyFailed(job, err);
     });
     this.logger.log(
       `workers document.extract + document.normalize_dedup concurrency=${concurrency} classify=${classifyConcurrency} lockMs=${lockDuration}`,
@@ -119,6 +128,7 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleExtract(job: Job<DocumentExtractJob>) {
+    this.logger.log(`extract start document=${job.data.documentId}`);
     const result = await this.pipeline.extract(job.data.documentId);
     if (result.processingStatus === DocumentProcessingStatus.EXTRACTED) {
       await this.producer.enqueueNormalize({
@@ -129,6 +139,7 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleNormalize(job: Job<DocumentNormalizeJob>) {
+    this.logger.log(`normalize start document=${job.data.documentId}`);
     const result = await this.pipeline.normalizeDedup(job.data.documentId);
     if (result.processingStatus === DocumentProcessingStatus.READY_FOR_AI) {
       await this.producer.enqueueClassify({
@@ -139,6 +150,52 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleClassify(job: Job<DocumentClassifyJob>) {
+    this.logger.log(`classify start document=${job.data.documentId}`);
     return this.classify.classify(job.data.documentId);
+  }
+
+  private async onExtractFailed(
+    job: Job<DocumentExtractJob> | undefined,
+    err: Error,
+  ) {
+    const documentId = job?.data?.documentId;
+    if (!documentId || !isFinalBullMqFailure(job, err)) {
+      return;
+    }
+    await this.pipeline.failIfStatus(
+      documentId,
+      [DocumentProcessingStatus.RECEIVED],
+      EXTRACT_INTERRUPTED,
+    );
+  }
+
+  private async onNormalizeFailed(
+    job: Job<DocumentNormalizeJob> | undefined,
+    err: Error,
+  ) {
+    const documentId = job?.data?.documentId;
+    if (!documentId || !isFinalBullMqFailure(job, err)) {
+      return;
+    }
+    await this.pipeline.failIfStatus(
+      documentId,
+      [
+        DocumentProcessingStatus.EXTRACTED,
+        DocumentProcessingStatus.NORMALIZED,
+        DocumentProcessingStatus.HASHED,
+      ],
+      NORMALIZE_INTERRUPTED,
+    );
+  }
+
+  private async onClassifyFailed(
+    job: Job<DocumentClassifyJob> | undefined,
+    err: Error,
+  ) {
+    const documentId = job?.data?.documentId;
+    if (!documentId || !isFinalBullMqFailure(job, err)) {
+      return;
+    }
+    await this.classify.failIfClassifying(documentId, CLASSIFY_INTERRUPTED);
   }
 }

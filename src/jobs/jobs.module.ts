@@ -12,6 +12,7 @@ import { DocumentJobsProcessor } from './document-jobs.processor';
 import { DocumentJobsProducer } from './document-jobs.producer';
 import { DocumentPipelineService } from './document-pipeline.service';
 import { JobsController } from './jobs.controller';
+import { JobsRecoveryService } from './jobs-recovery.service';
 import { JobsService } from './jobs.service';
 
 @Module({
@@ -23,6 +24,7 @@ import { JobsService } from './jobs.service';
     CrawlScheduler,
     ArtifactStore,
     JobsService,
+    JobsRecoveryService,
     DocumentPipelineService,
     DocumentClassifyService,
     DocumentJobsProducer,

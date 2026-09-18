@@ -186,6 +186,35 @@ export class DocumentJobsProducer implements OnModuleDestroy {
     return { enqueued: true, skipped: false, idempotencyKey };
   }
 
+  async extractJobState(documentId: string): Promise<string | null> {
+    return this.jobState(this.extractQueue, `${documentId}:extract:v1`);
+  }
+
+  async normalizeJobState(documentId: string): Promise<string | null> {
+    return this.jobState(
+      this.normalizeQueue,
+      `${documentId}:normalize_dedup:v1`,
+    );
+  }
+
+  async classifyJobState(documentId: string): Promise<string | null> {
+    return this.jobState(this.classifyQueue, `${documentId}:classify:v1`);
+  }
+
+  private async jobState(
+    queue: Queue | null,
+    jobId: string,
+  ): Promise<string | null> {
+    if (!queue) {
+      return null;
+    }
+    const job = await queue.getJob(jobId);
+    if (!job) {
+      return null;
+    }
+    return job.getState();
+  }
+
   private async prepareJob(
     queue: Queue,
     jobId: string,

@@ -8,6 +8,9 @@ export const ORIGIN_PAGE_UNAVAILABLE =
 export const ORIGIN_PAGE_PARTIAL =
   'Algunas páginas del sitio no respondieron; se guardó lo que sí estaba disponible.';
 
+export const CRAWL_INTERRUPTED_PARTIAL =
+  'El rastreo se interrumpió; se guardó lo que sí estaba disponible.';
+
 const ORIGIN_PAGE_FAIL_RE =
   /certificate|unable to verify|UNABLE_TO_VERIFY|CERT_|ERR_TLS|self.?signed|\bssl\b|\btls\b|fetch failed|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|ECONNRESET|EAI_AGAIN|AbortError|aborted|UND_ERR|timeout|Fallo de red|HTTP 5\d\d|socket hang up/i;
 
