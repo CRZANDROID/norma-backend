@@ -20,8 +20,10 @@ import {
 import { DocumentJobsProducer } from './document-jobs.producer';
 import { DocumentPipelineService } from './document-pipeline.service';
 import {
+  DEFAULT_DOCUMENT_LOCK_MS,
   DEFAULT_QUEUE_CONCURRENCY,
   parsePositiveInt,
+  workerLockOptions,
 } from './concurrency';
 
 @Injectable()
@@ -65,20 +67,29 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
       this.config.get<string>('CLASSIFY_CONCURRENCY'),
       concurrency,
     );
+    const lockDuration = parsePositiveInt(
+      this.config.get<string>('DOCUMENT_LOCK_MS'),
+      DEFAULT_DOCUMENT_LOCK_MS,
+    );
+    const lock = workerLockOptions(lockDuration);
     this.extractWorker = new Worker<DocumentExtractJob>(
       DOCUMENT_EXTRACT_QUEUE,
       (job) => this.handleExtract(job),
-      { connection: this.redis, concurrency },
+      { connection: this.redis, concurrency, ...lock },
     );
     this.normalizeWorker = new Worker<DocumentNormalizeJob>(
       DOCUMENT_NORMALIZE_QUEUE,
       (job) => this.handleNormalize(job),
-      { connection: this.redis, concurrency },
+      { connection: this.redis, concurrency, ...lock },
     );
     this.classifyWorker = new Worker<DocumentClassifyJob>(
       DOCUMENT_CLASSIFY_QUEUE,
       (job) => this.handleClassify(job),
-      { connection: this.redis, concurrency: classifyConcurrency },
+      {
+        connection: this.redis,
+        concurrency: classifyConcurrency,
+        ...lock,
+      },
     );
     this.extractWorker.on('failed', (job, err) => {
       this.logger.error(
@@ -96,7 +107,7 @@ export class DocumentJobsProcessor implements OnModuleInit, OnModuleDestroy {
       );
     });
     this.logger.log(
-      `workers document.extract + document.normalize_dedup concurrency=${concurrency} classify=${classifyConcurrency}`,
+      `workers document.extract + document.normalize_dedup concurrency=${concurrency} classify=${classifyConcurrency} lockMs=${lockDuration}`,
     );
   }
 
