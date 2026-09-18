@@ -1,5 +1,6 @@
 import {
   collapseWhitespace,
+  extractPdfTextInWorker,
   extractVisibleHtmlText,
   isExtractableCrawlFile,
   isFramesetShell,
@@ -12,6 +13,9 @@ import {
   urlLooksLikeWord,
   validateExtractedText,
 } from './document-text';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('extractVisibleHtmlText', () => {
   it('strips script/style/nav and keeps visible copy', () => {
@@ -205,6 +209,26 @@ describe('validateExtractedText', () => {
       expect(result.reason).toBe('empty');
       expect(result.message).toMatch(/escaneado/i);
       expect(result.message).toMatch(/OCR/i);
+    }
+  });
+});
+
+describe('extractPdfTextInWorker', () => {
+  it('kills a stuck worker instead of blocking the event loop forever', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'norma-pdf-'));
+    const script = join(dir, 'hung-worker.js');
+    writeFileSync(
+      script,
+      `const { parentPort } = require('node:worker_threads');
+setTimeout(() => parentPort.postMessage({ ok: true, text: 'late' }), 30_000);
+`,
+    );
+    try {
+      await expect(
+        extractPdfTextInWorker(Buffer.from('%PDF'), script, 80),
+      ).rejects.toThrow(/PDF extract timeout after 0s/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

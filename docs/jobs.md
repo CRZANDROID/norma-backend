@@ -18,6 +18,8 @@ Crawl no extrae ni clasifica. Extract no es LLM. Informe PDF = S9.
 
 Si extract/classify/crawl se quedan `stalled` (restart del worker, PDF que bloquea el event loop), BullMQ falla el job. El worker **actualiza Postgres**: `job_runs` deja de estar `RUNNING` y el documento pasa a `FAILED` si seguía a medias. Si no, el panel se queda en “Rastreando / Extrayendo / Analizando” aunque Redis ya no tenga trabajo. Al arrancar, el worker reencola documentos huérfanos de las últimas 48 h y cierra crawls abandonados. Logs: `crawl page N/M` y `extract start` (el crawl ya no calla hasta el final).
 
+PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el event loop de Nest (`pdf-extract.worker.js`). Sin clientes en `client_sources` el classify se salta (0 hallazgos); el texto igual queda listo. Cuando un cliente se vincula: `POST /documents/:id/classify` o un rastreo nuevo. No hace falta apagar la fuente.
+
 ---
 
 ## Env
@@ -32,6 +34,7 @@ Si extract/classify/crawl se quedan `stalled` (restart del worker, PDF que bloqu
 | `CLASSIFY_CONCURRENCY` | igual que `JOBS_CONCURRENCY` | Solo cola `document.classify` (bajar si OpenAI 429) |
 | `CRAWL_LOCK_MS` | `900000` (15 min) | Lock BullMQ del crawl + renew 15 s |
 | `DOCUMENT_LOCK_MS` | `600000` (10 min) | Lock extract / normalize / classify (PDFs grandes y OpenAI > 30 s) |
+| `EXTRACT_PDF_TIMEOUT_MS` | `180000` (3 min) | unpdf corre en un **worker thread**. Si un PDF se atasca, ese documento falla; crawl y classify siguen renovando lock |
 | `CRAWL_MAX_BYTES` | `10000000` | Homes de congresos a veces > 2–3 MB |
 | `CRAWL_MAX_PAGES` | `80` | Páginas del mismo sitio por job |
 | `OPENAI_API_KEY` | — | Classify y `POST /ai/ask`; vacío → 503 |

@@ -62,14 +62,22 @@ async function withRedis<T>(
   }
 
   const redis = new Redis(url, {
-    maxRetriesPerRequest: null,
+    maxRetriesPerRequest: 1,
     enableReadyCheck: false,
+    connectTimeout: 4000,
+    commandTimeout: 8000,
+    retryStrategy: () => null,
   });
   try {
     return await fn(redis);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`Redis: no se pudieron vaciar colas (${message})`);
+    if (/127\.0\.0\.1|localhost|ECONNREFUSED/i.test(`${url} ${message}`)) {
+      console.warn(
+        'Redis de este .env no es el de Render. Vacía el Key Value (Flush) en el dashboard o los jobs viejos volverán a escribir el día borrado.',
+      );
+    }
     return null;
   } finally {
     redis.disconnect();
