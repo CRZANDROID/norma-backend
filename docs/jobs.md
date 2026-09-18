@@ -29,6 +29,7 @@ Crawl no extrae ni clasifica. Extract no es LLM. Informe PDF = S9.
 | `JOBS_CONCURRENCY` | `2` | extract + normalize |
 | `CLASSIFY_CONCURRENCY` | igual que `JOBS_CONCURRENCY` | Solo cola `document.classify` (bajar si OpenAI 429) |
 | `CRAWL_LOCK_MS` | `900000` (15 min) | Lock BullMQ del crawl + renew 15 s |
+| `DOCUMENT_LOCK_MS` | `600000` (10 min) | Lock extract / normalize / classify (PDFs grandes y OpenAI > 30 s) |
 | `CRAWL_MAX_BYTES` | `10000000` | Homes de congresos a veces > 2–3 MB |
 | `CRAWL_MAX_PAGES` | `80` | Páginas del mismo sitio por job |
 | `OPENAI_API_KEY` | — | Classify y `POST /ai/ask`; vacío → 503 |

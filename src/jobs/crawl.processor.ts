@@ -34,9 +34,9 @@ import type {
 } from './types';
 import {
   DEFAULT_CRAWL_LOCK_MS,
-  DEFAULT_CRAWL_LOCK_RENEW_MS,
   DEFAULT_QUEUE_CONCURRENCY,
   parsePositiveInt,
+  workerLockOptions,
 } from './concurrency';
 import {
   ORIGIN_PAGE_PARTIAL,
@@ -89,8 +89,7 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
       {
         connection: this.redis,
         concurrency,
-        lockDuration,
-        lockRenewTime: DEFAULT_CRAWL_LOCK_RENEW_MS,
+        ...workerLockOptions(lockDuration),
       },
     );
     this.worker.on('failed', (job, err) => {

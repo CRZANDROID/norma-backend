@@ -1,6 +1,9 @@
 import {
+  DEFAULT_DOCUMENT_LOCK_MS,
+  DEFAULT_LOCK_RENEW_MS,
   DEFAULT_QUEUE_CONCURRENCY,
   parsePositiveInt,
+  workerLockOptions,
 } from './concurrency';
 
 describe('parsePositiveInt', () => {
@@ -15,5 +18,14 @@ describe('parsePositiveInt', () => {
   it('floors a positive number', () => {
     expect(parsePositiveInt('4', DEFAULT_QUEUE_CONCURRENCY)).toBe(4);
     expect(parsePositiveInt('3.9', 2)).toBe(3);
+  });
+});
+
+describe('workerLockOptions', () => {
+  it('pairs lockDuration with the shared renew interval', () => {
+    expect(workerLockOptions(DEFAULT_DOCUMENT_LOCK_MS)).toEqual({
+      lockDuration: DEFAULT_DOCUMENT_LOCK_MS,
+      lockRenewTime: DEFAULT_LOCK_RENEW_MS,
+    });
   });
 });
