@@ -15,7 +15,7 @@ Detalle backend: [jobs.md](./jobs.md).
 
 Query opcional `date=YYYY-MM-DD`. Default: hoy en `America/Mexico_City` (igual que el schedule de fuentes). Fecha inválida → `400`.
 
-Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los tres `progress`. Documentos y hallazgos **no se borran**; se leen con `GET /documents?sourceId=` y `GET /findings?sourceId=`. El crawl guarda **varias** páginas por fuente; este GET sigue siendo **una fila por fuente**. Muchas filas `queued` a la vez (catálogo entero encolado) es el drenaje esperado: `waiting` alto no es un error.
+Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los tres `progress`. Documentos y hallazgos **no se borran**; se leen con `GET /documents?sourceId=` y `GET /findings?sourceId=`. El crawl guarda **varias** páginas por fuente (hasta 200, profundidad 3); este GET sigue siendo **una fila por fuente**. Un rastreo de gaceta grande puede tardar 10–30 min con logs `crawl page N/M`; no es un cuelgue. Muchas filas `queued` a la vez (catálogo entero encolado) es el drenaje esperado: `waiting` alto no es un error.
 
 ## Endpoints
 
@@ -30,6 +30,8 @@ Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los
 `GET /documents` puede devolver `processingStatus: "CLASSIFIED"` (Sprint 7). El union del front debe incluirlo; no descartar filas con status desconocido.
 
 **No pollar `GET /documents?limit=800` ni `GET /findings` cada pocos segundos.** El panel solo refresca `/jobs/progress`, `/documents/progress` y `/findings/progress` (15 s si hay `queued` / `running` / `extracting` / `classifying`, 45 s si no). Cuando el rastreo de una fuente pasa a `crawled` / `failed` / `skipped`, pide extract y análisis **enseguida** (no esperes el siguiente ciclo): en fuentes cortas extract+classify caben entre dos polls de 15 s. El listado de páginas se pide al entrar y al abrir una fuente (`sourceId`). El listado de hallazgos es otra pantalla (`GET /findings`). Poll agresivo + CORS `OPTIONS` satura el plan gratuito de Render (`429` / `502` / `503`).
+
+**Pestaña en segundo plano:** el navegador frena o pausa los `setInterval` sin foco. Pausar el timer con `document.hidden` está bien (ahorra Render). Al volver a visible (`visibilitychange` → `visible`, o `pageshow` tras bfcache) hay que **pedir los tres `progress` enseguida**, no arrancar un conteo de 15 s y esperar. Pintar esa respuesta aunque el lote ya haya terminado. Si el resume del poll está atado a “¿el último snapshot seguía `running`/`extracting`/`classifying`?”, ocurre esto: una petición en background (o ninguna) deja el store en `crawled` y el badge en “Rastreando”; al volver no se reanuda el timer y la UI nunca se entera. El intervalo 15/45 se decide **después** de esa respuesta, no con el snapshot viejo.
 
 ## Rastreo — `GET /jobs/progress`
 

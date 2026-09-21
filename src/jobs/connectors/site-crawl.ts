@@ -11,12 +11,12 @@ import type {
   CrawlOutcome,
 } from './types';
 
-const DEFAULT_MAX_PAGES = 80;
-const ABSOLUTE_MAX_PAGES = 80;
-const DEFAULT_MAX_DEPTH = 2;
+const DEFAULT_MAX_PAGES = 200;
+const ABSOLUTE_MAX_PAGES = 200;
+const DEFAULT_MAX_DEPTH = 3;
 const DEFAULT_DELAY_MS = 150;
 const START_PAGE_TIMEOUT_MS = 25_000;
-const INNER_PAGE_TIMEOUT_MS = 12_000;
+const INNER_PAGE_TIMEOUT_MS = 20_000;
 /** Fallos de red/TLS seguidos: el origen está caído; no drenar el menú. */
 export const ORIGIN_CIRCUIT_FAILURES = 6;
 

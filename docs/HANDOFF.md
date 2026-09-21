@@ -24,7 +24,7 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 | 9 | PDF draft + lote + `/informes` VCGA | Generar en `/alertas`; ver/descargar/regenerar en Informes; envío pendiente |
 | 10 | Pendiente | Portal `CLIENT_USER`; reutiliza `/informes` (solo enviados) |
 
-**Siguiente en este repo:** capacitación en staging (catálogo vacío; los usuarios crean clientes/fuentes). S9 resto (envío/`autoSend`) sigue pendiente. Contrato: [TRAINING.md](./TRAINING.md), [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+**Siguiente en este repo:** capacitación hoy ([TRAINING.md](./TRAINING.md)). S9 resto (envío/`autoSend`) sigue pendiente. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 
 ---
 
@@ -63,7 +63,7 @@ Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_st
 - Fuentes: `jurisdiction` + `stateCode` + `schedule`; `searchFocus` / `keywordsGuide` (`string[]`)
 - Delivery 1:1: `suggestedAction` por nivel + `autoSend` (S9)
 - `GET /ai/status`, `POST /ai/ask` (503 sin `OPENAI_API_KEY`)
-- Crawl: cola `source.crawl`, `GET /jobs/status` (`queues` + `consumers`; `worker` = hay consumidor, no el flag del API), `POST /jobs/crawl` / `crawl/all`, `job_runs`. Tope `CRAWL_MAX_PAGES`. Concurrencia de sitios: `CRAWL_CONCURRENCY` (default 2). Lock crawl ~15 min; extract/classify `DOCUMENT_LOCK_MS` ~10 min. Sitio caído = error de origen. Compose: `api` sin workers + `worker`. El seed completo (`SEED_CATALOG` default) deja ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. **DB actual (capacitación):** catálogo vacío; no corras seed completo. Stall/restart: cierra `job_runs` y documentos a medias (el panel deja de girar); al boot reencola huérfanos 48 h.
+- Crawl: cola `source.crawl`, `GET /jobs/status` (`queues` + `consumers`; `worker` = hay consumidor, no el flag del API), `POST /jobs/crawl` / `crawl/all`, `job_runs`. Tope `CRAWL_MAX_PAGES` 200 (profundidad 3). Concurrencia de sitios: `CRAWL_CONCURRENCY` (default 2, **no subir**). Lock crawl ~30 min; extract/classify `DOCUMENT_LOCK_MS` ~15 min. Body HTTP 25 MB; classify 25k caracteres. Sitio caído = error de origen. Compose: `api` sin workers + `worker`. El seed completo (`SEED_CATALOG` default) deja ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. **DB actual (pruebas de informe):** Arca Continental vinculada a `dof`, `diputados-gaceta`, `jalisco-congreso`, `cofepris` (ACTIVE) y `conamer` (INACTIVE, demo de capacitación: activar + rastrear). El resto de congresos del seed está INACTIVE. Stall/restart: cierra `job_runs` y documentos a medias; PDF en worker thread.
 - Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
 - Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
 - Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }` (`excludedFromNextReport`, `lote`, `counts.included/excluded/sent`). `PATCH /findings/:id` (`title`/`justification`/`impact`), `POST /findings/:id/exclude|include|rewrite` (`rewrite-v6`: `rewriteNote`, o 422 con el limitante si el pedido no se sostiene con el documento). `GET /findings/:id`, `POST /documents/:id/classify` (ADMIN). Classify `classify-v2`.

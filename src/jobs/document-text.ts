@@ -1,4 +1,11 @@
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { Worker } from 'node:worker_threads';
+import {
+  DEFAULT_PDF_EXTRACT_MS,
+  parsePositiveInt,
+} from './concurrency';
 
 /** Texto visible mínimo para no encolar normalize (HTML vacío / captcha / stub). */
 export const MIN_EXTRACTED_CHARS = 80;
@@ -317,7 +324,7 @@ export type NormalizedDocumentFicha = {
   contentHash: string;
 };
 
-export async function extractPdfText(buffer: Buffer): Promise<string> {
+export async function extractPdfTextInProcess(buffer: Buffer): Promise<string> {
   const { extractText, getDocumentProxy } = await import('unpdf');
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
   const { text } = await extractText(pdf, { mergePages: true });
@@ -325,6 +332,79 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     return text.join('\n\n').trim();
   }
   return String(text ?? '').trim();
+}
+
+type PdfWorkerResult =
+  | { ok: true; text: string }
+  | { ok: false; error: string };
+
+/**
+ * Parse PDF off the Nest event loop so crawl/classify can still renew BullMQ locks.
+ * Production uses dist/.../pdf-extract.worker.js; tests without that file stay in-process.
+ */
+export async function extractPdfText(buffer: Buffer): Promise<string> {
+  const timeoutMs = parsePositiveInt(
+    process.env.EXTRACT_PDF_TIMEOUT_MS,
+    DEFAULT_PDF_EXTRACT_MS,
+  );
+  const script = join(__dirname, 'pdf-extract.worker.js');
+  if (!existsSync(script)) {
+    return extractPdfTextInProcess(buffer);
+  }
+  return extractPdfTextInWorker(buffer, script, timeoutMs);
+}
+
+export async function extractPdfTextInWorker(
+  buffer: Buffer,
+  script: string,
+  timeoutMs: number,
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const worker = new Worker(script, {
+      workerData: Uint8Array.from(buffer),
+    });
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finish = (fn: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      fn();
+      void worker.terminate();
+    };
+    timer = setTimeout(() => {
+      finish(() =>
+        reject(
+          new Error(
+            `PDF extract timeout after ${Math.round(timeoutMs / 1000)}s`,
+          ),
+        ),
+      );
+    }, timeoutMs);
+    worker.on('message', (msg: PdfWorkerResult) => {
+      finish(() => {
+        if (msg && msg.ok === false) {
+          reject(new Error(msg.error || 'PDF extract failed'));
+          return;
+        }
+        resolve(msg?.ok === true ? msg.text : '');
+      });
+    });
+    worker.on('error', (err) => {
+      finish(() => reject(err));
+    });
+    worker.on('exit', (code) => {
+      finish(() => {
+        if (code !== 0) {
+          reject(new Error(`PDF extract worker exit ${code}`));
+        }
+      });
+    });
+  });
 }
 
 export async function extractWordText(buffer: Buffer): Promise<string> {

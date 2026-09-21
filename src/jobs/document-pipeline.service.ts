@@ -60,6 +60,9 @@ export class DocumentPipelineService {
 
       if (pdf) {
         kind = 'pdf';
+        this.logger.log(
+          `extract pdf start document=${doc.id} bytes=${object.data.length}`,
+        );
         extracted = await extractPdfText(object.data);
       } else if (word) {
         kind = 'doc';

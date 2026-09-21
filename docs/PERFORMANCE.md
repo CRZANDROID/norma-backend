@@ -13,7 +13,7 @@ Capacitación y este lab **comparten Supabase**. Al cerrar el día: `pnpm prisma
 - **`GET /health` &lt; 1 s** — el panel se puede usar. 3–10 s o error = Nest HTTP saturado. Con el split, waiting alto **no** debe tumbar health.
 - **`waiting`** — jobs en fila. **Alto es normal** tras un pico. Debe bajar a 0 mientras drena.
 - **`active`** — corriendo ahora. Crawl: tope `CRAWL_CONCURRENCY` (default 2). Extract/normalize: `JOBS_CONCURRENCY`. Classify: `CLASSIFY_CONCURRENCY`.
-- **`failed` / `stalled`** — se rompió, o BullMQ creyó que el job se colgó. Crawl: lock ~15 min. Extract/classify: lock ~10 min (`DOCUMENT_LOCK_MS`). Sin eso, OpenAI o un PDF enorme marcan `Missing lock` / stalled a los ~30 s aunque el hallazgo sí se haya guardado. En esta versión de BullMQ `stalled` no es un tipo de job: sale `0` en `/jobs/status`. Redis de colas: política **noeviction** (no `allkeys-lru`).
+- **`failed` / `stalled`** — se rompió, o BullMQ creyó que el job se colgó. Crawl: lock ~30 min. Extract/classify: lock ~15 min (`DOCUMENT_LOCK_MS`). Sin eso, OpenAI o un PDF enorme marcan `Missing lock` / stalled a los ~30 s aunque el hallazgo sí se haya guardado. En esta versión de BullMQ `stalled` no es un tipo de job: sale `0` en `/jobs/status`. Redis de colas: política **noeviction** (no `allkeys-lru`).
 
 Termómetro: `GET /jobs/status` → `queues` (las 4 colas) + `consumers` + `worker` (true si hay consumidor de `source.crawl`, aunque el API tenga `JOBS_WORKER=false`). Sin Redis, cada cola es `null`. El sistema está sano si health &lt; 1 s y `queues["source.crawl"].active` ≤ `CRAWL_CONCURRENCY`.
 
@@ -23,7 +23,7 @@ Termómetro: `GET /jobs/status` → `queues` (las 4 colas) + `consumers` + `work
 docker compose up --build
 ```
 
-En `.env` para las primeras corridas: `CRAWL_MAX_PAGES=10` (rebuild). Un run con default 80 solo cuando pasen las fases 1–3.
+En `.env` para las primeras corridas: `CRAWL_MAX_PAGES=10` (rebuild). Un run con default 200 solo cuando pasen las fases 1–3.
 
 Fuentes `WEB` ACTIVE:
 
@@ -69,7 +69,7 @@ Fase 5 Render: no corrida (local pasó). Cierre: wipe ejecutado (solo ADMIN; cat
 
 **Split API/worker (2026-09-17):** Compose `api` (`JOBS_WORKER=false`, health) + `worker` (`concurrency=2`, `lockMs=900000`, scheduler on). Cinco fuentes `perf-*` encoladas (`POST /jobs/crawl` × 5); el cron del worker sumó las claves `:scheduled` (pico `source.crawl` waiting 7 / active 2). Health **102–251 ms**, `healthFails=0`, `worker=true`, `crawlConsumers=1`. `/health` se mantuvo &lt; 1 s **mientras** `waiting` &gt; 0.
 
-**Render extract/classify stalled (2026-09-18):** worker Starter 512 MB + lock default ~30 s → `could not renew lock` / `Missing lock` / `job stalled more than allowable limit`. El hallazgo a veces sí se guardó, pero **Postgres no se cerraba** (`job_runs` `RUNNING`, docs `RECEIVED`/`READY_FOR_AI`) y el panel giraba para siempre. Fix: `DOCUMENT_LOCK_MS` ~10 min; el `failed` del worker marca `FAILED` / cierra el crawl; al boot reencola huérfanos 48 h. Redis: `noeviction`. RAM: Standard 2 GB si los PDF tiran el proceso.
+**Render extract/classify stalled (2026-09-18):** worker Starter 512 MB + lock default ~30 s → `could not renew lock` / `Missing lock` / `job stalled more than allowable limit`. El hallazgo a veces sí se guardó, pero **Postgres no se cerraba** (`job_runs` `RUNNING`, docs `RECEIVED`/`READY_FOR_AI`) y el panel giraba para siempre. Fix: `DOCUMENT_LOCK_MS` ~10 min; el `failed` del worker marca `FAILED` / cierra el crawl; al boot reencola huérfanos 48 h. unpdf en **worker thread** (`EXTRACT_PDF_TIMEOUT_MS` 3 min) para que un PDF de Congreso BC no stalee `perf-agu` ni el catálogo real. Redis: `noeviction`. RAM: Standard 2 GB si los PDF tiran el proceso.
 
 ## Después (cuando el drenaje sea el problema, no el HTTP)
 

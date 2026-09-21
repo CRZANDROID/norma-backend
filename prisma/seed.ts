@@ -384,7 +384,13 @@ async function main() {
     });
   }
 
-  for (const code of ['dof', 'diputados-gaceta']) {
+  for (const code of [
+    'dof',
+    'diputados-gaceta',
+    'jalisco-congreso',
+    'cofepris',
+    'conamer',
+  ]) {
     const source = await prisma.source.findUnique({ where: { code } });
     if (!source) {
       continue;
@@ -399,7 +405,7 @@ async function main() {
   }
 
   console.log(
-    `Seed completed: Arca (+ fiscal/contact/delivery), DOF+Diputados ACTIVE, Senado/mañanera/COFEPRIS/PROFECO INACTIVE, 32 congresos, admin ${seedEmail}`,
+    `Seed completed: Arca (+ fiscal/contact/delivery), DOF+Diputados ACTIVE, Senado/mañanera/COFEPRIS/PROFECO/CONAMER INACTIVE, 32 congresos, admin ${seedEmail}`,
   );
 }
 

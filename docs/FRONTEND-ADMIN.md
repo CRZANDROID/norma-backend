@@ -73,7 +73,7 @@ UI: Federal vs Estatal + selector de entidad; horario de rastreo (no combo daily
 
 32 congresos en seed (`jalisco-congreso` conserva el code). **ACTIVE (crawl):** AGU, BC, BCS, Campeche, Chihuahua, Jalisco + federales `dof`, `diputados-gaceta`. El resto INACTIVE. Scheduler ignora INACTIVE.
 
-INACTIVE de catálogo (sin conector): `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`. YouTube / X / Facebook = MVP **después de S10** ([PRODUCT.md](./PRODUCT.md)).
+INACTIVE de catálogo (activar a mano): `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`, `conamer`. YouTube / X / Facebook = MVP **después de S10** ([PRODUCT.md](./PRODUCT.md)).
 
 ---
 
