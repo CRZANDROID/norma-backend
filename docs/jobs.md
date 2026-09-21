@@ -29,15 +29,17 @@ PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el 
 | `REDIS_URL` | — | Vacío → `POST /jobs/crawl` 503. Compose pisa `redis://redis:6379` |
 | `JOBS_WORKER` | on salvo `false` | Compose `api` = `false`; `worker` = on |
 | `JOBS_SCHEDULER` | off en dev/test salvo `true`; on en prod salvo `false` | Cron en el **worker**. Compose `api` = `false`, `worker` = `true` |
-| `CRAWL_CONCURRENCY` | `2` | Sitios a la vez. Da igual si hay 8 o 800 ACTIVE |
-| `JOBS_CONCURRENCY` | `2` | extract + normalize |
+| `CRAWL_CONCURRENCY` | `2` | Sitios a la vez. Da igual si hay 8 o 800 ACTIVE. **No subir** en el piloto (RAM + origen) |
+| `JOBS_CONCURRENCY` | `2` | extract + normalize. **No subir** a ciegas |
 | `CLASSIFY_CONCURRENCY` | igual que `JOBS_CONCURRENCY` | Solo cola `document.classify` (bajar si OpenAI 429) |
-| `CRAWL_LOCK_MS` | `900000` (15 min) | Lock BullMQ del crawl + renew 15 s |
-| `DOCUMENT_LOCK_MS` | `600000` (10 min) | Lock extract / normalize / classify (PDFs grandes y OpenAI > 30 s) |
-| `EXTRACT_PDF_TIMEOUT_MS` | `180000` (3 min) | unpdf corre en un **worker thread**. Si un PDF se atasca, ese documento falla; crawl y classify siguen renovando lock |
-| `CRAWL_MAX_BYTES` | `10000000` | Homes de congresos a veces > 2–3 MB |
-| `CRAWL_MAX_PAGES` | `80` | Páginas del mismo sitio por job |
+| `CRAWL_LOCK_MS` | `1800000` (30 min) | Lock BullMQ del crawl + renew 15 s |
+| `DOCUMENT_LOCK_MS` | `900000` (15 min) | Lock extract / normalize / classify |
+| `EXTRACT_PDF_TIMEOUT_MS` | `300000` (5 min) | unpdf en worker thread; ese PDF falla, el resto sigue |
+| `CRAWL_MAX_BYTES` | `25000000` | Body HTTP por página (homes/PDFs pesados) |
+| `CRAWL_MAX_PAGES` | `200` | Páginas del mismo sitio por job (tope absoluto 200) |
 | `OPENAI_API_KEY` | — | Classify y `POST /ai/ask`; vacío → 503 |
+
+No subir en el piloto: `CRAWL_CONCURRENCY`, `JOBS_CONCURRENCY`, ni quitar mismo host / circuito / delay 150 ms. Si Render ya tiene `CRAWL_MAX_PAGES`, `CRAWL_MAX_BYTES` o `CRAWL_LOCK_MS` en el Environment, **pisa** estos defaults: borrar o actualizar esas claves al desplegar.
 
 Render: **New → Key Value** (misma región) → Internal URL → `REDIS_URL`. Detalle: [render-deploy.md](./render-deploy.md).  
 Storage: `SUPABASE_*` → bucket; si no, `data/crawl/` (gitignored).
@@ -52,7 +54,7 @@ Storage: `SUPABASE_*` → bucket; si no, `data/crawl/` (gitignored).
 
 Scheduler: fuentes `ACTIVE` cuyo día (`scheduleWeekdays`, 1=lunes) y hora local (`scheduleTimezone`) ya alcanzaron `scheduleTime`. Idempotencia: `{sourceCode}:{YYYY-MM-DD}:scheduled`.
 
-**Alcance:** parte de `Source.url`, sigue links del **mismo host** (con/sin `www`). Prioriza gaceta, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs. No redes, login, assets, transmisiones en vivo ni transparencia masiva. Meta refresh: no guarda el trampolín; sigue destino en el mismo host o subdominio `*.gob.mx`. Tope: profundidad 2 + `CRAWL_MAX_PAGES`. PDF/Word de un listado van primero. `meta.json` se descarta.
+**Alcance:** parte de `Source.url`, sigue links del **mismo host** (con/sin `www`). Prioriza gaceta, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs. No redes, login, assets, transmisiones en vivo ni transparencia masiva. Meta refresh: no guarda el trampolín; sigue destino en el mismo host o subdominio `*.gob.mx`. Tope: profundidad 3 + `CRAWL_MAX_PAGES` (200). PDF/Word de un listado van primero. `meta.json` se descarta. Classify usa hasta 25k caracteres del texto.
 
 **ACTIVE en seed:** `dof`, `diputados-gaceta`, `jalisco-congreso`, `congreso-agu`, `congreso-bcn`, `congreso-bcs`, `congreso-cam`, `congreso-chh`. Otras ACTIVE con URL usan el mismo HTTP genérico.
 

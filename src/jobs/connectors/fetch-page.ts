@@ -23,8 +23,8 @@ export type FetchedPage = {
 };
 
 const DEFAULT_TIMEOUT_MS = 25_000;
-/** Tope por defecto: homes de congresos estatales a veces pasan de 2–3 MB. */
-export const DEFAULT_MAX_BYTES = 10_000_000;
+/** Homes y PDFs de gaceta a menudo pasan de 2–3 MB; 25 MB cubre decretos pesados. */
+export const DEFAULT_MAX_BYTES = 25_000_000;
 const USER_AGENT =
   'NORMA-piloto/0.7 (monitoreo regulatorio; crawl de catálogo oficial)';
 

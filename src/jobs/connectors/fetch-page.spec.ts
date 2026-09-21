@@ -16,10 +16,10 @@ describe('fetch-page size limit', () => {
     }
   });
 
-  it('defaults to 10 MB and accepts env override', () => {
+  it('defaults to 25 MB and accepts env override', () => {
     delete process.env.CRAWL_MAX_BYTES;
     expect(resolveMaxBytes()).toBe(DEFAULT_MAX_BYTES);
-    expect(DEFAULT_MAX_BYTES).toBe(10_000_000);
+    expect(DEFAULT_MAX_BYTES).toBe(25_000_000);
 
     process.env.CRAWL_MAX_BYTES = '8000000';
     expect(resolveMaxBytes()).toBe(8_000_000);

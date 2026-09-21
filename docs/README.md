@@ -20,7 +20,7 @@ Crawl → extraer → clasificar (S7, hecho)
 | Orden | Doc | Para qué |
 |-------|-----|----------|
 | 1 | [HANDOFF.md](./HANDOFF.md) | Estado vivo y siguiente paso |
-| 2 | [TRAINING.md](./TRAINING.md) | Staging limpio / capacitación (S9 envío sigue pendiente) |
+| 2 | [TRAINING.md](./TRAINING.md) | Cómo llenar clientes y fuentes (capacitación). S9 envío sigue pendiente |
 | 3 | [PRODUCT.md](./PRODUCT.md) | Qué es el producto y qué queda fuera |
 | 4 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Stack, JWT Nest, multi-tenant |
 | 5 | [SPRINTS.md](./SPRINTS.md) | Piloto S1–S10 |

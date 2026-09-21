@@ -21,7 +21,7 @@ El seed es idempotente (`upsert`). **Default** deja:
 - Perfil `seed-arca-profile`
 - Fuentes federales `dof`, `diputados-gaceta` (ACTIVE)
 - 32 congresos estatales (ACTIVE crawl: AGU, BC, BCS, Campeche, Chihuahua, Jalisco; el resto INACTIVE). Shape: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md)
-- Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`
+- Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`, `conamer`
 - Config de entrega/semáforo del cliente Arca (acciones sugeridas de la matriz)
 - Usuario ADMIN con el email/password del `.env`
 

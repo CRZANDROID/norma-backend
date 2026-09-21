@@ -1,5 +1,5 @@
 export const CLASSIFY_PROMPT_VERSION = 'classify-v2';
-export const CLASSIFY_TEXT_LIMIT = 10_000;
+export const CLASSIFY_TEXT_LIMIT = 25_000;
 
 /** Plantilla del briefing. Classify y rewrite la comparten para no perder fecha/acto al editar. */
 export const BRIEFING_JUSTIFICATION_SHAPE = `Justification en este orden (omite el bloque si el texto no da datos):

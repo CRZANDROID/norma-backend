@@ -74,7 +74,29 @@ export const MATRIX_EXTRA_SOURCES = [
     ],
     searchFocus:
       'Criterios regulatorios, campañas, verificaciones, alertas o publicaciones vinculadas al sector',
-    notes: 'Matriz operativa #10 (autoridades). INACTIVE hasta conector S5.',
+    notes: 'Matriz operativa #10 (autoridades). Crawl HTTP genérico de gob.mx.',
+    status: 'INACTIVE' as const,
+  },
+  {
+    code: 'conamer',
+    name: 'CONAMER — Comisión Nacional de Mejora Regulatoria',
+    url: 'https://www.gob.mx/conamer',
+    scheduleWeekdays: THRICE_WEEKDAYS,
+    sections: [['Comunicados'], ['Anteproyectos'], ['Consultas públicas']],
+    keywordsGuide: [
+      'CONAMER',
+      'mejora regulatoria',
+      'AIR',
+      'MIR',
+      'anteproyecto',
+      'consulta pública',
+      'trámites',
+      'impacto regulatorio',
+    ],
+    searchFocus:
+      'Anteproyectos, análisis de impacto, consultas públicas o acuerdos que afecten trámites, normas o cargas al sector de bebidas y alimentos',
+    notes:
+      'Matriz autoridades. INACTIVE a propósito: ejemplo de capacitación (activar y rastrear).',
     status: 'INACTIVE' as const,
   },
   {
