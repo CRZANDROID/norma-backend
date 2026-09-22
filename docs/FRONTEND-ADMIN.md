@@ -98,7 +98,7 @@ Crawl (solo ADMIN; Redis en Nest, no en el front):
 | `POST` | `/jobs/crawl` | `{ "sourceCode": "dof" }` o `{ "sourceId": "..." }` |
 | `POST` | `/jobs/crawl/all` | — |
 
-`configured: false` → banner; no pintar HTML crudo aquí. `queues.*.waiting` alto tras «Rastrear todo» es el pico encolado, no un error. `worker: true` = hay consumidor BullMQ (aunque el HTTP no procese jobs). Detalle: [jobs.md](./jobs.md). Panel: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md).
+`configured: false` → banner; no pintar HTML crudo aquí. HUD de rastreo: `POST /jobs/crawl/all` / `extract/all` / `classify/all` (detalle [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md)). `POST /jobs/crawl/all` **no** recrawlea fuentes que hoy ya tengan crawl SUCCESS. `queues.*.waiting` alto es el pico encolado **solo de las que faltaban**. `worker: true` = hay consumidor BullMQ. Detalle: [jobs.md](./jobs.md).
 
 ---
 

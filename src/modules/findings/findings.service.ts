@@ -26,6 +26,7 @@ import { isExtractableCrawlFile, isMetaCrawlFilename } from '../../jobs/document
 import {
   listTrackingSources,
   loadCrawlInFlightSourceIds,
+  trackingDaySummary,
 } from '../../jobs/progress-board';
 import type { ProgressDateQueryDto } from '../../jobs/dto/progress-date.query.dto';
 import {
@@ -251,31 +252,37 @@ export class FindingsService {
       findingsBySource.set(finding.sourceId, list);
     }
 
+    const sourceRows = sources.map((source) => {
+      const dayDocs = docsBySource.get(source.id) ?? [];
+      const dayFindings = findingsBySource.get(source.id) ?? [];
+      const signals = analysisDaySignals(
+        dayDocs,
+        dayFindings.length,
+        crawlInFlightIds.has(source.id),
+      );
+      const status = mapAnalysisProgressStatus(signals);
+      const counts = emptyImpactCounts();
+      for (const finding of dayFindings) {
+        addImpactCount(counts, finding.impact);
+      }
+
+      return {
+        sourceId: source.id,
+        sourceName: source.name,
+        status,
+        label: analysisProgressLabel(status),
+        counts,
+        note: analysisProgressNote(status, signals),
+      };
+    });
+
     return {
       date,
-      sources: sources.map((source) => {
-        const dayDocs = docsBySource.get(source.id) ?? [];
-        const dayFindings = findingsBySource.get(source.id) ?? [];
-        const signals = analysisDaySignals(
-          dayDocs,
-          dayFindings.length,
-          crawlInFlightIds.has(source.id),
-        );
-        const status = mapAnalysisProgressStatus(signals);
-        const counts = emptyImpactCounts();
-        for (const finding of dayFindings) {
-          addImpactCount(counts, finding.impact);
-        }
-
-        return {
-          sourceId: source.id,
-          sourceName: source.name,
-          status,
-          label: analysisProgressLabel(status),
-          counts,
-          note: analysisProgressNote(status, signals),
-        };
-      }),
+      summary: trackingDaySummary(
+        sourceRows.map((row) => row.status),
+        ['classifying'],
+      ),
+      sources: sourceRows,
     };
   }
 

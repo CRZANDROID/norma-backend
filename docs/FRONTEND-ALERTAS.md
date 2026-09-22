@@ -170,6 +170,8 @@ Lo mismo **más** `justification` (briefing en Markdown: acto, cifras, listas, p
 
 Solo ADMIN. Body vacío. **201** no trae el finding. Canónicos en `READY_FOR_AI` o `CLASSIFIED`. `DEDUPED` → `400`. `503` sin Redis o sin `OPENAI_API_KEY`.
 
+Lote de una fuente (rastreo ya hecho, cliente ligado después): `POST /jobs/classify` `{ sourceId }`. **400** sin clientes. Poll igual que abajo.
+
 Poll: 15 s / 45 s, máx. ~8 intentos. `GET /findings?documentId=` (lee `items`) o `GET /documents/:id` hasta `CLASSIFIED`. No pollar listas grandes.
 
 El front debe aceptar `processingStatus: "CLASSIFIED"` en documentos (si no, desaparecen del registro).

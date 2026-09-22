@@ -98,6 +98,7 @@ describe('Jobs crawl (e2e)', () => {
     expect(res.body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(Array.isArray(res.body.sources)).toBe(true);
     expect(res.body.sources.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.summary.total).toBe(res.body.sources.length);
     for (const row of res.body.sources) {
       expect(typeof row.sourceName).toBe('string');
       expect(typeof row.status).toBe('string');
@@ -135,5 +136,52 @@ describe('Jobs crawl (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ sourceCode: 'dof' })
       .expect(503);
+  });
+
+  it('rejects unauthenticated extract and classify', async () => {
+    await request(app.getHttpServer())
+      .post('/jobs/extract')
+      .send({ sourceCode: 'dof' })
+      .expect(401);
+    await request(app.getHttpServer())
+      .post('/jobs/classify')
+      .send({ sourceCode: 'dof' })
+      .expect(401);
+    await request(app.getHttpServer()).post('/jobs/extract/all').expect(401);
+    await request(app.getHttpServer()).post('/jobs/classify/all').expect(401);
+  });
+
+  it('POST /jobs/classify without source is 400', async () => {
+    await request(app.getHttpServer())
+      .post('/jobs/classify')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({})
+      .expect(400);
+  });
+
+  it('POST /jobs/classify on an ACTIVE source with no clients is 400', async () => {
+    const suffix = Date.now();
+    const created = await request(app.getHttpServer())
+      .post('/sources')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: `Fuente sin cliente ${suffix}`,
+        code: `e2e-noclient-${suffix}`,
+        category: 'MEDIA',
+        platform: 'WEB',
+        url: 'https://example.com/e2e-noclient',
+      })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .post('/jobs/classify')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ sourceId: created.body.id })
+      .expect(400);
+    expect(res.body.message).toMatch(/no tiene clientes vinculados/i);
+
+    await request(app.getHttpServer())
+      .patch(`/sources/${created.body.id}/deactivate`)
+      .set('Authorization', `Bearer ${adminToken}`);
   });
 });

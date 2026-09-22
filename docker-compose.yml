@@ -23,6 +23,7 @@ services:
       PORT: "3000"
       JOBS_WORKER: "false"
       JOBS_SCHEDULER: "false"
+      DATABASE_CONNECTION_LIMIT: "2"
     ports:
       - "3000:3000"
     volumes:
@@ -53,6 +54,7 @@ services:
       JOBS_WORKER: "true"
       JOBS_SCHEDULER: "true"
       SKIP_PRISMA_MIGRATE: "true"
+      DATABASE_CONNECTION_LIMIT: "2"
     volumes:
       - ./data/crawl:/app/data/crawl
     depends_on:

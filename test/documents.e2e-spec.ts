@@ -71,6 +71,23 @@ describe('Documents (e2e)', () => {
     await request(app.getHttpServer()).get('/documents/progress').expect(401);
   });
 
+  it('GET /documents/progress counts only the requested civil day', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/documents/progress?date=2099-06-15')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.date).toBe('2099-06-15');
+    expect(res.body.summary.total).toBe(res.body.sources.length);
+    expect(res.body.summary.done).toBe(0);
+    expect(res.body.summary.inFlight).toBe(0);
+    expect(res.body.summary.pending).toBe(res.body.sources.length);
+    for (const row of res.body.sources) {
+      expect(row.status).toBe('pending');
+      expect(row.headline).toBeNull();
+    }
+  });
+
   it('GET /documents/progress returns one executive row per source', async () => {
     const res = await request(app.getHttpServer())
       .get('/documents/progress')
@@ -80,6 +97,19 @@ describe('Documents (e2e)', () => {
     expect(res.body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(Array.isArray(res.body.sources)).toBe(true);
     expect(res.body.sources.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.summary).toEqual(
+      expect.objectContaining({
+        total: res.body.sources.length,
+        pending: expect.any(Number),
+        inFlight: expect.any(Number),
+        done: expect.any(Number),
+      }),
+    );
+    expect(
+      res.body.summary.pending +
+        res.body.summary.inFlight +
+        res.body.summary.done,
+    ).toBe(res.body.summary.total);
     for (const row of res.body.sources) {
       expect(typeof row.sourceName).toBe('string');
       expect(typeof row.status).toBe('string');

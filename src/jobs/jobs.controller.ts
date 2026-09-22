@@ -14,7 +14,9 @@ import { Roles } from '../modules/auth/roles.decorator';
 import { RolesGuard } from '../modules/auth/roles.guard';
 import { ListJobRunsQueryDto } from './dto/list-job-runs.query.dto';
 import { ProgressDateQueryDto } from './dto/progress-date.query.dto';
+import { TriggerPipelineDayDto } from './dto/trigger-pipeline-day.dto';
 import { TriggerCrawlDto } from './dto/trigger-crawl.dto';
+import { TriggerSourcePipelineDto } from './dto/trigger-source-pipeline.dto';
 import { JobsService } from './jobs.service';
 
 @ApiTags('jobs')
@@ -75,5 +77,49 @@ export class JobsController {
   })
   triggerAll(@CurrentUser() user: AuthUser) {
     return this.jobsService.triggerAll(user.id);
+  }
+
+  @Post('extract/all')
+  @Roles(UserRole.ADMIN)
+  @ApiForbiddenResponse()
+  @ApiOperation({
+    summary:
+      'HUD extract: reencola extract del día en todas las ACTIVE y el classify que falte (no recrawlea)',
+  })
+  triggerExtractAll(@Body() dto: TriggerPipelineDayDto) {
+    return this.jobsService.triggerExtractAll(dto ?? {});
+  }
+
+  @Post('classify/all')
+  @Roles(UserRole.ADMIN)
+  @ApiForbiddenResponse()
+  @ApiOperation({
+    summary:
+      'HUD classify: reencola classify del día en todas las ACTIVE (salta fuentes sin cliente)',
+  })
+  triggerClassifyAll(@Body() dto: TriggerPipelineDayDto) {
+    return this.jobsService.triggerClassifyAll(dto ?? {});
+  }
+
+  @Post('extract')
+  @Roles(UserRole.ADMIN)
+  @ApiForbiddenResponse()
+  @ApiOperation({
+    summary:
+      'Extract de una fuente ACTIVE + classify que falte (no recrawlea). 400 sin sourceId/sourceCode',
+  })
+  triggerExtract(@Body() dto: TriggerSourcePipelineDto) {
+    return this.jobsService.triggerExtract(dto);
+  }
+
+  @Post('classify')
+  @Roles(UserRole.ADMIN)
+  @ApiForbiddenResponse()
+  @ApiOperation({
+    summary:
+      'Classify de una fuente ACTIVE. 400 sin clientes o sin sourceId/sourceCode',
+  })
+  triggerClassify(@Body() dto: TriggerSourcePipelineDto) {
+    return this.jobsService.triggerClassify(dto);
   }
 }

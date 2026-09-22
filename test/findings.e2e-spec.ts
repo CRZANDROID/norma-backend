@@ -69,6 +69,7 @@ describe('Findings classify (e2e)', () => {
     expect(res.body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(Array.isArray(res.body.sources)).toBe(true);
     expect(res.body.sources.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.summary.total).toBe(res.body.sources.length);
     for (const row of res.body.sources) {
       expect(typeof row.sourceName).toBe('string');
       expect(typeof row.status).toBe('string');

@@ -58,3 +58,30 @@ export async function loadCrawlInFlightSourceIds(
   }
   return ids;
 }
+
+/** Contador del día civil. `sources.length` no sirve: siempre es el catálogo ACTIVE. */
+export type TrackingDaySummary = {
+  total: number;
+  pending: number;
+  inFlight: number;
+  done: number;
+};
+
+export function trackingDaySummary(
+  statuses: string[],
+  inFlightStatuses: readonly string[],
+): TrackingDaySummary {
+  let pending = 0;
+  let inFlight = 0;
+  let done = 0;
+  for (const status of statuses) {
+    if (status === 'pending') {
+      pending += 1;
+    } else if (inFlightStatuses.includes(status)) {
+      inFlight += 1;
+    } else {
+      done += 1;
+    }
+  }
+  return { total: statuses.length, pending, inFlight, done };
+}

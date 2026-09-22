@@ -22,7 +22,7 @@ Tres servicios: `redis`, `api` (HTTP, **sin** workers), `worker` (BullMQ + sched
 
 API: `http://localhost:3000` — Swagger `/docs` — health `/health` — hallazgos `/findings`. El worker no publica puerto.
 
-Compose **pisa** `PORT=3000` y `REDIS_URL=redis://redis:6379` aunque el `.env` tenga `PORT=3001`. El front sigue en `http://localhost:5173`.
+Compose **pisa** `PORT=3000` y `REDIS_URL=redis://redis:6379` aunque el `.env` tenga `PORT=3001`. También pone `DATABASE_CONNECTION_LIMIT=2` por proceso. El runtime de Prisma usa el pooler **Transaction** (`:6543`); `migrate` sigue en Session (`:5432`). Si ves `EMAXCONNSESSION` / `pool_size: 15`, el API está pegándole al Session pooler (Render Web + Worker se comen el cupo). El front sigue en `http://localhost:5173`.
 
 | Servicio | `JOBS_WORKER` | `JOBS_SCHEDULER` |
 |----------|---------------|------------------|
