@@ -75,7 +75,7 @@ export class ListFindingsQueryDto {
   @ApiPropertyOptional({
     enum: FINDING_LOTES,
     description:
-      'Cubeta del próximo informe. incluidos = candidatos del PDF; excluidos = flag y no quemados; enviados = en un PDF sent. Gana sobre excluded. No recorta counts de color.',
+      'Cubeta del próximo informe. incluidos = candidatos del PDF (ignora fecha/status/fuente/semáforo); excluidos = flag y no quemados; enviados = en un PDF sent. Gana sobre excluded. No recorta counts de color.',
   })
   @IsOptional()
   @IsIn(FINDING_LOTES)

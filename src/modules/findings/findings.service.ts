@@ -85,37 +85,48 @@ export class FindingsService {
 
   async list(user: AuthUser, query: ListFindingsQueryDto) {
     const range = this.resolveDateRange(query);
+    const clientScope = this.buildClientScope(user, query);
     const filters = this.buildWhere(user, query, {
       includeImpact: false,
       includeExcluded: false,
     });
     this.applyDateRange(filters, range);
 
-    const listWhere: Prisma.FindingWhereInput = { AND: [filters] };
-    if (query.impact) {
-      this.pushAnd(listWhere, { impact: query.impact });
+    if (query.lote && query.excluded !== undefined) {
+      throw new BadRequestException(
+        'Usa lote o excluded, no los dos. lote gana el contrato nuevo.',
+      );
     }
-    if (query.lote) {
-      if (query.excluded !== undefined) {
-        throw new BadRequestException(
-          'Usa lote o excluded, no los dos. lote gana el contrato nuevo.',
-        );
+
+    const listWhere: Prisma.FindingWhereInput = { AND: [] };
+    if (query.lote === 'incluidos') {
+      this.pushAnd(listWhere, clientScope);
+      if (query.documentId?.trim()) {
+        this.pushAnd(listWhere, { documentId: query.documentId.trim() });
       }
-      this.pushAnd(listWhere, loteWhere(query.lote));
-    } else if (query.excluded !== undefined) {
-      this.pushAnd(listWhere, { excludedFromNextReport: query.excluded });
+      this.pushAnd(listWhere, loteWhere('incluidos'));
+    } else {
+      this.pushAnd(listWhere, filters);
+      if (query.impact) {
+        this.pushAnd(listWhere, { impact: query.impact });
+      }
+      if (query.lote) {
+        this.pushAnd(listWhere, loteWhere(query.lote));
+      } else if (query.excluded !== undefined) {
+        this.pushAnd(listWhere, { excludedFromNextReport: query.excluded });
+      }
     }
 
     const limit = query.limit ?? 50;
     const page = query.page ?? 1;
     const includedWhere: Prisma.FindingWhereInput = {
-      AND: [filters, loteWhere('incluidos')],
+      AND: [clientScope, loteWhere('incluidos')],
     };
     const excludedWhere: Prisma.FindingWhereInput = {
-      AND: [filters, loteWhere('excluidos')],
+      AND: [clientScope, loteWhere('excluidos')],
     };
     const sentWhere: Prisma.FindingWhereInput = {
-      AND: [filters, loteWhere('enviados')],
+      AND: [clientScope, loteWhere('enviados')],
     };
     const [total, rows, impactGroups, included, excluded, sent] =
       await Promise.all([
@@ -500,6 +511,21 @@ export class FindingsService {
     return row;
   }
 
+  private buildClientScope(
+    user: AuthUser,
+    query: ListFindingsQueryDto,
+  ): Prisma.FindingWhereInput {
+    const where: Prisma.FindingWhereInput = {};
+    if (!isAdmin(user)) {
+      where.clientId = { in: user.memberships.map((m) => m.clientId) };
+    }
+    if (query.clientId?.trim()) {
+      assertClientAccess(user, query.clientId.trim());
+      where.clientId = query.clientId.trim();
+    }
+    return where;
+  }
+
   private buildWhere(
     user: AuthUser,
     query: ListFindingsQueryDto,
@@ -507,17 +533,7 @@ export class FindingsService {
       includeImpact: true,
     },
   ): Prisma.FindingWhereInput {
-    const where: Prisma.FindingWhereInput = {};
-
-    if (!isAdmin(user)) {
-      const clientIds = user.memberships.map((m) => m.clientId);
-      where.clientId = { in: clientIds };
-    }
-
-    if (query.clientId?.trim()) {
-      assertClientAccess(user, query.clientId.trim());
-      where.clientId = query.clientId.trim();
-    }
+    const where = this.buildClientScope(user, query);
 
     if (query.sourceId?.trim()) {
       where.sourceId = query.sourceId.trim();

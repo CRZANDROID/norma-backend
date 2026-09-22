@@ -413,20 +413,18 @@ describe('Findings classify (e2e)', () => {
     ]);
     expect(inLote.body.counts).toEqual(
       expect.objectContaining({
-        included: 1,
-        excluded: 0,
-        sent: 0,
         yellow: 1,
         total: 1,
       }),
     );
+    expect(inLote.body.counts.included).toBeGreaterThanOrEqual(1);
 
     const greenLote = await request(app.getHttpServer())
       .get(`/findings?lote=incluidos&documentId=${green.doc.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(greenLote.body.items).toEqual([]);
-    expect(greenLote.body.counts.included).toBe(0);
+    expect(greenLote.body.counts.included).toBeGreaterThanOrEqual(1);
     expect(greenLote.body.counts.green).toBe(1);
 
     const excludedLote = await request(app.getHttpServer())
@@ -436,8 +434,8 @@ describe('Findings classify (e2e)', () => {
     expect(excludedLote.body.items.map((row: { id: string }) => row.id)).toEqual([
       parked.finding.id,
     ]);
-    expect(excludedLote.body.counts.excluded).toBe(1);
-    expect(excludedLote.body.counts.included).toBe(0);
+    expect(excludedLote.body.counts.excluded).toBeGreaterThanOrEqual(1);
+    expect(excludedLote.body.counts.included).toBeGreaterThanOrEqual(1);
 
     const sentLote = await request(app.getHttpServer())
       .get(`/findings?lote=enviados&documentId=${burned.doc.id}`)
@@ -446,8 +444,35 @@ describe('Findings classify (e2e)', () => {
     expect(sentLote.body.items.map((row: { id: string }) => row.id)).toEqual([
       burned.finding.id,
     ]);
-    expect(sentLote.body.counts.sent).toBe(1);
-    expect(sentLote.body.counts.included).toBe(0);
+    expect(sentLote.body.counts.sent).toBeGreaterThanOrEqual(1);
+    expect(sentLote.body.counts.included).toBeGreaterThanOrEqual(1);
+  });
+
+  it('GET /findings lote=incluidos ignores date and status so the list matches the report lote', async () => {
+    const { finding } = await seedVcgaFinding(ImpactLevel.YELLOW, 'lote-date');
+    const clientId = finding.clientId;
+    const unfiltered = await request(app.getHttpServer())
+      .get(`/findings?clientId=${clientId}&lote=incluidos`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const filtered = await request(app.getHttpServer())
+      .get(
+        `/findings?clientId=${clientId}&lote=incluidos&dateFrom=1999-01-01&dateTo=1999-01-02&status=RESOLVED`,
+      )
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const ids = (row: { id: string }) => row.id;
+    expect(filtered.body.total).toBe(unfiltered.body.total);
+    expect(filtered.body.counts.included).toBe(unfiltered.body.counts.included);
+    expect(filtered.body.items.map(ids)).toEqual(unfiltered.body.items.map(ids));
+    expect(filtered.body.items.map(ids)).toContain(finding.id);
+
+    const rangedTodos = await request(app.getHttpServer())
+      .get(`/findings?clientId=${clientId}&dateFrom=1999-01-01&dateTo=1999-01-02`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(rangedTodos.body.items.map(ids)).not.toContain(finding.id);
+    expect(rangedTodos.body.counts.included).toBe(unfiltered.body.counts.included);
   });
 
   it('ANALYST without membership gets 404 on another client finding', async () => {
