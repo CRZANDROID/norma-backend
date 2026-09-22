@@ -87,9 +87,9 @@ Una sola lista paginada. **No** hay “ver historial”.
 - Sin `dateFrom`/`dateTo` → **toda** la lista, más nuevos primero.
 - `dateFrom` / `dateTo` (`YYYY-MM-DD`, inclusive, `America/Mexico_City`) → rango. Se puede mandar solo uno.
 - `page` (default 1) + `limit` (default 50, máx. 200; el front elige el tamaño).
-- `total` / `totalPages` = la lista **ya filtrada** (incluye `impact` / `excluded` / `lote` si los mandaste).
+- `total` / `totalPages` = la lista **ya filtrada** (incluye `impact` / `excluded` / `lote` si los mandaste). **Excepción:** `lote=incluidos` ignora fecha, `status`, fuente y semáforo: son los candidatos reales del PDF.
 - `counts` de color = pastillas Todos / Crítico / Alto / Medio / Informativo. **No** se recortan por `impact`, `excluded` ni `lote`.
-- `counts.included` / `excluded` / `sent` = pastillas de lote. Tampoco las recorta el semáforo.
+- `counts.included` / `excluded` / `sent` = pastillas de lote. No las recorta el semáforo **ni** fecha / `status` / fuente: solo `clientId` (y memberships).
 - Scroll infinito: el front pide `page=2`, `page=3`… y concatena `items`. El back no tiene `limit=all`.
 - Páginas numeradas: mismo contrato; usa `totalPages` para saltar.
 
@@ -105,7 +105,7 @@ Registrar `GET /findings/progress` **antes** que `GET /findings/:id` en Axios.
 | `documentId` | Tras reclasificar |
 | `impact` | Filtra **items** (`GREEN` \| `YELLOW` \| `ORANGE` \| `RED`). No cambia `counts` |
 | `excluded` | `true` / `false` — fuera o dentro del próximo informe. Compatibilidad. Si mandas `lote`, no lo uses (**400**) |
-| `lote` | `incluidos` \| `excluidos` \| `enviados`. Cubeta del próximo PDF. `incluidos` = mismos candidatos que `POST /reports` |
+| `lote` | `incluidos` \| `excluidos` \| `enviados`. Cubeta del próximo PDF. `incluidos` = mismos candidatos que `POST /reports` **sin** `dateFrom`/`dateTo` (la lista de Incluidos no se recorta con los filtros de `/alertas`) |
 | `status` | `OPEN` \| `ACKNOWLEDGED` \| `RESOLVED` \| `DISMISSED`. Omitir = no filtrar |
 | `dateFrom` | Inicio de rango `YYYY-MM-DD`. Omitir = sin piso |
 | `dateTo` | Fin de rango `YYYY-MM-DD` (inclusive). Omitir = sin techo |
@@ -231,13 +231,13 @@ El borrador que edita la IA es **el vigente**, incluido lo que VCGA escribió a 
 
 | Método | Ruta | Quién | Qué |
 |--------|------|--------|-----|
-| `POST` | `/reports` | ADMIN / ANALYST | Crea `draft` y genera el PDF. Body: `{ clientId, dateFrom?, dateTo? }`. **409** si el día (`dateTo` o hoy) sigue `classifying`. **400** si no hay candidatos. Y/O/R no enviados y no excluded. `fileUrl` = `/reports/:id/file` |
+| `POST` | `/reports` | ADMIN / ANALYST | Crea `draft` y genera el PDF. Body: `{ clientId, dateFrom?, dateTo? }`. En `/alertas` manda **solo `clientId`**: no copies fecha/`status`/fuente de la lista. `dateFrom`/`dateTo` son periodo explícito del PDF, no el filtro de `/alertas`. **409** si el día (`dateTo` o hoy) sigue `classifying`. **400** si no hay candidatos. Y/O/R no enviados y no excluded. `fileUrl` = `/reports/:id/file` |
 | `POST` | `/reports/:id/regenerate` | ADMIN / ANALYST | Reescribe el lote y el PDF. Solo `draft`. **409** si `sent`/`discarded` o classifying |
 | `GET` | `/reports` | ADMIN / ANALYST | Lista. Query: `clientId`, `status` (`draft` \| `sent` \| `discarded`), `page`, `limit` |
 | `GET` | `/reports/:id` | ADMIN / ANALYST | Detalle + `findings[]`. ANALYST sin membership → **404** |
 | `GET` | `/reports/:id/file` | ADMIN / ANALYST | PDF. `inline` (ver). `?download=1` → `attachment`. Auth Bearer |
 
-UI `/alertas`: **Generar PDF** (cliente obligatorio) + pastillas de lote. Tras generar, toast con enlace a `/informes/:id`. Copy: informe, no inbox.
+UI `/alertas`: **Generar PDF** (cliente obligatorio, `{ clientId }` — no copies los filtros de la lista) + pastillas de lote. Tras generar, toast con enlace a `/informes/:id`. Copy: informe, no inbox.
 
 UI `/informes`: lista VCGA (Borradores / Enviados). Ver / Descargar; **Regenerar** solo en `draft`. El archivo se pide con Bearer y se abre como blob.
 
@@ -245,7 +245,7 @@ UI `/informes`: lista VCGA (Borradores / Enviados). Ver / Descargar; **Regenerar
 
 El PDF: briefing sin portada. Franja NORMA + documento de trabajo; cliente, razón social, periodo y contadores Crítico / Alto / Medio en la primera página. Hallazgos en ficha (acción sugerida, justificación, «Ver documento»). Pie: no enviado. Verde no entra.
 
-`lote=incluidos` es el mismo criterio que `POST /reports`. Enviados = hallazgo en un `ReportFinding` de un informe `sent`. Excluidos = flag y todavía no quemados.
+`lote=incluidos` es el mismo criterio que `POST /reports` sin fechas: Y/O/R, no excluidos, no quemados, **todo el lote del cliente**. Fecha/`status`/fuente/semáforo en `GET /findings` no recortan esa cubeta ni `counts.included`. Enviados = hallazgo en un `ReportFinding` de un informe `sent`. Excluidos = flag y todavía no quemados.
 
 ### S9 — pendiente
 
