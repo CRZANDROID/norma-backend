@@ -18,7 +18,7 @@ Crawl no extrae ni clasifica. Extract no es LLM. Informe PDF = S9.
 
 Si extract/classify/crawl se quedan `stalled` (restart del worker, PDF que bloquea el event loop), BullMQ falla el job. El worker **actualiza Postgres**: `job_runs` deja de estar `RUNNING` y el documento pasa a `FAILED` si seguía a medias. Si no, el panel se queda en “Rastreando / Extrayendo / Analizando” aunque Redis ya no tenga trabajo. Al arrancar, el worker reencola documentos huérfanos de las últimas 48 h y cierra crawls abandonados. Logs: `crawl page N/M` y `extract start` (el crawl ya no calla hasta el final).
 
-PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el event loop de Nest (`pdf-extract.worker.js`). Sin clientes en `client_sources` el classify se salta (0 hallazgos); el texto igual queda listo. Cuando un cliente se vincula: `POST /documents/:id/classify` o un rastreo nuevo. No hace falta apagar la fuente.
+PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el event loop de Nest (`pdf-extract.worker.js`). Sin clientes en `client_sources` el classify se salta (0 hallazgos); el texto igual queda listo. Cuando un cliente se vincula **después**: `POST /jobs/classify` `{ sourceId }` (o `sourceCode`) del día — no recrawlea; un SUCCESS del mismo día no se reencola con “Rastrear ahora”. Sin clientes, classify por fuente es **400**. Un archivo: `POST /documents/:id/classify`. Extract atascado: `POST /jobs/extract` de esa fuente.
 
 ---
 
@@ -74,12 +74,26 @@ YouTube / X / Facebook: conectores **después de S10**, no este spider ([PRODUCT
 | Método | Ruta | Notas |
 |--------|------|-------|
 | `GET` | `/jobs/status` | Redis / consumidores / `queues` (conteos). `waiting` alto ≠ error |
-| `POST` | `/jobs/crawl` | `{ sourceCode }` o `{ sourceId }`. Clave `{code}:{fecha}:admin` |
-| `POST` | `/jobs/crawl/all` | Todas las ACTIVE |
+| `POST` | `/jobs/crawl` | Una fuente. Si hoy ya hay SUCCESS (cron o admin), `skipped` |
+| `POST` | `/jobs/crawl/all` | HUD rastreo: todas las ACTIVE. Encadena extract → classify en el worker |
+| `POST` | `/jobs/extract` | `{ sourceId }` o `{ sourceCode }`, `date?`. Extract del día + classify que falte |
+| `POST` | `/jobs/extract/all` | HUD extract: todas las ACTIVE. No recrawlea. Body `{ date? }` |
+| `POST` | `/jobs/classify` | Una fuente. **400** sin clientes |
+| `POST` | `/jobs/classify/all` | HUD análisis: todas las ACTIVE; fuentes sin cliente salen `reason: "no-clients"` (no 400) |
 | `GET` | `/jobs/runs` | Historial técnico |
-| `GET` | `/jobs/progress?date=` | 1 fila/fuente; copy en español |
+| `GET` | `/jobs/progress?date=` | 1 fila/fuente + `summary` del día (`done`/`pending`/`inFlight`) |
 
-Admin reencola FAILED/QUEUED huérfanos. Scheduler no reintenta FAILED el mismo día.
+Admin reencola **solo FAILED** del día en crawl. Un SUCCESS del cron **o** de un clic admin bloquea el otro. Extract/classify no recrawlean. Scheduler no reintenta FAILED el mismo día.
+
+HUD de 3 agentes (ADMIN):
+
+| Botón | Endpoint | Qué encola | Encadena |
+|-------|----------|------------|----------|
+| Rastreo | `POST /jobs/crawl/all` | `source.crawl` de ACTIVE sin SUCCESS de hoy | extract → classify (worker) |
+| Extracción | `POST /jobs/extract/all` | extract de RECEIVED/FAILED del día | classify de canónicos que aún no tienen hallazgo |
+| Análisis | `POST /jobs/classify/all` | solo classify | — |
+
+Sin clientes: crawl y extract sí; classify de esa fuente no (`reason: "no-clients"`). Poll: los tres `GET …/progress`.
 
 ```text
 raw/{sourceCode}/{yyyy}/{mm}/{dd}/{idempotencyKey}/attempt-{n}/doc-00-{hash}.html
@@ -92,7 +106,7 @@ pnpm exec tsx prisma/reset-crawl.ts --date=2026-09-02
 docker compose run --rm --entrypoint "" api ./node_modules/.bin/tsx prisma/reset-crawl.ts --date=2026-09-02
 ```
 
-Luego **Rastrear ahora**. Un SUCCESS del mismo día no se reencola solo.
+Luego **Rastrear ahora**. Un SUCCESS del mismo día (cron o admin) no se reencola.
 
 ---
 
@@ -137,7 +151,7 @@ Lectura: `ADMIN` \| `ANALYST`. Reproceso/classify: `ADMIN`.
 
 | Método | Ruta |
 |--------|------|
-| `GET` | `/documents/progress?date=` — 1 fila/fuente (lote) |
+| `GET` | `/documents/progress?date=` — 1 fila/fuente (lote) + `summary` del día |
 | `GET` | `/documents` — páginas (`sourceId` / `sourceCode` / `pilotOnly` / `date` / `limit` hasta 800) |
 | `GET` | `/documents/:id` — texto + `processingHistory` |
 | `POST` | `/documents/:id/reprocess` — vuelve a extract |

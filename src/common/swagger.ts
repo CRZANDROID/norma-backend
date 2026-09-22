@@ -28,7 +28,7 @@ export function setupSwagger(app: INestApplication): void {
     .addTag('memberships', 'Membresías usuario↔cliente')
     .addTag('storage', 'Supabase Storage (archivos)')
     .addTag('ai', 'Asistente de catálogo (OpenAI; no clasifica normas)')
-    .addTag('jobs', 'Crawl de fuentes (Redis/BullMQ)')
+    .addTag('jobs', 'Crawl, extract y classify (Redis/BullMQ)')
     .addTag('documents', 'Registro documental (extract / normalize / dedup / classify)')
     .addTag('findings', 'Hallazgos: lista, edición VCGA, exclude/rewrite (sin inbox)')
     .addTag('reports', 'Informes PDF (S9): generar draft; envío pendiente')

@@ -56,7 +56,7 @@ Start:  pnpm start:prod
 
 Obligatorias / importantes:
 
-- `DATABASE_URL` — pooler Supabase (IPv4 Session/Transaction según docs del repo)
+- `DATABASE_URL` — Session pooler IPv4 (`:5432`) para `prisma migrate deploy` en el build. En runtime Nest reescribe a Transaction (`:6543`, `pgbouncer=true`) y pone `connection_limit=3` (`DATABASE_CONNECTION_LIMIT`). No dejes el Web/Worker pegados al Session: `EMAXCONNSESSION` tumba `/auth/me`.
 - `JWT_SECRET`
 - `NODE_ENV=production`
 - `CORS_ORIGIN` — URL del front en Vercel (coma-separada si hay varias)

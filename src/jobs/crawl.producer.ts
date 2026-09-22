@@ -16,6 +16,11 @@ import type { CrawlTriggeredBy, SourceCrawlJob } from './types';
 import { redisJobIsInFlight } from './queue-state';
 import { countsFromQueue, workerCountFromQueue, type QueueCounts } from './queue-counts';
 import {
+  crawlDateFromIdempotencyKey,
+  sameDayCrawlBlock,
+  sameDayCrawlKeyPrefix,
+} from './crawl-day-guard';
+import {
   adminIdempotencyKey,
   scheduledIdempotencyKey,
 } from './schedule-window';
@@ -176,6 +181,32 @@ export class CrawlProducer implements OnModuleDestroy {
   }): Promise<EnqueueResult> {
     const queue = this.getQueue();
     const { source, idempotencyKey } = params;
+
+    const day = crawlDateFromIdempotencyKey(idempotencyKey);
+    if (day) {
+      const sameDayRuns = await this.prisma.jobRun.findMany({
+        where: {
+          type: 'source.crawl',
+          sourceCode: source.code,
+          idempotencyKey: {
+            startsWith: sameDayCrawlKeyPrefix(source.code, day),
+          },
+        },
+        select: { id: true, status: true, idempotencyKey: true },
+      });
+      const block = sameDayCrawlBlock(sameDayRuns);
+      if (block) {
+        return {
+          enqueued: false,
+          skipped: true,
+          reason: block.reason,
+          idempotencyKey: block.run.idempotencyKey,
+          jobRunId: block.run.id,
+          sourceId: source.id,
+          sourceCode: source.code,
+        };
+      }
+    }
 
     const existing = await this.prisma.jobRun.findUnique({
       where: { idempotencyKey },
@@ -344,7 +375,7 @@ export class CrawlProducer implements OnModuleDestroy {
     return this.queue;
   }
 
-  private async resolveSource(sourceId?: string, sourceCode?: string) {
+  async resolveSource(sourceId?: string, sourceCode?: string) {
     if (!sourceId && !sourceCode) {
       throw new BadRequestException('Indica sourceId o sourceCode.');
     }

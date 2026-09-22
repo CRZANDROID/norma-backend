@@ -27,6 +27,20 @@ Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los
 | `GET` | `/documents?pilotOnly=true&limit=&date=&sourceId=` | Páginas internas: preview + `url`. `limit` hasta 800. `date` = día civil. `sourceId` = detalle de una fuente |
 | `GET` | `/documents/:id` | Texto extraído de una página (`extractedText`, no HTML crudo) |
 
+## HUD — 3 botones ADMIN
+
+Cada hueco del HUD es un agente. Body opcional `{ "date": "YYYY-MM-DD" }` (default hoy CDMX). Role `ADMIN`. Worker tiene que estar vivo (`GET /jobs/status` → `worker: true`); si no, queda en cola.
+
+| Hueco | Botón | Endpoint | Encadena |
+|-------|--------|----------|----------|
+| Crawl | Rastrear | `POST /jobs/crawl/all` | extract → classify en el worker |
+| Extract | Extraer | `POST /jobs/extract/all` | classify de lo que ya tiene texto y le falta hallazgo |
+| Classify | Analizar | `POST /jobs/classify/all` | nada más |
+
+Crawl de hoy ya SUCCESS → esa fuente no se vuelve a rastrear (`skipped` / `already-completed`). Extract y classify **no** recrawlean. Classify sin cliente en esa fuente: no 400 del lote; `reason: "no-clients"`. Una fuente suelta: `POST /jobs/crawl` \| `/jobs/extract` \| `/jobs/classify` con `{ sourceId }`. Classify de una fuente sin cliente → **400**.
+
+Poll igual: `/jobs/progress`, `/documents/progress`, `/findings/progress`.
+
 `GET /documents` puede devolver `processingStatus: "CLASSIFIED"` (Sprint 7). El union del front debe incluirlo; no descartar filas con status desconocido.
 
 **No pollar `GET /documents?limit=800` ni `GET /findings` cada pocos segundos.** El panel solo refresca `/jobs/progress`, `/documents/progress` y `/findings/progress` (15 s si hay `queued` / `running` / `extracting` / `classifying`, 45 s si no). Cuando el rastreo de una fuente pasa a `crawled` / `failed` / `skipped`, pide extract y análisis **enseguida** (no esperes el siguiente ciclo): en fuentes cortas extract+classify caben entre dos polls de 15 s. El listado de páginas se pide al entrar y al abrir una fuente (`sourceId`). El listado de hallazgos es otra pantalla (`GET /findings`). Poll agresivo + CORS `OPTIONS` satura el plan gratuito de Render (`429` / `502` / `503`).
@@ -38,6 +52,7 @@ Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los
 ```json
 {
   "date": "2026-08-25",
+  "summary": { "total": 5, "pending": 5, "inFlight": 0, "done": 0 },
   "sources": [
     {
       "sourceId": "...",
@@ -51,6 +66,8 @@ Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los
   ]
 }
 ```
+
+**Contador del día:** `summary.done` / `summary.total`. `sources` **siempre** trae una fila por fuente ACTIVE (las que aún no toca hoy van `pending`). No uses `sources.length` como “ya rastreadas”: eso queda en el total aunque el día esté en cero. `pending` = aún no hay crawl de ese día; `inFlight` = `queued`/`running`; `done` = `crawled` + `failed` + `skipped`. Al cambiar el día civil, `done` vuelve a 0 hasta el rastrea de hoy.
 
 Pintar: **nombre de fuente + badge `label` + hora `at`**. Mostrar `note` si hay fallo, fuente omitida, o un intento fallido el mismo día aunque el último rastree bien. Un badge; la nota explica el extra.
 
@@ -71,6 +88,7 @@ No mostrar `idempotencyKey`, paths ni artifacts. `detail.jobRunId` es opcional (
 ```json
 {
   "date": "2026-08-25",
+  "summary": { "total": 5, "pending": 5, "inFlight": 0, "done": 0 },
   "sources": [
     {
       "sourceId": "...",
@@ -83,6 +101,8 @@ No mostrar `idempotencyKey`, paths ni artifacts. `detail.jobRunId` es opcional (
   ]
 }
 ```
+
+Mismo `summary` que rastreo: `done` / `total` del **día** (`date`). `inFlight` aquí es `extracting`. No cuentes filas con `headline` de otro día: si no hay documentos de `date`, la fila es `pending` y `headline` es `null`.
 
 Pintar: **nombre + badge `label` + `headline`**. El orbe de espera usa `status === "extracting"`, no si ya hay `headline`. Mostrar `note` si el contenido ya estaba (`unchanged`), si no hay texto usable (`unread` / `failed`), si el día mezcló texto listo con un intento fallido, o si **sigue** el lote (`extracting` con páginas ya listas). Un badge; `headline` puede ser de una página ya lista aunque el lote no haya acabado.
 
@@ -111,6 +131,7 @@ Tercera columna del mismo dashboard (no sustituye `GET /findings`).
 ```json
 {
   "date": "2026-09-02",
+  "summary": { "total": 5, "pending": 5, "inFlight": 0, "done": 0 },
   "sources": [
     {
       "sourceId": "...",
@@ -162,9 +183,14 @@ En `unchanged`, `headline` es el texto que ya teníamos (no HTML) y `note` aclar
 | Ruta | Para |
 |------|------|
 | `GET /jobs/runs` | Historial técnico (intentos, claves, paths) |
-| `POST /jobs/crawl` | Botón ADMIN “Rastrear ahora” / “Poner a rastrear” |
-| `POST /documents/:id/reprocess` | Reintento ADMIN (extract) |
-| `POST /documents/:id/classify` | Reintento ADMIN (clasificación S7) |
+| `POST /jobs/crawl` | Una fuente. Idempotente el día civil |
+| `POST /jobs/crawl/all` | HUD **Rastreo**. Encadena extract+classify en el worker. SUCCESS de hoy → `skipped` |
+| `POST /jobs/extract` | Una fuente: extract + classify que falte. `{ sourceId }`, `date?` |
+| `POST /jobs/extract/all` | HUD **Extracción**. Body `{ date? }`. No recrawlea. Respuesta `extract` + `classify` (conteos) |
+| `POST /jobs/classify` | Una fuente. **400** si no hay clientes |
+| `POST /jobs/classify/all` | HUD **Análisis**. Body `{ date? }`. Fuentes sin cliente: `reason: "no-clients"` |
+| `POST /documents/:id/reprocess` | Reintento ADMIN de un archivo (extract) |
+| `POST /documents/:id/classify` | Reintento ADMIN de un archivo (clasificación S7) |
 | `GET /findings` | Lista de hallazgos / semáforo (otra pantalla, no este resumen) |
 
 `GET /documents` y `GET /documents/:id` **sí** van en el dashboard, en el **detalle de la fuente** (PDF / Word / HTML), no en el resumen ejecutivo.

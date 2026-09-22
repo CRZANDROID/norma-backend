@@ -17,6 +17,7 @@ import { isExtractableCrawlFile, isMetaCrawlFilename } from '../../jobs/document
 import {
   listTrackingSources,
   loadCrawlInFlightSourceIds,
+  trackingDaySummary,
 } from '../../jobs/progress-board';
 import { appendProcessingHistory } from '../../jobs/processing-history';
 import {
@@ -196,50 +197,56 @@ export class DocumentsService {
     ];
     const headlineText = await this.loadTextPreviews(headlineIds);
 
-    return {
-      date,
-      sources: sources.map((source) => {
-        const dayRows = bySource.get(source.id) ?? [];
-        const row = bestBySource.get(source.id);
-        const crawlInFlight = crawlInFlightIds.has(source.id);
-        const signals = {
-          ...documentDaySignals(dayRows),
-          crawlInFlight,
-        };
-        const bestStatus: DocumentProgressStatus | null = row
-          ? mapDocumentPipelineStatus(row.processingStatus, row.lastError)
-          : null;
-        const status = mapDocumentSourceStatus(
-          bestStatus,
-          signals,
-          crawlInFlight,
-        );
+    const sourceRows = sources.map((source) => {
+      const dayRows = bySource.get(source.id) ?? [];
+      const row = bestBySource.get(source.id);
+      const crawlInFlight = crawlInFlightIds.has(source.id);
+      const signals = {
+        ...documentDaySignals(dayRows),
+        crawlInFlight,
+      };
+      const bestStatus: DocumentProgressStatus | null = row
+        ? mapDocumentPipelineStatus(row.processingStatus, row.lastError)
+        : null;
+      const status = mapDocumentSourceStatus(
+        bestStatus,
+        signals,
+        crawlInFlight,
+      );
 
-        if (!row) {
-          return {
-            sourceId: source.id,
-            sourceName: source.name,
-            status,
-            label: documentProgressLabel(status),
-            headline: null,
-            note: documentProgressNote(status, null, signals),
-          };
-        }
-
-        const text =
-          headlineText.get(row.id) ||
-          (row.canonicalDocumentId
-            ? headlineText.get(row.canonicalDocumentId)
-            : null);
+      if (!row) {
         return {
           sourceId: source.id,
           sourceName: source.name,
           status,
           label: documentProgressLabel(status),
-          headline: documentHeadline(text),
-          note: documentProgressNote(status, row.lastError, signals),
+          headline: null,
+          note: documentProgressNote(status, null, signals),
         };
-      }),
+      }
+
+      const text =
+        headlineText.get(row.id) ||
+        (row.canonicalDocumentId
+          ? headlineText.get(row.canonicalDocumentId)
+          : null);
+      return {
+        sourceId: source.id,
+        sourceName: source.name,
+        status,
+        label: documentProgressLabel(status),
+        headline: documentHeadline(text),
+        note: documentProgressNote(status, row.lastError, signals),
+      };
+    });
+
+    return {
+      date,
+      summary: trackingDaySummary(
+        sourceRows.map((row) => row.status),
+        ['extracting'],
+      ),
+      sources: sourceRows,
     };
   }
 
