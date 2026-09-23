@@ -455,6 +455,8 @@ export class JobsService {
     sourceId: string,
     docs: Array<{
       id: string;
+      filename: string;
+      metadata: Prisma.JsonValue | null;
       canonicalDocumentId: string | null;
       processingStatus: DocumentProcessingStatus;
       lastError: string | null;
