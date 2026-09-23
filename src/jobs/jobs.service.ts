@@ -38,6 +38,7 @@ import {
   documentNeedsClassify,
   documentNeedsExtractRetry,
 } from './source-pipeline';
+import { crawlUrlFromMetadata } from './crawl-min-year';
 import {
   DOCUMENT_CLASSIFY_QUEUE,
   DOCUMENT_EXTRACT_QUEUE,
@@ -503,6 +504,8 @@ export class JobsService {
           extractedText: doc.extractedText,
           findingClientIds: doc.findings.map((row) => row.clientId),
           linkedClientIds,
+          url: crawlUrlFromMetadata(doc.metadata),
+          filename: doc.filename,
         })
       ) {
         continue;

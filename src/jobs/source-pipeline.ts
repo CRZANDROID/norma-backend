@@ -1,5 +1,6 @@
 import { DocumentProcessingStatus } from '../database/prisma-client';
 import { isClassifyFailure } from '../modules/findings/progress.labels';
+import { crawlResourceIsBeforeMinYear } from './crawl-min-year';
 import { isExtractableCrawlFile, isMetaCrawlFilename } from './document-text';
 
 export function documentNeedsExtractRetry(doc: {
@@ -40,6 +41,8 @@ export function documentNeedsClassify(doc: {
   extractedText: string | null;
   findingClientIds: string[];
   linkedClientIds: string[];
+  url?: string | null;
+  filename?: string | null;
 }): boolean {
   if (doc.canonicalDocumentId) {
     return false;
@@ -47,6 +50,14 @@ export function documentNeedsClassify(doc: {
   if (
     doc.processingStatus === DocumentProcessingStatus.DEDUPED ||
     doc.processingStatus === DocumentProcessingStatus.DISCARDED
+  ) {
+    return false;
+  }
+  if (
+    crawlResourceIsBeforeMinYear({
+      url: doc.url,
+      filename: doc.filename,
+    })
   ) {
     return false;
   }

@@ -32,14 +32,16 @@ PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el 
 | `CRAWL_CONCURRENCY` | `2` | Sitios a la vez. Da igual si hay 8 o 800 ACTIVE. **No subir** en el piloto (RAM + origen) |
 | `JOBS_CONCURRENCY` | `2` | extract + normalize. **No subir** a ciegas |
 | `CLASSIFY_CONCURRENCY` | igual que `JOBS_CONCURRENCY` | Solo cola `document.classify` (bajar si OpenAI 429) |
-| `CRAWL_LOCK_MS` | `1800000` (30 min) | Lock BullMQ del crawl + renew 15 s |
+| `CRAWL_LOCK_MS` | `5400000` (90 min) | Lock BullMQ del crawl + renew 15 s. Si Render sigue en 1800000, pisa este default |
 | `DOCUMENT_LOCK_MS` | `900000` (15 min) | Lock extract / normalize / classify |
 | `EXTRACT_PDF_TIMEOUT_MS` | `300000` (5 min) | unpdf en worker thread; ese PDF falla, el resto sigue |
 | `CRAWL_MAX_BYTES` | `25000000` | Body HTTP por página (homes/PDFs pesados) |
-| `CRAWL_MAX_PAGES` | `200` | Páginas del mismo sitio por job (tope absoluto 200) |
+| `CRAWL_MAX_PAGES` | `800` | Documentos legislativos por job (tope absoluto 2000). Menús no cuentan. Si Render tiene 200, pisa el default |
+| `CRAWL_MAX_DEPTH` | `6` | Clics desde la portada (paginación). Tope absoluto 8 |
+| `CRAWL_MIN_YEAR` | `2026` | No sigue ni guarda gacetas con año explícito anterior (DOF `fecha=`, `/2024/`, `…2023.pdf`). Sin año en la URL sí entra (portadas) |
 | `OPENAI_API_KEY` | — | Classify y `POST /ai/ask`; vacío → 503 |
 
-No subir en el piloto: `CRAWL_CONCURRENCY`, `JOBS_CONCURRENCY`, ni quitar mismo host / circuito / delay 150 ms. Si Render ya tiene `CRAWL_MAX_PAGES`, `CRAWL_MAX_BYTES` o `CRAWL_LOCK_MS` en el Environment, **pisa** estos defaults: borrar o actualizar esas claves al desplegar.
+No subir en el piloto: `CRAWL_CONCURRENCY`, `JOBS_CONCURRENCY`, ni quitar mismo host / circuito / delay 150 ms. Si Render ya tiene `CRAWL_MAX_PAGES`, `CRAWL_MAX_BYTES` o `CRAWL_LOCK_MS` en el Environment, **pisa** estos defaults: borrar `CRAWL_MAX_PAGES=200` y `CRAWL_LOCK_MS=1800000` o subirlos (800 / 5400000).
 
 Render: **New → Key Value** (misma región) → Internal URL → `REDIS_URL`. Detalle: [render-deploy.md](./render-deploy.md).  
 Storage: `SUPABASE_*` → bucket; si no, `data/crawl/` (gitignored).
@@ -54,7 +56,7 @@ Storage: `SUPABASE_*` → bucket; si no, `data/crawl/` (gitignored).
 
 Scheduler: fuentes `ACTIVE` cuyo día (`scheduleWeekdays`, 1=lunes) y hora local (`scheduleTimezone`) ya alcanzaron `scheduleTime`. Idempotencia: `{sourceCode}:{YYYY-MM-DD}:scheduled`.
 
-**Alcance:** parte de `Source.url`, sigue links del **mismo host** (con/sin `www`). Prioriza gaceta, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs. No redes, login, assets, transmisiones en vivo ni transparencia masiva. Meta refresh: no guarda el trampolín; sigue destino en el mismo host o subdominio `*.gob.mx`. Tope: profundidad 3 + `CRAWL_MAX_PAGES` (200). PDF/Word de un listado van primero. `meta.json` se descarta. Classify usa hasta 25k caracteres del texto.
+**Alcance:** parte de `Source.url`, sigue links del **mismo host** (con/sin `www`). Prioriza gaceta, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs de 2026+. **No archivos de años anteriores a `CRAWL_MIN_YEAR` (default 2026).** Menús institucionales se recorren para descubrir links, **no gastan** `CRAWL_MAX_PAGES`. No redes, login, assets, transmisiones en vivo ni transparencia masiva. Meta refresh: no guarda el trampolín; sigue destino en el mismo host o subdominio `*.gob.mx`. Tope: profundidad 6 + 800 documentos (absoluto 2000). PDF/Word de un listado van primero. `meta.json` se descarta. Classify usa hasta 25k caracteres del texto. Classify también salta documentos ya guardados con año anterior (sin OpenAI). Un congreso 2026 cabe casi entero; el DOF entero del año puede superar el tope: se llenan primero notas/PDF 2026.
 
 **ACTIVE en seed:** `dof`, `diputados-gaceta`, `jalisco-congreso`, `congreso-agu`, `congreso-bcn`, `congreso-bcs`, `congreso-cam`, `congreso-chh`. Otras ACTIVE con URL usan el mismo HTTP genérico.
 

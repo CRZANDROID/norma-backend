@@ -5,6 +5,7 @@ import {
   normalizeCrawlUrl,
   sameSite,
   sectionHints,
+  shouldSaveCrawledPage,
 } from './discover-links';
 
 describe('sameSite', () => {
@@ -126,5 +127,58 @@ describe('discoverLinks', () => {
         '/AREAS-CONGRESO/REC-MATERIALES/INVENTARIO-BIENES-MUEBLES.pdf',
       ),
     ).toBeNull();
+  });
+
+  it('drops gazette URLs with an explicit year before 2026 and keeps 2026+', () => {
+    expect(
+      normalizeCrawlUrl(
+        'https://www.dof.gob.mx/',
+        'nota_detalle.php?codigo=1&fecha=07/09/2024',
+      ),
+    ).toBeNull();
+    expect(
+      normalizeCrawlUrl(
+        'https://congresoags.gob.mx/',
+        '/gaceta/2023/enero.pdf',
+      ),
+    ).toBeNull();
+    expect(
+      normalizeCrawlUrl(
+        'https://www.dof.gob.mx/',
+        'nota_detalle.php?codigo=1&fecha=07/09/2026',
+      ),
+    ).toBe('https://www.dof.gob.mx/nota_detalle.php?codigo=1&fecha=07/09/2026');
+    expect(
+      linkScore(
+        'https://congresoags.gob.mx/gaceta/2026/iniciativas.pdf',
+      ),
+    ).toBeGreaterThan(
+      linkScore('https://congresoags.gob.mx/gaceta/iniciativas.pdf'),
+    );
+    expect(
+      shouldSaveCrawledPage({
+        url: 'https://congresoags.gob.mx/historia',
+        depth: 1,
+      }),
+    ).toBe(false);
+    expect(
+      shouldSaveCrawledPage({
+        url: 'https://congresoags.gob.mx/trabajo/gaceta',
+        depth: 1,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSaveCrawledPage({
+        url: 'https://congresoags.gob.mx/historia',
+        depth: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSaveCrawledPage({
+        url: 'https://congresoags.gob.mx/uploads/x.pdf',
+        depth: 2,
+        binary: true,
+      }),
+    ).toBe(true);
   });
 });

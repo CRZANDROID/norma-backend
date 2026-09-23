@@ -17,6 +17,10 @@ import { PrismaService } from '../database/prisma.service';
 import { ArtifactStore } from './artifact-store';
 import { getConnector } from './connectors/registry';
 import { isLiveMediaUrl } from './connectors/discover-links';
+import {
+  resolveCrawlMinYear,
+  urlIsBeforeMinYear,
+} from './crawl-min-year';
 import { DocumentJobsProducer } from './document-jobs.producer';
 import {
   isExtractableCrawlFile,
@@ -218,6 +222,16 @@ export class CrawlProcessor implements OnModuleInit, OnModuleDestroy {
           skipped += 1;
           this.logger.log(
             `crawl skip live-media source=${source.code} url=${fetched.page.finalUrl}`,
+          );
+          continue;
+        }
+        if (
+          urlIsBeforeMinYear(fetched.page.finalUrl || fetched.page.url) ||
+          urlIsBeforeMinYear(fetched.filename)
+        ) {
+          skipped += 1;
+          this.logger.log(
+            `crawl skip before-${resolveCrawlMinYear()} source=${source.code} url=${fetched.page.finalUrl}`,
           );
           continue;
         }

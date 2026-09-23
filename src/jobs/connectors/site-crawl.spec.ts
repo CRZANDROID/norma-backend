@@ -1,5 +1,5 @@
 import { CrawlError } from '../types';
-import { crawlSite } from './site-crawl';
+import { crawlSite, resolveMaxPages } from './site-crawl';
 import type { FetchedPage } from './fetch-page';
 import type { ConnectorSource } from './types';
 
@@ -164,6 +164,47 @@ describe('crawlSite', () => {
     );
   });
 
+  it('does not fetch gazette files dated before 2026', async () => {
+    const pdfBody = Buffer.from('%PDF-1.4\n1 0 obj\n');
+    const fetched: string[] = [];
+    const { pages } = await crawlSite(source, {
+      maxPages: 4,
+      maxDepth: 2,
+      delayMs: 0,
+      fetch: async (url) => {
+        fetched.push(url);
+        if (url.endsWith('/')) {
+          return page(
+            url,
+            `<a href="/gaceta">gaceta</a>
+             <a href="/uploads/ORDEN_2024.pdf">viejo</a>
+             <a href="/uploads/ORDEN_2026.pdf">nuevo</a>`,
+          );
+        }
+        if (url.includes('.pdf')) {
+          return {
+            url,
+            finalUrl: url,
+            statusCode: 200,
+            contentType: 'application/pdf',
+            body: pdfBody,
+            fetchedAt: '2026-08-30T15:00:00.000Z',
+          };
+        }
+        return page(url, '<article>Gaceta 2026</article>');
+      },
+    });
+
+    expect(fetched.some((url) => url.includes('ORDEN_2024'))).toBe(false);
+    expect(fetched.some((url) => url.includes('ORDEN_2026'))).toBe(true);
+    expect(pages.some((item) => item.page.finalUrl.includes('ORDEN_2024'))).toBe(
+      false,
+    );
+    expect(pages.some((item) => item.page.finalUrl.includes('ORDEN_2026'))).toBe(
+      true,
+    );
+  });
+
   it('follows a same-host meta-refresh stub instead of saving the bounce page', async () => {
     const fetched: string[] = [];
     const { pages } = await crawlSite(
@@ -245,5 +286,56 @@ describe('crawlSite', () => {
       fetch: async (url) => page(url, '<article>Portada con texto suficiente.</article>'),
     });
     expect(progress).toEqual([{ saved: 1, maxPages: 2 }]);
+  });
+
+  it('does not spend the page budget on institutional menus', async () => {
+    const pdfBody = Buffer.from('%PDF-1.4\n1 0 obj\n');
+    const { pages } = await crawlSite(source, {
+      maxPages: 3,
+      maxDepth: 2,
+      delayMs: 0,
+      fetch: async (url) => {
+        if (url.endsWith('/')) {
+          return page(
+            url,
+            `<a href="/historia">historia</a>
+             <a href="/directorio">directorio</a>
+             <a href="/trabajo/gaceta">gaceta</a>
+             <a href="/uploads/gaceta-2026.pdf">pdf</a>`,
+          );
+        }
+        if (url.includes('.pdf')) {
+          return {
+            url,
+            finalUrl: url,
+            statusCode: 200,
+            contentType: 'application/pdf',
+            body: pdfBody,
+            fetchedAt: '2026-08-30T15:00:00.000Z',
+          };
+        }
+        return page(url, '<article>Gaceta parlamentaria 2026 con texto.</article>');
+      },
+    });
+    const urls = pages.map((item) => item.page.finalUrl);
+    expect(urls[0]).toBe('https://congresoags.gob.mx/');
+    expect(urls).toContain('https://congresoags.gob.mx/trabajo/gaceta');
+    expect(urls).toContain('https://congresoags.gob.mx/uploads/gaceta-2026.pdf');
+    expect(urls.some((url) => url.includes('historia'))).toBe(false);
+    expect(urls.some((url) => url.includes('directorio'))).toBe(false);
+  });
+
+  it('caps CRAWL_MAX_PAGES at 2000', () => {
+    const prev = process.env.CRAWL_MAX_PAGES;
+    process.env.CRAWL_MAX_PAGES = '99999';
+    try {
+      expect(resolveMaxPages()).toBe(2000);
+    } finally {
+      if (prev === undefined) {
+        delete process.env.CRAWL_MAX_PAGES;
+      } else {
+        process.env.CRAWL_MAX_PAGES = prev;
+      }
+    }
   });
 });
