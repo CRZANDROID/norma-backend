@@ -15,7 +15,7 @@ Detalle backend: [jobs.md](./jobs.md).
 
 Query opcional `date=YYYY-MM-DD`. Default: hoy en `America/Mexico_City` (igual que el schedule de fuentes). Fecha inválida → `400`.
 
-Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los tres `progress`. Documentos y hallazgos **no se borran**; se leen con `GET /documents?sourceId=` y `GET /findings?sourceId=`. El crawl guarda **varias** páginas por fuente (hasta 200, profundidad 3); este GET sigue siendo **una fila por fuente**. Un rastreo de gaceta grande puede tardar 10–30 min con logs `crawl page N/M`; no es un cuelgue. Muchas filas `queued` a la vez (catálogo entero encolado) es el drenaje esperado: `waiting` alto no es un error.
+Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los tres `progress`. Documentos y hallazgos **no se borran**; se leen con `GET /documents?sourceId=` y `GET /findings?sourceId=`. El crawl guarda **varias** páginas legislativas por fuente (hasta 800, profundidad 6; menús no cuentan) y **omite gacetas con año anterior a 2026** (`CRAWL_MIN_YEAR`); este GET sigue siendo **una fila por fuente**. Un rastreo de gaceta grande puede tardar 20–90 min con logs `crawl page N/M`; no es un cuelgue. Muchas filas `queued` a la vez (catálogo entero encolado) es el drenaje esperado: `waiting` alto no es un error.
 
 ## Endpoints
 

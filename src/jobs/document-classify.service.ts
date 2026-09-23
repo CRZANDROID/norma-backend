@@ -17,6 +17,11 @@ import {
   CLASSIFY_SYSTEM_PROMPT,
   CLASSIFY_TEXT_LIMIT,
 } from './classify.constants';
+import {
+  crawlResourceIsBeforeMinYear,
+  crawlUrlFromMetadata,
+  resolveCrawlMinYear,
+} from './crawl-min-year';
 
 export type ClassifyJobResult = {
   documentId: string;
@@ -87,6 +92,25 @@ export class DocumentClassifyService {
         skipped: true,
         skipReason: `status ${doc.processingStatus}`,
       };
+    }
+
+    const minYear = resolveCrawlMinYear();
+    if (
+      crawlResourceIsBeforeMinYear({
+        url: crawlUrlFromMetadata(doc.metadata),
+        filename: doc.filename,
+        minYear,
+      })
+    ) {
+      this.logger.log(
+        `skip classify document=${documentId} (anterior a ${minYear})`,
+      );
+      return this.markClassified(
+        doc.id,
+        doc.processingHistory,
+        0,
+        `before-${minYear}`,
+      );
     }
 
     const extractedText = (doc.extractedText ?? '').trim();

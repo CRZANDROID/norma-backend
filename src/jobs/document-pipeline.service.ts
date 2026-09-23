@@ -18,6 +18,11 @@ import {
   type NormalizedDocumentFicha,
 } from './document-text';
 import { appendProcessingHistory } from './processing-history';
+import {
+  crawlResourceIsBeforeMinYear,
+  crawlUrlFromMetadata,
+  resolveCrawlMinYear,
+} from './crawl-min-year';
 
 export type PipelineStepResult = {
   documentId: string;
@@ -37,6 +42,20 @@ export class DocumentPipelineService {
 
   async extract(documentId: string): Promise<PipelineStepResult> {
     const doc = await this.requireDocument(documentId);
+    const minYear = resolveCrawlMinYear();
+    if (
+      crawlResourceIsBeforeMinYear({
+        url: crawlUrlFromMetadata(doc.metadata),
+        filename: doc.filename,
+        minYear,
+      })
+    ) {
+      return this.markDiscarded(
+        doc.id,
+        doc.processingHistory,
+        `Documento anterior a ${minYear}.`,
+      );
+    }
     try {
       const object = await this.storage.getObject(doc.path);
       const mime = doc.mimeType || object.contentType;
@@ -320,6 +339,29 @@ export class DocumentPipelineService {
       },
     });
     this.logger.warn(`document failed id=${documentId}: ${message}`);
+    return {
+      documentId: updated.id,
+      processingStatus: updated.processingStatus,
+    };
+  }
+
+  private async markDiscarded(
+    documentId: string,
+    history: Prisma.JsonValue,
+    message: string,
+  ): Promise<PipelineStepResult> {
+    const updated = await this.prisma.document.update({
+      where: { id: documentId },
+      data: {
+        processingStatus: DocumentProcessingStatus.DISCARDED,
+        lastError: message.slice(0, 1000),
+        processingHistory: appendProcessingHistory(
+          history,
+          DocumentProcessingStatus.DISCARDED,
+        ) as unknown as Prisma.InputJsonValue,
+      },
+    });
+    this.logger.log(`document discarded id=${documentId}: ${message}`);
     return {
       documentId: updated.id,
       processingStatus: updated.processingStatus,

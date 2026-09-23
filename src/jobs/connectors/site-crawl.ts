@@ -2,8 +2,14 @@ import { createHash } from 'node:crypto';
 import { CrawlError } from '../types';
 import { ORIGIN_PAGE_UNAVAILABLE } from '../origin-page';
 import { urlLooksLikePdf, urlLooksLikeWord } from '../document-text';
+import { urlIsBeforeMinYear } from '../crawl-min-year';
 import { fetchPage, pageFilename, sniffCrawlExtension, type FetchedPage } from './fetch-page';
-import { discoverLinks, metaRefreshStubTarget, sectionHints } from './discover-links';
+import {
+  discoverLinks,
+  metaRefreshStubTarget,
+  sectionHints,
+  shouldSaveCrawledPage,
+} from './discover-links';
 import type {
   ConnectorCrawlDeps,
   ConnectorFetch,
@@ -11,9 +17,10 @@ import type {
   CrawlOutcome,
 } from './types';
 
-const DEFAULT_MAX_PAGES = 200;
-const ABSOLUTE_MAX_PAGES = 200;
-const DEFAULT_MAX_DEPTH = 3;
+const DEFAULT_MAX_PAGES = 800;
+const ABSOLUTE_MAX_PAGES = 2000;
+const DEFAULT_MAX_DEPTH = 6;
+const ABSOLUTE_MAX_DEPTH = 8;
 const DEFAULT_DELAY_MS = 150;
 const START_PAGE_TIMEOUT_MS = 25_000;
 const INNER_PAGE_TIMEOUT_MS = 20_000;
@@ -29,6 +36,17 @@ export function resolveMaxPages(override?: number): number {
     return Math.min(Math.floor(fromEnv), ABSOLUTE_MAX_PAGES);
   }
   return DEFAULT_MAX_PAGES;
+}
+
+export function resolveMaxDepth(override?: number): number {
+  if (typeof override === 'number' && Number.isFinite(override) && override >= 0) {
+    return Math.min(Math.floor(override), ABSOLUTE_MAX_DEPTH);
+  }
+  const fromEnv = Number(process.env.CRAWL_MAX_DEPTH);
+  if (Number.isFinite(fromEnv) && fromEnv >= 0) {
+    return Math.min(Math.floor(fromEnv), ABSOLUTE_MAX_DEPTH);
+  }
+  return DEFAULT_MAX_DEPTH;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -72,10 +90,10 @@ export async function crawlSite(
 
   const fetchFn = deps.fetch ?? fetchPage;
   const maxPages = resolveMaxPages(deps.maxPages);
-  const maxDepth = deps.maxDepth ?? DEFAULT_MAX_DEPTH;
+  const maxDepth = resolveMaxDepth(deps.maxDepth);
   const delayMs = deps.delayMs ?? DEFAULT_DELAY_MS;
   const circuitLimit = deps.circuitFailures ?? ORIGIN_CIRCUIT_FAILURES;
-  const maxFetchAttempts = maxPages * 2;
+  const maxFetchAttempts = maxPages * 5;
   const hints = [
     ...sectionHints(source.sections),
     ...(source.searchFocus ?? []),
@@ -88,7 +106,7 @@ export async function crawlSite(
   ];
   const seenFinal = new Set<string>();
   const pages: ConnectorFetch[] = [];
-  const maxQueue = maxPages * 3;
+  const maxQueue = maxPages * 8;
   let failedFetches = 0;
   let consecutiveFailures = 0;
   let fetchAttempts = 0;
@@ -103,6 +121,9 @@ export async function crawlSite(
     const next = queue.shift();
     if (!next) {
       break;
+    }
+    if (next.depth > 0 && urlIsBeforeMinYear(next.url)) {
+      continue;
     }
 
     fetchAttempts += 1;
@@ -136,6 +157,9 @@ export async function crawlSite(
     }
 
     const finalUrl = page.finalUrl || next.url;
+    if (next.depth > 0 && urlIsBeforeMinYear(finalUrl)) {
+      continue;
+    }
     const sniffed = sniffCrawlExtension({
       contentType: page.contentType,
       url: finalUrl,
@@ -158,15 +182,29 @@ export async function crawlSite(
     }
     seenFinal.add(finalUrl);
 
-    pages.push({
-      page,
-      filename: filenameFor(page, pages.length),
-    });
-    deps.onProgress?.({
-      saved: pages.length,
-      maxPages,
+    const binary =
+      sniffed === 'pdf' ||
+      sniffed === 'doc' ||
+      sniffed === 'docx' ||
+      urlLooksLikePdf(finalUrl) ||
+      urlLooksLikeWord(finalUrl);
+    const save = shouldSaveCrawledPage({
       url: finalUrl,
+      depth: next.depth,
+      binary,
+      hints,
     });
+    if (save) {
+      pages.push({
+        page,
+        filename: filenameFor(page, pages.length),
+      });
+      deps.onProgress?.({
+        saved: pages.length,
+        maxPages,
+        url: finalUrl,
+      });
+    }
 
     const isHtml = sniffed === 'html';
     if (isHtml && next.depth < maxDepth) {

@@ -97,4 +97,18 @@ describe('source-pipeline', () => {
       }),
     ).toBe(true);
   });
+
+  it('skips classify when the source URL is from a year before 2026', () => {
+    expect(
+      documentNeedsClassify({
+        canonicalDocumentId: null,
+        processingStatus: DocumentProcessingStatus.READY_FOR_AI,
+        lastError: null,
+        extractedText: 'decreto',
+        findingClientIds: [],
+        linkedClientIds: linked,
+        url: 'https://www.dof.gob.mx/nota_detalle.php?fecha=15/03/2019',
+      }),
+    ).toBe(false);
+  });
 });

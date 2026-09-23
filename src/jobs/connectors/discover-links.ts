@@ -1,3 +1,9 @@
+import {
+  explicitYearsInText,
+  resolveCrawlMinYear,
+  urlIsBeforeMinYear,
+} from '../crawl-min-year';
+
 const HREF_RE = /href\s*=\s*(["'])(.*?)\1/gi;
 const FRAME_SRC_RE = /<(?:frame|iframe)\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1/gi;
 
@@ -79,6 +85,9 @@ export function normalizeCrawlUrl(
     return null;
   }
   if (SKIP_HOST_OR_PATH.test(resolved.href)) {
+    return null;
+  }
+  if (urlIsBeforeMinYear(resolved.href)) {
     return null;
   }
   return resolved.href;
@@ -167,7 +176,30 @@ export function linkScore(url: string, extraHints: string[] = []): number {
       score += 3;
     }
   }
+  const minYear = resolveCrawlMinYear();
+  if (explicitYearsInText(url).some((year) => year >= minYear)) {
+    score += 20;
+  }
   return score;
+}
+
+/**
+ * Menús / “quiénes somos” se recorren para descubrir links, pero no gastan el tope.
+ * Se guardan: la portada, PDF/Word y HTML con pinta legislativa.
+ */
+export function shouldSaveCrawledPage(params: {
+  url: string;
+  depth: number;
+  binary?: boolean;
+  hints?: string[];
+}): boolean {
+  if (params.depth === 0) {
+    return true;
+  }
+  if (params.binary) {
+    return true;
+  }
+  return linkScore(params.url, params.hints ?? []) > 0;
 }
 
 export function discoverLinks(
