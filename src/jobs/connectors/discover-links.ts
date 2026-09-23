@@ -62,10 +62,56 @@ export function sameCongressFamily(
   }
 }
 
+export function isGobMxPortalHost(hostname: string): boolean {
+  return bareHost(hostname) === 'gob.mx';
+}
+
+/** Primer segmento de `Source.url` en el portal gob.mx (`cofepris`). */
+export function gobMxSectionPrefix(sourceUrl: string): string | null {
+  try {
+    const parsed = new URL(sourceUrl);
+    if (!isGobMxPortalHost(parsed.hostname)) {
+      return null;
+    }
+    const segment = parsed.pathname.split('/').filter(Boolean)[0];
+    return segment ? segment.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * En gob.mx no seguir todo el portal: solo el path de la fuente
+ * (`/cofepris/…`) o adjuntos `/cms/uploads/` del mismo host.
+ * Otras sedes (`dof.gob.mx`) no se restringen.
+ */
+export function gobMxUrlInSourceScope(
+  sourceUrl: string,
+  candidateUrl: string,
+): boolean {
+  const prefix = gobMxSectionPrefix(sourceUrl);
+  if (!prefix) {
+    return true;
+  }
+  try {
+    const candidate = new URL(candidateUrl);
+    if (!isGobMxPortalHost(candidate.hostname)) {
+      return true;
+    }
+    const path = candidate.pathname.toLowerCase();
+    if (path === `/${prefix}` || path.startsWith(`/${prefix}/`)) {
+      return true;
+    }
+    return path.startsWith('/cms/uploads/');
+  } catch {
+    return false;
+  }
+}
+
 export function normalizeCrawlUrl(
   baseUrl: string,
   href: string,
-  options: { congressFamily?: boolean } = {},
+  options: { congressFamily?: boolean; scopeUrl?: string } = {},
 ): string | null {
   const trimmed = href.trim();
   if (!trimmed || SKIP_RE.test(trimmed) || trimmed.startsWith('#')) {
@@ -82,6 +128,10 @@ export function normalizeCrawlUrl(
     ? sameCongressFamily(baseUrl, resolved.href)
     : sameSite(baseUrl, resolved.href);
   if (!allowed) {
+    return null;
+  }
+  const scopeUrl = options.scopeUrl ?? baseUrl;
+  if (!gobMxUrlInSourceScope(scopeUrl, resolved.href)) {
     return null;
   }
   if (SKIP_HOST_OR_PATH.test(resolved.href)) {
@@ -106,6 +156,7 @@ const META_REFRESH_ATTR = [
 export function metaRefreshStubTarget(
   html: string,
   baseUrl: string,
+  scopeUrl?: string,
 ): string | null {
   if (!html || html.length > 4096) {
     return null;
@@ -127,7 +178,10 @@ export function metaRefreshStubTarget(
     return null;
   }
   const raw = urlMatch[1].replace(/^['"]|['"]$/g, '').trim();
-  const target = normalizeCrawlUrl(baseUrl, raw, { congressFamily: true });
+  const target = normalizeCrawlUrl(baseUrl, raw, {
+    congressFamily: true,
+    scopeUrl: scopeUrl ?? baseUrl,
+  });
   if (!target || target === baseUrl) {
     return null;
   }
@@ -206,10 +260,13 @@ export function discoverLinks(
   html: string,
   pageUrl: string,
   extraHints: string[] = [],
+  scopeUrl?: string,
 ): string[] {
   const unique = new Set<string>();
   for (const href of extractHrefs(html)) {
-    const url = normalizeCrawlUrl(pageUrl, href);
+    const url = normalizeCrawlUrl(pageUrl, href, {
+      scopeUrl: scopeUrl ?? pageUrl,
+    });
     if (url) {
       unique.add(url);
     }

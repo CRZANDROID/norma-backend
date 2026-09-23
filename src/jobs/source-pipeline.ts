@@ -1,6 +1,6 @@
 import { DocumentProcessingStatus } from '../database/prisma-client';
 import { isClassifyFailure } from '../modules/findings/progress.labels';
-import { crawlResourceIsBeforeMinYear } from './crawl-min-year';
+import { resourceIsBeforeMinYear } from './crawl-min-year';
 import { isExtractableCrawlFile, isMetaCrawlFilename } from './document-text';
 
 export function documentNeedsExtractRetry(doc: {
@@ -54,9 +54,10 @@ export function documentNeedsClassify(doc: {
     return false;
   }
   if (
-    crawlResourceIsBeforeMinYear({
+    resourceIsBeforeMinYear({
       url: doc.url,
       filename: doc.filename,
+      extractedText: doc.extractedText,
     })
   ) {
     return false;

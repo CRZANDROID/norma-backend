@@ -18,9 +18,9 @@ import {
   CLASSIFY_TEXT_LIMIT,
 } from './classify.constants';
 import {
-  crawlResourceIsBeforeMinYear,
   crawlUrlFromMetadata,
   resolveCrawlMinYear,
+  resourceIsBeforeMinYear,
 } from './crawl-min-year';
 
 export type ClassifyJobResult = {
@@ -96,9 +96,10 @@ export class DocumentClassifyService {
 
     const minYear = resolveCrawlMinYear();
     if (
-      crawlResourceIsBeforeMinYear({
+      resourceIsBeforeMinYear({
         url: crawlUrlFromMetadata(doc.metadata),
         filename: doc.filename,
+        extractedText: doc.extractedText,
         minYear,
       })
     ) {

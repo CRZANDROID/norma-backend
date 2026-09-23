@@ -6,6 +6,7 @@ import { urlIsBeforeMinYear } from '../crawl-min-year';
 import { fetchPage, pageFilename, sniffCrawlExtension, type FetchedPage } from './fetch-page';
 import {
   discoverLinks,
+  gobMxUrlInSourceScope,
   metaRefreshStubTarget,
   sectionHints,
   shouldSaveCrawledPage,
@@ -17,9 +18,9 @@ import type {
   CrawlOutcome,
 } from './types';
 
-const DEFAULT_MAX_PAGES = 800;
+const DEFAULT_MAX_PAGES = 200;
 const ABSOLUTE_MAX_PAGES = 2000;
-const DEFAULT_MAX_DEPTH = 6;
+const DEFAULT_MAX_DEPTH = 4;
 const ABSOLUTE_MAX_DEPTH = 8;
 const DEFAULT_DELAY_MS = 150;
 const START_PAGE_TIMEOUT_MS = 25_000;
@@ -122,7 +123,10 @@ export async function crawlSite(
     if (!next) {
       break;
     }
-    if (next.depth > 0 && urlIsBeforeMinYear(next.url)) {
+    if (
+      next.depth > 0 &&
+      (urlIsBeforeMinYear(next.url) || !gobMxUrlInSourceScope(startUrl, next.url))
+    ) {
       continue;
     }
 
@@ -157,7 +161,10 @@ export async function crawlSite(
     }
 
     const finalUrl = page.finalUrl || next.url;
-    if (next.depth > 0 && urlIsBeforeMinYear(finalUrl)) {
+    if (
+      next.depth > 0 &&
+      (urlIsBeforeMinYear(finalUrl) || !gobMxUrlInSourceScope(startUrl, finalUrl))
+    ) {
       continue;
     }
     const sniffed = sniffCrawlExtension({
@@ -166,7 +173,11 @@ export async function crawlSite(
       body: page.body,
     });
     if (sniffed === 'html') {
-      const bounce = metaRefreshStubTarget(page.body.toString('utf8'), finalUrl);
+      const bounce = metaRefreshStubTarget(
+        page.body.toString('utf8'),
+        finalUrl,
+        startUrl,
+      );
       if (bounce) {
         seenFinal.add(finalUrl);
         if (!queued.has(bounce)) {
@@ -212,6 +223,7 @@ export async function crawlSite(
         page.body.toString('utf8'),
         finalUrl,
         hints,
+        startUrl,
       );
       const binaries: Array<{ url: string; depth: number }> = [];
       const html: Array<{ url: string; depth: number }> = [];

@@ -1,5 +1,6 @@
 import {
   discoverLinks,
+  gobMxUrlInSourceScope,
   linkScore,
   metaRefreshStubTarget,
   normalizeCrawlUrl,
@@ -180,5 +181,52 @@ describe('discoverLinks', () => {
         binary: true,
       }),
     ).toBe(true);
+  });
+
+  it('keeps gob.mx crawls inside the source path and allows dated CMS uploads', () => {
+    const scope = 'https://www.gob.mx/cofepris';
+    expect(
+      gobMxUrlInSourceScope(scope, 'https://www.gob.mx/economia'),
+    ).toBe(false);
+    expect(
+      normalizeCrawlUrl(scope, '/economia', { scopeUrl: scope }),
+    ).toBeNull();
+    expect(
+      normalizeCrawlUrl(scope, '/conamer', { scopeUrl: scope }),
+    ).toBeNull();
+    expect(
+      normalizeCrawlUrl(
+        'https://www.gob.mx/cofepris/es/articulos',
+        '/cofepris/es/articulos/alerta-2026',
+        { scopeUrl: scope },
+      ),
+    ).toBe('https://www.gob.mx/cofepris/es/articulos/alerta-2026');
+    expect(
+      normalizeCrawlUrl(
+        'https://www.gob.mx/cofepris/es/articulos',
+        'https://www.gob.mx/cms/uploads/attachment/file/1/alerta-2026.pdf',
+        { scopeUrl: scope },
+      ),
+    ).toBe(
+      'https://www.gob.mx/cms/uploads/attachment/file/1/alerta-2026.pdf',
+    );
+    expect(
+      normalizeCrawlUrl(
+        'https://www.gob.mx/cofepris/es/articulos',
+        'https://www.gob.mx/cms/uploads/attachment/file/835966/Alerta_Sanitaria_DIONICA_30062023.pdf',
+        { scopeUrl: scope },
+      ),
+    ).toBeNull();
+    const html = `
+      <a href="https://www.gob.mx/economia">Economía</a>
+      <a href="https://www.gob.mx/cms/uploads/attachment/file/1/alerta-2026.pdf">PDF</a>
+      <a href="/cofepris/prensa">Prensa</a>
+    `;
+    const links = discoverLinks(html, 'https://www.gob.mx/cofepris', [], scope);
+    expect(links.some((url) => url.includes('/economia'))).toBe(false);
+    expect(links).toContain(
+      'https://www.gob.mx/cms/uploads/attachment/file/1/alerta-2026.pdf',
+    );
+    expect(links).toContain('https://www.gob.mx/cofepris/prensa');
   });
 });

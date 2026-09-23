@@ -14,11 +14,14 @@ import { config } from 'dotenv';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { PrismaClient } from '../generated/prisma';
+import { withPrismaRuntimeUrl } from '../src/database/database-url';
 import { isValidCalendarDate, zonedDayRange } from '../src/jobs/schedule-window';
 
 config();
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasourceUrl: withPrismaRuntimeUrl(process.env.DATABASE_URL),
+});
 const JOB_QUEUES = [
   'source.crawl',
   'document.extract',
@@ -236,27 +239,25 @@ async function resetDay(date: string): Promise<void> {
     `Día ${date}: ${runs.length} job_runs, ${documentIds.length} documentos de crawl, ${findings} findings (otros días se conservan)`,
   );
 
-  await prisma.$transaction(async (tx) => {
-    await tx.finding.deleteMany({
-      where: {
-        OR: [
-          ...(documentIds.length ? [{ documentId: { in: documentIds } }] : []),
-          { createdAt: { gte: start, lt: end } },
-        ],
-      },
-    });
-    if (documentIds.length) {
-      await tx.document.deleteMany({
-        where: { canonicalDocumentId: { in: documentIds } },
-      });
-      await tx.document.deleteMany({
-        where: { id: { in: documentIds } },
-      });
-    }
-    if (runIds.length) {
-      await tx.jobRun.deleteMany({ where: { id: { in: runIds } } });
-    }
+  await prisma.finding.deleteMany({
+    where: {
+      OR: [
+        ...(documentIds.length ? [{ documentId: { in: documentIds } }] : []),
+        { createdAt: { gte: start, lt: end } },
+      ],
+    },
   });
+  if (documentIds.length) {
+    await prisma.document.deleteMany({
+      where: { canonicalDocumentId: { in: documentIds } },
+    });
+    await prisma.document.deleteMany({
+      where: { id: { in: documentIds } },
+    });
+  }
+  if (runIds.length) {
+    await prisma.jobRun.deleteMany({ where: { id: { in: runIds } } });
+  }
 
   await removeLocalDayArtifacts(date);
   await removeJobs({
@@ -280,14 +281,13 @@ async function resetAll(): Promise<void> {
     `Antes: ${beforeDocs} documentos de crawl, ${beforeRuns} job_runs, ${beforeFindings} findings, ${otherDocs} documentos no-crawl (se conservan)`,
   );
 
-  await prisma.$transaction(async (tx) => {
-    await tx.finding.deleteMany();
-    await tx.document.deleteMany({
-      where: { canonicalDocumentId: { not: null } },
-    });
-    await tx.document.deleteMany({ where: crawlWhere });
-    await tx.jobRun.deleteMany();
+  await prisma.report.deleteMany();
+  await prisma.finding.deleteMany();
+  await prisma.document.deleteMany({
+    where: { canonicalDocumentId: { not: null } },
   });
+  await prisma.document.deleteMany({ where: crawlWhere });
+  await prisma.jobRun.deleteMany();
 
   await removeLocalArtifacts();
   await obliterateQueues();

@@ -52,6 +52,7 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 | Docker | [docker.md](./docker.md) |
 | Sentry/Storage | [sentry-storage.md](./sentry-storage.md) |
 | Render | [render-deploy.md](./render-deploy.md) |
+| Worker VPS | [worker-vps.md](./worker-vps.md) |
 
 ---
 
@@ -63,7 +64,7 @@ Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_st
 - Fuentes: `jurisdiction` + `stateCode` + `schedule`; `searchFocus` / `keywordsGuide` (`string[]`)
 - Delivery 1:1: `suggestedAction` por nivel + `autoSend` (S9)
 - `GET /ai/status`, `POST /ai/ask` (503 sin `OPENAI_API_KEY`)
-- Crawl: cola `source.crawl`, `GET /jobs/status` (`queues` + `consumers`; `worker` = hay consumidor, no el flag del API), `POST /jobs/crawl` / `crawl/all`, `job_runs`. Tope `CRAWL_MAX_PAGES` 800 (absoluto 2000; menús no cuentan), profundidad 6. **Piso `CRAWL_MIN_YEAR` 2026**. Concurrencia de sitios: `CRAWL_CONCURRENCY` (default 2, **no subir**). Lock crawl ~90 min; extract/classify `DOCUMENT_LOCK_MS` ~15 min. Body HTTP 25 MB; classify 25k caracteres. Sitio caído = error de origen. Compose: `api` sin workers + `worker`. El seed completo (`SEED_CATALOG` default) deja ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. **DB actual (pruebas de informe):** Arca Continental vinculada a `dof`, `diputados-gaceta`, `jalisco-congreso`, `cofepris` (ACTIVE) y `conamer` (INACTIVE, demo de capacitación: activar + rastrear). El resto de congresos del seed está INACTIVE. Stall/restart: cierra `job_runs` y documentos a medias; PDF en worker thread.
+- Crawl: cola `source.crawl`, `GET /jobs/status` (`queues` + `consumers`; `worker` = hay consumidor, no el flag del API), `POST /jobs/crawl` / `crawl/all`, `job_runs`. Tope `CRAWL_MAX_PAGES` 200 (absoluto 2000; menús no cuentan), profundidad 4. **Piso `CRAWL_MIN_YEAR` 2026** (URL/`ddMMyyyy`/dateline del texto; `gob.mx` se queda en el path de la fuente + `/cms/uploads`). HTTP: cookie jar + UA Chrome (portadas tipo Senado que redirigen sin cookie). Concurrencia de sitios: `CRAWL_CONCURRENCY` (default 2, **no subir**). Lock crawl ~90 min; extract/classify `DOCUMENT_LOCK_MS` ~15 min. Body HTTP 25 MB; classify 25k caracteres. Sitio caído = error de origen. Compose: `api` sin workers + `worker`. El seed completo (`SEED_CATALOG` default) deja ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. **DB actual (pruebas de informe):** Arca Continental vinculada a `dof`, `diputados-gaceta`, `jalisco-congreso`, `cofepris` (ACTIVE) y `conamer` (INACTIVE, demo de capacitación: activar + rastrear). El resto de congresos del seed está INACTIVE. Stall/restart: cierra `job_runs` y documentos a medias; PDF en worker thread.
 - Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
 - Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
 - Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }` (`excludedFromNextReport`, `lote`, `counts.included/excluded/sent`). `lote=incluidos` y `counts.included` ignoran fecha/`status`/fuente/semáforo (lote real del PDF). `PATCH /findings/:id` (`title`/`justification`/`impact`), `POST /findings/:id/exclude|include|rewrite` (`rewrite-v6`: `rewriteNote`, o 422 con el limitante si el pedido no se sostiene con el documento). `GET /findings/:id`. HUD: `POST /jobs/crawl/all` → extract+classify; `POST /jobs/extract/all` → extract + classify que falte; `POST /jobs/classify/all` (salta sin cliente). Una fuente: `/jobs/crawl` \| `/extract` \| `/classify`. `POST /documents/:id/classify` archivo suelto. Classify `classify-v2`.
@@ -85,7 +86,7 @@ src/jobs/            # BullMQ source.crawl + extract/normalize_dedup/classify
 2. **Sprint 9 resto:** envío/`autoSend`, descartar, correo a contactos. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 3. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
 4. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
-5. Redis en staging/prod (`REDIS_URL`) + **Background Worker** (el Web Service va con `JOBS_WORKER=false`). Scheduler 07:00 en el worker. Durante la sesión de capacitación el scheduler va **off** en ese worker.
+5. Redis = Key Value Render. HTTP = Web Service (`JOBS_WORKER=false`, `JOBS_SCHEDULER=false`). Worker BullMQ = **Hetzner** ([worker-vps.md](./worker-vps.md)); el Background Worker de Render queda Suspend. Scheduler 07:00 **off** (`JOBS_SCHEDULER=false`) hasta acotar crawl 2026 / `gob.mx`.
 
 ---
 

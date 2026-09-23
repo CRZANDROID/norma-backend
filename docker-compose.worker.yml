@@ -1,0 +1,26 @@
+# Worker de producción en VPS (Hetzner). No levanta Redis ni HTTP público.
+# Redis = Key Value de Render (URL externa). API HTTP sigue en Render.
+# Uso: docker compose -f docker-compose.worker.yml up -d --build
+# Guía: docs/worker-vps.md
+
+services:
+  worker:
+    build: .
+    image: norma-backend:worker
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      JOBS_WORKER: "true"
+      JOBS_SCHEDULER: "false"
+      SKIP_PRISMA_MIGRATE: "true"
+      DATABASE_CONNECTION_LIMIT: "2"
+      NODE_OPTIONS: "--max-old-space-size=3072"
+    volumes:
+      - worker-crawl:/app/data/crawl
+    restart: unless-stopped
+    # Nest igual bindea PORT dentro del contenedor; no lo publiques.
+    expose:
+      - "3000"
+
+volumes:
+  worker-crawl:

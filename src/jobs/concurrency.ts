@@ -9,7 +9,7 @@ export function parsePositiveInt(
   return Math.floor(n);
 }
 
-/** Crawl of a large 2026 gazette can take > 30 min at 800 pages. Default 90 min. */
+/** Crawl of a 2026 gazette can take > 15 min at 200 pages. Default 90 min. */
 export const DEFAULT_CRAWL_LOCK_MS = 90 * 60 * 1000;
 /** Extract of huge PDFs / OpenAI classify can exceed the BullMQ default ~30 s lock. */
 export const DEFAULT_DOCUMENT_LOCK_MS = 15 * 60 * 1000;

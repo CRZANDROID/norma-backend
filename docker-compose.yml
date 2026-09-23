@@ -24,6 +24,9 @@ services:
       JOBS_WORKER: "false"
       JOBS_SCHEDULER: "false"
       DATABASE_CONNECTION_LIMIT: "2"
+      CRAWL_MAX_PAGES: "200"
+      CRAWL_MAX_DEPTH: "4"
+      CRAWL_CONCURRENCY: "1"
     ports:
       - "3000:3000"
     volumes:
@@ -52,9 +55,12 @@ services:
       REDIS_URL: redis://redis:6379
       PORT: "3000"
       JOBS_WORKER: "true"
-      JOBS_SCHEDULER: "true"
+      JOBS_SCHEDULER: "false"
       SKIP_PRISMA_MIGRATE: "true"
       DATABASE_CONNECTION_LIMIT: "2"
+      CRAWL_MAX_PAGES: "200"
+      CRAWL_MAX_DEPTH: "4"
+      CRAWL_CONCURRENCY: "1"
     volumes:
       - ./data/crawl:/app/data/crawl
     depends_on:
