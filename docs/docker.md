@@ -27,7 +27,7 @@ Compose **pisa** `PORT=3000` y `REDIS_URL=redis://redis:6379` aunque el `.env` t
 | Servicio | `JOBS_WORKER` | `JOBS_SCHEDULER` |
 |----------|---------------|------------------|
 | `api` | `false` | `false` |
-| `worker` | `true` | `true` |
+| `worker` | `true` | `false` (local: no cron 07:00; HUD sí). Compose: `CRAWL_MAX_PAGES=200`, profundidad 4, 1 sitio a la vez. |
 
 El catálogo entero se encola en segundos (`POST /jobs/crawl/all` o el cron). Solo `CRAWL_CONCURRENCY` crawls corren a la vez (default 2). `waiting` alto es normal.
 
@@ -47,7 +47,7 @@ Parar: `docker compose down`. Logs: `docker compose logs -f api worker`.
 
 [docker-compose.yml](../docker-compose.yml) levanta Redis y pisa `REDIS_URL`. No edites `.env` para que Docker “encuentre” Redis.
 
-Comprueba: `GET /jobs/status` → `configured: true`, `redis: up`, `worker: true` (hay consumidores en `source.crawl`), `consumers` > 0. `scheduler` en el **API** es `false` (el cron vive en `worker`).
+Comprueba: `GET /jobs/status` → `configured: true`, `redis: up`, `worker: true` (hay consumidores en `source.crawl`), `consumers` > 0. `scheduler` en el **API** es `false`. En local el **worker** también va `JOBS_SCHEDULER=false` (rastreo solo con el HUD). Compose pisa `CRAWL_MAX_PAGES=200`, `CRAWL_MAX_DEPTH=4`, `CRAWL_CONCURRENCY=1` (gaceta del día sin el tope de 800).
 
 ## Qué hace el contenedor al arrancar
 

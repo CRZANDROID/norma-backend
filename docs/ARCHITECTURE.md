@@ -77,9 +77,9 @@ La imagen es la misma (`node dist/main.js`). El catálogo entero se encola; no s
 | Proceso | Env | Rol |
 |---------|-----|-----|
 | `api` | `JOBS_WORKER=false`, `JOBS_SCHEDULER=false` | HTTP (`/health`, `/alertas`, `POST /jobs/crawl`) |
-| `worker` | `JOBS_WORKER` on, scheduler on | Consume `source.crawl` (`CRAWL_CONCURRENCY`, default 2) + extract/normalize/classify |
+| `worker` | `JOBS_WORKER` on | Consume `source.crawl` (`CRAWL_CONCURRENCY`, default 2) + extract/normalize/classify. Cron solo si `JOBS_SCHEDULER=true` |
 
-Local: [docker.md](./docker.md). Render: Web Service + Background Worker ([render-deploy.md](./render-deploy.md)). Picos: [PERFORMANCE.md](./PERFORMANCE.md).
+Local: [docker.md](./docker.md). Prod: Web Render + worker Hetzner ([worker-vps.md](./worker-vps.md)). Picos: [PERFORMANCE.md](./PERFORMANCE.md).
 
 ## Multi-tenancy
 

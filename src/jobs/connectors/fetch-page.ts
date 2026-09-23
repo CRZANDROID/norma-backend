@@ -25,12 +25,21 @@ export type FetchedPage = {
 const DEFAULT_TIMEOUT_MS = 25_000;
 /** Homes y PDFs de gaceta a menudo pasan de 2–3 MB; 25 MB cubre decretos pesados. */
 export const DEFAULT_MAX_BYTES = 25_000_000;
-const USER_AGENT =
-  'NORMA-piloto/0.7 (monitoreo regulatorio; crawl de catálogo oficial)';
+/** Chrome reciente: muchos .gob.mx mandan el UA de bot a un 302 eterno. */
+export const CRAWL_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const TLS_ERROR_RE =
   /certificate|unable to verify|UNABLE_TO_VERIFY|CERT_|ERR_TLS|self.signed|ssl|tls/i;
+const REDIRECT_LOOP_RE = /redirect count exceeded|Demasiados redirects/i;
 const MAX_REDIRECTS = 8;
+
+export type CrawlCookie = {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+};
 
 function isTlsFailure(message: string): boolean {
   return TLS_ERROR_RE.test(message);
@@ -60,12 +69,114 @@ function isHardNetworkFailure(message: string): boolean {
   );
 }
 
-function shouldRetryWithLaxTls(err: unknown): boolean {
+export function shouldRetryWithLaxTls(err: unknown): boolean {
   const text = errorChainText(err);
+  if (REDIRECT_LOOP_RE.test(text)) {
+    return false;
+  }
   if (isTlsFailure(text)) {
     return true;
   }
   return /fetch failed/i.test(text) && !isHardNetworkFailure(text);
+}
+
+function cookieDomainMatches(cookieDomain: string, hostname: string): boolean {
+  const domain = cookieDomain.replace(/^\./, '').toLowerCase();
+  const host = hostname.replace(/^www\./i, '').toLowerCase();
+  const cookieHost = domain.replace(/^www\./i, '');
+  return host === cookieHost || host.endsWith(`.${cookieHost}`);
+}
+
+function cookiePathMatches(cookiePath: string, pathname: string): boolean {
+  if (!cookiePath || cookiePath === '/') {
+    return true;
+  }
+  if (pathname === cookiePath) {
+    return true;
+  }
+  const prefix = cookiePath.endsWith('/') ? cookiePath : `${cookiePath}/`;
+  return pathname.startsWith(prefix);
+}
+
+export function parseSetCookieHeader(
+  raw: string,
+  pageUrl: string,
+): CrawlCookie | null {
+  const parts = raw.split(';').map((item) => item.trim()).filter(Boolean);
+  const pair = parts[0];
+  if (!pair || !pair.includes('=')) {
+    return null;
+  }
+  const eq = pair.indexOf('=');
+  const name = pair.slice(0, eq).trim();
+  const value = pair.slice(eq + 1).trim();
+  if (!name || /^(expires|max-age|domain|path|secure|httponly|samesite)$/i.test(name)) {
+    return null;
+  }
+  let domain = '';
+  try {
+    domain = new URL(pageUrl).hostname;
+  } catch {
+    return null;
+  }
+  let path = '/';
+  for (const attr of parts.slice(1)) {
+    const sep = attr.indexOf('=');
+    const key = (sep === -1 ? attr : attr.slice(0, sep)).trim().toLowerCase();
+    const val = sep === -1 ? '' : attr.slice(sep + 1).trim();
+    if (key === 'domain' && val) {
+      domain = val.replace(/^\./, '');
+    } else if (key === 'path' && val) {
+      path = val.startsWith('/') ? val : `/${val}`;
+    }
+  }
+  return { name, value, domain, path };
+}
+
+export function ingestSetCookies(
+  jar: CrawlCookie[],
+  pageUrl: string,
+  setCookie: string | string[] | undefined,
+): void {
+  const rows = !setCookie ? [] : Array.isArray(setCookie) ? setCookie : [setCookie];
+  for (const raw of rows) {
+    const cookie = parseSetCookieHeader(raw, pageUrl);
+    if (!cookie) {
+      continue;
+    }
+    const index = jar.findIndex(
+      (row) =>
+        row.name === cookie.name &&
+        row.domain.toLowerCase() === cookie.domain.toLowerCase() &&
+        row.path === cookie.path,
+    );
+    if (index >= 0) {
+      jar[index] = cookie;
+    } else {
+      jar.push(cookie);
+    }
+  }
+}
+
+export function cookieHeaderFromJar(jar: CrawlCookie[], pageUrl: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(pageUrl);
+  } catch {
+    return '';
+  }
+  const chosen = new Map<string, string>();
+  for (const cookie of jar) {
+    if (
+      cookieDomainMatches(cookie.domain, parsed.hostname) &&
+      cookiePathMatches(cookie.path, parsed.pathname)
+    ) {
+      chosen.set(cookie.name, cookie.value);
+    }
+  }
+  return [...chosen.entries()]
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ');
 }
 
 function classifyHttp(status: number): CrawlError {
@@ -110,7 +221,8 @@ function tooLargeError(bytes: number, maxBytes: number): CrawlError {
 const CRAWL_HEADERS = {
   Accept:
     'text/html,application/xhtml+xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/xml,*/*;q=0.8',
-  'User-Agent': USER_AGENT,
+  'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
+  'User-Agent': CRAWL_USER_AGENT,
 };
 
 function incomingToHeaders(raw: http.IncomingHttpHeaders): Headers {
@@ -132,7 +244,12 @@ function incomingToHeaders(raw: http.IncomingHttpHeaders): Headers {
 
 function requestOnce(
   targetUrl: string,
-  options: { timeoutMs: number; maxBytes: number; insecureTls: boolean },
+  options: {
+    timeoutMs: number;
+    maxBytes: number;
+    insecureTls: boolean;
+    cookie?: string;
+  },
 ): Promise<{
   statusCode: number;
   headers: http.IncomingHttpHeaders;
@@ -149,6 +266,13 @@ function requestOnce(
 
     const isHttps = parsed.protocol === 'https:';
     const lib = isHttps ? https : http;
+    const headers: http.OutgoingHttpHeaders = {
+      ...CRAWL_HEADERS,
+      Host: parsed.host,
+    };
+    if (options.cookie) {
+      headers.Cookie = options.cookie;
+    }
     const requestOptions: https.RequestOptions = {
       protocol: parsed.protocol,
       hostname: parsed.hostname,
@@ -156,16 +280,28 @@ function requestOnce(
       path: `${parsed.pathname}${parsed.search}`,
       method: 'GET',
       timeout: options.timeoutMs,
-      headers: {
-        ...CRAWL_HEADERS,
-        Host: parsed.host,
-      },
+      headers,
     };
     if (isHttps && options.insecureTls) {
       requestOptions.agent = new https.Agent({ rejectUnauthorized: false });
     }
 
     const req = lib.request(requestOptions, (res) => {
+      const statusCode = res.statusCode ?? 0;
+      if (
+        statusCode >= 300 &&
+        statusCode < 400 &&
+        res.headers.location
+      ) {
+        res.resume();
+        resolve({
+          statusCode,
+          headers: res.headers,
+          body: Buffer.alloc(0),
+        });
+        return;
+      }
+
       const declared = Number(res.headers['content-length']);
       if (Number.isFinite(declared) && declared > options.maxBytes) {
         res.resume();
@@ -186,7 +322,7 @@ function requestOnce(
       });
       res.on('end', () => {
         resolve({
-          statusCode: res.statusCode ?? 0,
+          statusCode,
           headers: res.headers,
           body: Buffer.concat(chunks, total),
         });
@@ -206,17 +342,36 @@ function requestOnce(
   });
 }
 
-/** Node 20: no cargar el paquete npm `undici` 8 (exige markAsUncloneable de Node 22). */
-async function fetchWithLaxTls(
+function normalizeHopUrl(href: string): string {
+  try {
+    const parsed = new URL(href);
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return href.split('#')[0] ?? href;
+  }
+}
+
+/** Node 20: http/https nativo (no undici 8). Cookies en cada hop: fetch global no las reenvía. */
+async function fetchFollowingRedirects(
   url: string,
-  options: { timeoutMs: number; maxBytes: number },
+  options: { timeoutMs: number; maxBytes: number; insecureTls: boolean },
 ): Promise<Response> {
+  const jar: CrawlCookie[] = [];
+  const seen = new Set<string>();
   let current = url;
   for (let i = 0; i <= MAX_REDIRECTS; i += 1) {
+    const cookie = cookieHeaderFromJar(jar, current);
+    const hopKey = `${normalizeHopUrl(current)}\0${cookie}`;
+    if (seen.has(hopKey)) {
+      throw new CrawlError('Demasiados redirects HTTP', 'NETWORK', true);
+    }
+    seen.add(hopKey);
     const result = await requestOnce(current, {
       ...options,
-      insecureTls: true,
+      cookie: cookie || undefined,
     });
+    ingestSetCookies(jar, current, result.headers['set-cookie']);
     if (
       result.statusCode >= 300 &&
       result.statusCode < 400 &&
@@ -286,17 +441,14 @@ export async function fetchPage(
   const maxBytes = resolveMaxBytes(options.maxBytes);
   const fetchedAt = new Date().toISOString();
 
-  const requestInit: RequestInit = {
-    method: 'GET',
-    redirect: 'follow',
-    signal: AbortSignal.timeout(timeoutMs),
-    headers: CRAWL_HEADERS,
-  };
-
   let response: Response;
   try {
     try {
-      response = await fetch(url, requestInit);
+      response = await fetchFollowingRedirects(url, {
+        timeoutMs,
+        maxBytes,
+        insecureTls: false,
+      });
     } catch (err) {
       if (!shouldRetryWithLaxTls(err)) {
         throw err;
@@ -305,7 +457,11 @@ export async function fetchPage(
       console.warn(
         `crawl TLS laxo url=${url} reason=${errorChainText(err).slice(0, 200)}`,
       );
-      response = await fetchWithLaxTls(url, { timeoutMs, maxBytes });
+      response = await fetchFollowingRedirects(url, {
+        timeoutMs,
+        maxBytes,
+        insecureTls: true,
+      });
     }
   } catch (err) {
     const message = errorChainText(err) || String(err);

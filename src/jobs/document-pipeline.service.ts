@@ -22,6 +22,7 @@ import {
   crawlResourceIsBeforeMinYear,
   crawlUrlFromMetadata,
   resolveCrawlMinYear,
+  resourceIsBeforeMinYear,
 } from './crawl-min-year';
 
 export type PipelineStepResult = {
@@ -100,6 +101,21 @@ export class DocumentPipelineService {
       const check = validateExtractedText(rawAsText, extracted, { kind });
       if (!check.ok) {
         return this.markFailed(doc.id, doc.processingHistory, check.message);
+      }
+
+      if (
+        resourceIsBeforeMinYear({
+          url: crawlUrlFromMetadata(doc.metadata),
+          filename: doc.filename,
+          extractedText: extracted,
+          minYear,
+        })
+      ) {
+        return this.markDiscarded(
+          doc.id,
+          doc.processingHistory,
+          `Documento anterior a ${minYear}.`,
+        );
       }
 
       const extractedPath = derivedExtractedPath(doc.id);

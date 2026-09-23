@@ -1,6 +1,6 @@
 # Jobs — crawl, documentos y clasificación
 
-Redis + BullMQ. **HTTP y workers son procesos distintos** (Compose `api` + `worker`; Render Web Service + Background Worker). Local: [docker.md](./docker.md) (no Redis suelto en Windows).  
+Redis + BullMQ. **HTTP y workers son procesos distintos** (Compose `api` + `worker`; prod: Render Web + worker Hetzner, [worker-vps.md](./worker-vps.md)). Local: [docker.md](./docker.md) (no Redis suelto en Windows).  
 UI del panel: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). Hallazgos: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). El pico de catálogo se encola; [PERFORMANCE.md](./PERFORMANCE.md).
 
 ```text
@@ -36,14 +36,14 @@ PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el 
 | `DOCUMENT_LOCK_MS` | `900000` (15 min) | Lock extract / normalize / classify |
 | `EXTRACT_PDF_TIMEOUT_MS` | `300000` (5 min) | unpdf en worker thread; ese PDF falla, el resto sigue |
 | `CRAWL_MAX_BYTES` | `25000000` | Body HTTP por página (homes/PDFs pesados) |
-| `CRAWL_MAX_PAGES` | `800` | Documentos legislativos por job (tope absoluto 2000). Menús no cuentan. Si Render tiene 200, pisa el default |
-| `CRAWL_MAX_DEPTH` | `6` | Clics desde la portada (paginación). Tope absoluto 8 |
-| `CRAWL_MIN_YEAR` | `2026` | No sigue ni guarda gacetas con año explícito anterior (DOF `fecha=`, `/2024/`, `…2023.pdf`). Sin año en la URL sí entra (portadas) |
+| `CRAWL_MAX_PAGES` | `200` | Documentos legislativos por job (tope absoluto 2000). Menús no cuentan. Si Render tiene 800, pisa el default |
+| `CRAWL_MAX_DEPTH` | `4` | Clics desde la portada (paginación). Tope absoluto 8 |
+| `CRAWL_MIN_YEAR` | `2026` | No sigue ni guarda gacetas/alertas con **fecha de publicación** anterior: URL (`fecha=`, `/2024/`, `yyyyMMdd`, `ddMMyyyy` tipo `30062023.pdf`) o dateline al inicio del texto (“23 de febrero de 2022”). Sin fecha se guarda (portadas). |
 | `OPENAI_API_KEY` | — | Classify y `POST /ai/ask`; vacío → 503 |
 
-No subir en el piloto: `CRAWL_CONCURRENCY`, `JOBS_CONCURRENCY`, ni quitar mismo host / circuito / delay 150 ms. Si Render ya tiene `CRAWL_MAX_PAGES`, `CRAWL_MAX_BYTES` o `CRAWL_LOCK_MS` en el Environment, **pisa** estos defaults: borrar `CRAWL_MAX_PAGES=200` y `CRAWL_LOCK_MS=1800000` o subirlos (800 / 5400000).
+No subir en el piloto: `CRAWL_CONCURRENCY`, `JOBS_CONCURRENCY`, ni quitar mismo host / circuito / delay 150 ms. Si Render ya tiene `CRAWL_MAX_PAGES=800` (o `200` viejo), **pisa** el default 200: borrar la variable o dejarla en `200`. `CRAWL_LOCK_MS` sigue en 90 min.
 
-Render: **New → Key Value** (misma región) → Internal URL → `REDIS_URL`. Detalle: [render-deploy.md](./render-deploy.md).  
+Render: **New → Key Value** (misma región) → Internal URL en el Web Service. El worker en Hetzner usa la URL **externa** + IP allowlist ([worker-vps.md](./worker-vps.md)). Detalle HTTP: [render-deploy.md](./render-deploy.md).  
 Storage: `SUPABASE_*` → bucket; si no, `data/crawl/` (gitignored).
 
 `GET /jobs/status` → `{ configured, redis, worker, scheduler, queues, consumers }`.  
@@ -56,7 +56,7 @@ Storage: `SUPABASE_*` → bucket; si no, `data/crawl/` (gitignored).
 
 Scheduler: fuentes `ACTIVE` cuyo día (`scheduleWeekdays`, 1=lunes) y hora local (`scheduleTimezone`) ya alcanzaron `scheduleTime`. Idempotencia: `{sourceCode}:{YYYY-MM-DD}:scheduled`.
 
-**Alcance:** parte de `Source.url`, sigue links del **mismo host** (con/sin `www`). Prioriza gaceta, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs de 2026+. **No archivos de años anteriores a `CRAWL_MIN_YEAR` (default 2026).** Menús institucionales se recorren para descubrir links, **no gastan** `CRAWL_MAX_PAGES`. No redes, login, assets, transmisiones en vivo ni transparencia masiva. Meta refresh: no guarda el trampolín; sigue destino en el mismo host o subdominio `*.gob.mx`. Tope: profundidad 6 + 800 documentos (absoluto 2000). PDF/Word de un listado van primero. `meta.json` se descarta. Classify usa hasta 25k caracteres del texto. Classify también salta documentos ya guardados con año anterior (sin OpenAI). Un congreso 2026 cabe casi entero; el DOF entero del año puede superar el tope: se llenan primero notas/PDF 2026.
+**Alcance:** parte de `Source.url`, sigue links del **mismo host** (con/sin `www`). En el portal `www.gob.mx` no se recorre todo el gobierno: solo el primer segmento de la fuente (`/cofepris/…`) más adjuntos `/cms/uploads/` del mismo host. Prioriza gaceta, iniciativas, decretos, dictámenes, `nota_detalle`, debates, PDFs de 2026+. **No archivos con fecha de publicación anterior a `CRAWL_MIN_YEAR` (default 2026):** año en URL/nombre (`fecha=`, `/2024/`, `ddMMyyyy`) o dateline al inicio del texto extraído. Sin fecha reconocida sí entra (portadas). Menús institucionales se recorren para descubrir links, **no gastan** `CRAWL_MAX_PAGES`. No redes, login, assets, transmisiones en vivo ni transparencia masiva. Meta refresh: no guarda el trampolín; sigue destino en el mismo host o subdominio `*.gob.mx`. Tope: profundidad 4 + 200 documentos (absoluto 2000). PDF/Word de un listado van primero. `meta.json` se descarta. Classify usa hasta 25k caracteres del texto. Classify también salta documentos ya guardados con publicación anterior (sin OpenAI). Un congreso 2026 cabe casi entero; el DOF entero del año puede superar el tope: se llenan primero notas/PDF 2026.
 
 **ACTIVE en seed:** `dof`, `diputados-gaceta`, `jalisco-congreso`, `congreso-agu`, `congreso-bcn`, `congreso-bcs`, `congreso-cam`, `congreso-chh`. Otras ACTIVE con URL usan el mismo HTTP genérico.
 
@@ -66,6 +66,7 @@ Familias de fallo (no se “arregla” URL a URL):
 - Word (`.doc`/`.docx`, DOF `nota_to_doc`): Mammoth / word-extractor
 - PDF escaneado: crawl guarda; extract `FAILED` (“PDF escaneado”). Sin OCR
 - TLS gobierno: un reintento laxo; si falla = error de **la página de origen** (no “falló NORMA”)
+- Portada que en Chrome carga y en Node da 302 eterno: cookie jar + User-Agent de Chrome en cada hop (no conector por URL). Un bucle de redirects **no** se reintenta como TLS.
 - Circuito + tope `maxPages * 2` intentos: el job termina con lo que sí bajó
 - Body > `CRAWL_MAX_BYTES` → “Respuesta demasiado grande”; sube el tope y **Rastrear ahora** (el scheduler no reintenta FAILED el mismo día)
 

@@ -325,10 +325,59 @@ describe('crawlSite', () => {
     expect(urls.some((url) => url.includes('directorio'))).toBe(false);
   });
 
-  it('caps CRAWL_MAX_PAGES at 2000', () => {
+  it('does not follow other gob.mx sections from a scoped source', async () => {
+    const pdfBody = Buffer.from('%PDF-1.4\n1 0 obj\n');
+    const fetched: string[] = [];
+    const cofepris: ConnectorSource = {
+      ...source,
+      code: 'cofepris',
+      url: 'https://www.gob.mx/cofepris',
+    };
+    const { pages } = await crawlSite(cofepris, {
+      maxPages: 6,
+      maxDepth: 2,
+      delayMs: 0,
+      fetch: async (url) => {
+        fetched.push(url);
+        if (url === 'https://www.gob.mx/cofepris') {
+          return page(
+            url,
+            `<a href="https://www.gob.mx/economia">economía</a>
+             <a href="/cofepris/prensa">prensa</a>
+             <a href="https://www.gob.mx/cms/uploads/attachment/file/1/alerta-2026.pdf">ok</a>
+             <a href="https://www.gob.mx/cms/uploads/attachment/file/2/Alerta_30062023.pdf">vieja</a>`,
+          );
+        }
+        if (url.includes('.pdf')) {
+          return {
+            url,
+            finalUrl: url,
+            statusCode: 200,
+            contentType: 'application/pdf',
+            body: pdfBody,
+            fetchedAt: '2026-08-30T15:00:00.000Z',
+          };
+        }
+        return page(url, '<article>Prensa COFEPRIS 2026 con texto suficiente.</article>');
+      },
+    });
+
+    expect(fetched.some((url) => url.includes('/economia'))).toBe(false);
+    expect(fetched.some((url) => url.includes('Alerta_30062023'))).toBe(false);
+    expect(fetched).toContain(
+      'https://www.gob.mx/cms/uploads/attachment/file/1/alerta-2026.pdf',
+    );
+    expect(
+      pages.some((item) => item.page.finalUrl.includes('alerta-2026.pdf')),
+    ).toBe(true);
+  });
+
+  it('defaults to 200 pages and caps CRAWL_MAX_PAGES at 2000', () => {
     const prev = process.env.CRAWL_MAX_PAGES;
-    process.env.CRAWL_MAX_PAGES = '99999';
     try {
+      delete process.env.CRAWL_MAX_PAGES;
+      expect(resolveMaxPages()).toBe(200);
+      process.env.CRAWL_MAX_PAGES = '99999';
       expect(resolveMaxPages()).toBe(2000);
     } finally {
       if (prev === undefined) {

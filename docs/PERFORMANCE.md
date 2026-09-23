@@ -23,7 +23,7 @@ Termómetro: `GET /jobs/status` → `queues` (las 4 colas) + `consumers` + `work
 docker compose up --build
 ```
 
-En `.env` para las primeras corridas: `CRAWL_MAX_PAGES=10` (rebuild). Un run con default 800 solo cuando pasen las fases 1–3.
+En `.env` para las primeras corridas: `CRAWL_MAX_PAGES=10` (rebuild). El default operativo es 200 (no 800).
 
 Fuentes `WEB` ACTIVE:
 

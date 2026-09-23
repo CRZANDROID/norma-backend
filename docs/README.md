@@ -40,4 +40,5 @@ Crawl → extraer → clasificar (S7, hecho)
 - [seed-and-tests.md](./seed-and-tests.md)
 - [TRAINING.md](./TRAINING.md)
 - [sentry-storage.md](./sentry-storage.md)
-- [render-deploy.md](./render-deploy.md)
+- [render-deploy.md](./render-deploy.md) — Web Service (HTTP)
+- [worker-vps.md](./worker-vps.md) — worker BullMQ en Hetzner; Redis sigue en Render

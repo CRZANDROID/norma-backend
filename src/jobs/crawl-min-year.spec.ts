@@ -3,7 +3,9 @@ import {
   crawlUrlFromMetadata,
   explicitYearsInText,
   resolveCrawlMinYear,
+  resourceIsBeforeMinYear,
   urlIsBeforeMinYear,
+  yearsFromDateline,
 } from './crawl-min-year';
 
 describe('crawl-min-year', () => {
@@ -82,5 +84,63 @@ describe('crawl-min-year', () => {
         filename: 'ORDEN_01MAYO2024.pdf',
       }),
     ).toBe(true);
+  });
+
+  it('reads Mexican ddMMyyyy suffixes in CMS filenames', () => {
+    expect(
+      explicitYearsInText('Alerta_Sanitaria_DIONICA_30062023.pdf'),
+    ).toEqual([2023]);
+    expect(
+      urlIsBeforeMinYear(
+        'https://www.gob.mx/cms/uploads/attachment/file/835966/Alerta_Sanitaria_DIONICA_30062023.pdf',
+        2026,
+      ),
+    ).toBe(true);
+    expect(
+      urlIsBeforeMinYear(
+        'https://www.gob.mx/cms/uploads/attachment/file/705479/Alerta_Abbott_23022022_VF.pdf',
+        2026,
+      ),
+    ).toBe(true);
+    expect(
+      urlIsBeforeMinYear(
+        'https://www.gob.mx/cms/uploads/attachment/file/1/alerta_15032026.pdf',
+        2026,
+      ),
+    ).toBe(false);
+  });
+
+  it('uses only the opening dateline, not later citations', () => {
+    expect(
+      yearsFromDateline(
+        'Ciudad de México, a 23 de febrero de 2022 ALERTA SANITARIA SOBRE EL RETIRO',
+      ),
+    ).toEqual([2022]);
+    expect(
+      yearsFromDateline(
+        'La Comisión emitió una alerta sanitaria el 30 de junio de 2023 sobre DIONICA.',
+      ),
+    ).toEqual([2023]);
+    expect(
+      resourceIsBeforeMinYear({
+        url: 'https://www.gob.mx/cms/uploads/attachment/file/1/x.pdf',
+        extractedText:
+          'Ciudad de México, a 23 de febrero de 2022 ALERTA SANITARIA',
+      }),
+    ).toBe(true);
+    const laterCitation = `${'Acuerdo publicado el 12 de enero de 2026.\n'}${'x'.repeat(2100)}Ley de 2011 y reformas de 2019`;
+    expect(
+      resourceIsBeforeMinYear({
+        url: 'https://www.gob.mx/cms/uploads/attachment/file/1/x.pdf',
+        extractedText: laterCitation,
+      }),
+    ).toBe(false);
+    expect(
+      resourceIsBeforeMinYear({
+        url: 'https://www.gob.mx/cofepris/articulos/sin-fecha',
+        filename: 'page.html',
+        extractedText: 'Portada de la comisión sin fecha de publicación.',
+      }),
+    ).toBe(false);
   });
 });
