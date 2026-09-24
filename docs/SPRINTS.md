@@ -18,11 +18,19 @@ Flujo de informe (S8–S10): [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 | 5 | Ingesta | Redis/BullMQ + conectores piloto | **Hecho** |
 | 6 | Documentos | Registro, storage, extract/normalize/dedup | **Hecho** |
 | 7 | IA | OpenAI client, clasificación, relevancia, semáforo | **Hecho** |
-| 8 | Loop VCGA | Editar / IA / descartar hallazgos en `/alertas` | Pendiente |
+| 8 | Loop VCGA | Editar / IA / descartar hallazgos en `/alertas` | **Hecho** |
 | 9 | Informe y envío | PDF + confirmar o auto-enviar a contactos | En curso (`lote` + `/informes`; envío pendiente) |
 | 10 | Portal cliente | Historial de informes; caso = el PDF | Pendiente |
 
 Fechas de iteración en el Project (aprox.): Sprint 1 desde 2026-07-06, duración 7 días c/u.
+
+## Durante las pruebas
+
+Bitácora: [DECISIONES-PRUEBA.md](./DECISIONES-PRUEBA.md). Código bajo prueba: backend `7f6ea43`, front `312ae3a`.
+
+Se quedan en el piloto: el piso `CRAWL_MIN_YEAR` 2026, y el HUD de tres botones (Rastrear / Extraer / Analizar) con el brillo de «pensando».
+
+El cron de las 07:00 está apagado solo hasta que el cliente recargue créditos de OpenAI; después queda encendido. Este mes la API y el worker siguen los dos en Render; el mes que viene el worker pasa a Hetzner. El resto de la bitácora no tiene veredicto.
 
 ---
 

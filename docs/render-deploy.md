@@ -12,12 +12,12 @@ Flujo correcto: **build en el build step** → **arrancar JS compilado**.
 
 ## Dos servicios, el mismo build
 
-El catálogo entero se **encola**; no crawlea 200 sitios a la vez. HTTP y BullMQ **no** pueden vivir en el mismo proceso en Render (Free se va a 502). El worker de prod ya no es el Background Worker: [worker-vps.md](./worker-vps.md).
+El catálogo entero se **encola**; no crawlea 200 sitios a la vez. HTTP y BullMQ **no** pueden vivir en el mismo proceso en Render (Free se va a 502). Este mes el worker es el Background Worker de Render. El mes que viene pasa a Hetzner: [worker-vps.md](./worker-vps.md).
 
 | Servicio Render | Rol | Env extra |
 |-----------------|-----|-----------|
 | **Web Service** | Solo HTTP (`/health`, `/alertas`, `POST /jobs/crawl`) | `JOBS_WORKER=false`, `JOBS_SCHEDULER=false`. Health Check Path `/health`. |
-| **Background Worker** | (legado) Consume las 4 colas + cron 07:00 | Sustituido por VPS Hetzner ([worker-vps.md](./worker-vps.md)). Déjalo **Suspend**; no `JOBS_WORKER` en el Web. |
+| **Background Worker** | Consume las 4 colas. Cron 07:00 solo con `JOBS_SCHEDULER=true` | **Activo este mes.** `JOBS_SCHEDULER=false` hasta que el cliente recargue créditos OpenAI; después `true`. El mes que viene se suspende y el worker pasa a Hetzner ([worker-vps.md](./worker-vps.md)). |
 
 Mismo repo, mismo **Build Command**, mismo `REDIS_URL` / `DATABASE_URL` / `OPENAI_*` / `SUPABASE_*`. Start Command en ambos: `yarn start:prod` (JS compilado).
 

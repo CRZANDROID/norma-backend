@@ -20,6 +20,7 @@ Crawl → extraer → clasificar (S7, hecho)
 | Orden | Doc | Para qué |
 |-------|-----|----------|
 | 1 | [HANDOFF.md](./HANDOFF.md) | Estado vivo y siguiente paso |
+| — | [DECISIONES-PRUEBA.md](./DECISIONES-PRUEBA.md) | Bitácora de pruebas: qué se queda |
 | 2 | [TRAINING.md](./TRAINING.md) | Cómo llenar clientes y fuentes (capacitación). S9 envío sigue pendiente |
 | 3 | [PRODUCT.md](./PRODUCT.md) | Qué es el producto y qué queda fuera |
 | 4 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Stack, JWT Nest, multi-tenant |
@@ -41,4 +42,4 @@ Crawl → extraer → clasificar (S7, hecho)
 - [TRAINING.md](./TRAINING.md)
 - [sentry-storage.md](./sentry-storage.md)
 - [render-deploy.md](./render-deploy.md) — Web Service (HTTP)
-- [worker-vps.md](./worker-vps.md) — worker BullMQ en Hetzner; Redis sigue en Render
+- [worker-vps.md](./worker-vps.md) — worker en Hetzner el mes que viene; este mes API y worker siguen en Render

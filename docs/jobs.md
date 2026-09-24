@@ -1,6 +1,6 @@
 # Jobs — crawl, documentos y clasificación
 
-Redis + BullMQ. **HTTP y workers son procesos distintos** (Compose `api` + `worker`; prod: Render Web + worker Hetzner, [worker-vps.md](./worker-vps.md)). Local: [docker.md](./docker.md) (no Redis suelto en Windows).  
+Redis + BullMQ. **HTTP y workers son procesos distintos** (Compose `api` + `worker`; prod este mes: Web Service + Background Worker en Render). El mes que viene el worker pasa a Hetzner ([worker-vps.md](./worker-vps.md)). Local: [docker.md](./docker.md) (no Redis suelto en Windows).  
 UI del panel: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). Hallazgos: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). El pico de catálogo se encola; [PERFORMANCE.md](./PERFORMANCE.md).
 
 ```text
@@ -28,7 +28,7 @@ PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el 
 |----------|---------|-------|
 | `REDIS_URL` | — | Vacío → `POST /jobs/crawl` 503. Compose pisa `redis://redis:6379` |
 | `JOBS_WORKER` | on salvo `false` | Compose `api` = `false`; `worker` = on |
-| `JOBS_SCHEDULER` | off en dev/test salvo `true`; on en prod salvo `false` | Cron en el **worker**. Compose `api` = `false`, `worker` = `true` |
+| `JOBS_SCHEDULER` | off en dev/test salvo `true`; on en prod salvo `false` | Cron en el **worker**. Compose `api` = `false`, `worker` = `true`. Este mes en prod: `false` hasta que el cliente recargue créditos OpenAI; después `true` |
 | `CRAWL_CONCURRENCY` | `2` | Sitios a la vez. Da igual si hay 8 o 800 ACTIVE. **No subir** en el piloto (RAM + origen) |
 | `JOBS_CONCURRENCY` | `2` | extract + normalize. **No subir** a ciegas |
 | `CLASSIFY_CONCURRENCY` | igual que `JOBS_CONCURRENCY` | Solo cola `document.classify` (bajar si OpenAI 429) |
@@ -43,7 +43,7 @@ PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el 
 
 No subir en el piloto: `CRAWL_CONCURRENCY`, `JOBS_CONCURRENCY`, ni quitar mismo host / circuito / delay 150 ms. Si Render ya tiene `CRAWL_MAX_PAGES=800` (o `200` viejo), **pisa** el default 200: borrar la variable o dejarla en `200`. `CRAWL_LOCK_MS` sigue en 90 min.
 
-Render: **New → Key Value** (misma región) → Internal URL en el Web Service. El worker en Hetzner usa la URL **externa** + IP allowlist ([worker-vps.md](./worker-vps.md)). Detalle HTTP: [render-deploy.md](./render-deploy.md).  
+Render: **New → Key Value** (misma región) → Internal URL en el Web Service y en el Background Worker. Cuando el worker pase a Hetzner, ese VPS usa la URL **externa** + IP allowlist ([worker-vps.md](./worker-vps.md)). Detalle HTTP: [render-deploy.md](./render-deploy.md).  
 Storage: `SUPABASE_*` → bucket; si no, `data/crawl/` (gitignored).
 
 `GET /jobs/status` → `{ configured, redis, worker, scheduler, queues, consumers }`.  
