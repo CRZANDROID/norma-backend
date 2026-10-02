@@ -60,7 +60,7 @@ export class JobsController {
   }
 
   @Post('crawl')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiForbiddenResponse()
   @ApiOperation({
     summary: 'Encolar crawl de una fuente ACTIVE (idempotente por día)',
@@ -70,7 +70,7 @@ export class JobsController {
   }
 
   @Post('crawl/all')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiForbiddenResponse()
   @ApiOperation({
     summary: 'Encolar crawl de todas las fuentes ACTIVE',
@@ -80,7 +80,7 @@ export class JobsController {
   }
 
   @Post('extract/all')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiForbiddenResponse()
   @ApiOperation({
     summary:
@@ -91,7 +91,7 @@ export class JobsController {
   }
 
   @Post('classify/all')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiForbiddenResponse()
   @ApiOperation({
     summary:
@@ -102,7 +102,7 @@ export class JobsController {
   }
 
   @Post('extract')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiForbiddenResponse()
   @ApiOperation({
     summary:
@@ -113,7 +113,7 @@ export class JobsController {
   }
 
   @Post('classify')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiForbiddenResponse()
   @ApiOperation({
     summary:

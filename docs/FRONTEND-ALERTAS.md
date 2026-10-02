@@ -69,7 +69,7 @@ El PDF no se regenera en cada tecla. Se puede regenerar mientras no esté `sent`
 | Clasificación | `/alertas`, `/alertas/:findingId` | VCGA | 7 lista; S8 edita; lote Incluidos/Excluidos/Enviados |
 | Generar PDF | `/alertas` (botón) | VCGA | 9 |
 | Informes VCGA | `/informes`, `/informes/:reportId` | VCGA | 9 — borradores / enviados |
-| `autoSend` | ficha cliente | ADMIN | 9 |
+| `autoSend` | ficha cliente | `ADMIN` / `ANALYST` | 9 |
 | Historial cliente | `/informes` (solo enviados) | `CLIENT_USER` | 10 |
 
 Copy: “informe”, “generar PDF”, “enviar”, “cliente automático”. Evitar “inbox”, “folio”.
@@ -168,7 +168,7 @@ Lo mismo **más** `justification` (briefing en Markdown: acto, cifras, listas, p
 
 ### Reclasificar — `POST /documents/:id/classify`
 
-Solo ADMIN. Body vacío. **201** no trae el finding. Canónicos en `READY_FOR_AI` o `CLASSIFIED`. `DEDUPED` → `400`. `503` sin Redis o sin `OPENAI_API_KEY`.
+`ADMIN` \| `ANALYST`. Body vacío. **201** no trae el finding. Canónicos en `READY_FOR_AI` o `CLASSIFIED`. `DEDUPED` → `400`. `503` sin Redis o sin `OPENAI_API_KEY`.
 
 Lote de una fuente (rastreo ya hecho, cliente ligado después): `POST /jobs/classify` `{ sourceId }`. **400** sin clientes. Poll igual que abajo.
 

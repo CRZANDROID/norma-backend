@@ -16,7 +16,7 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 ## Reglas
 
 - Soft-status `ACTIVE`/`INACTIVE`; no hard-delete en el piloto.
-- Multi-tenant por `Client` + `ClientMembership`. `ADMIN` ve todo.
+- Multi-tenant por `Client` + `ClientMembership`. `ADMIN` ve todo. `ANALYST` opera el mismo flujo (clientes, perfiles, contactos, delivery, fuentes, crawl/HUD, hallazgos, informes) y solo ve sus clientes. Catálogo de fuentes global. Usuarios: solo `ADMIN`. `CLIENT_USER` no cambia.
 - Clientes ↔ fuentes: N:N (`client_sources`). UI: `docs/FRONTEND-ADMIN.md`.
 - No agregar Resend/scrapers extra fuera del sprint que los consume.
 - Redis/BullMQ de crawl, extract/normalize y classify están permitidos. **Local: Docker Compose** (`api` HTTP + `worker` + Redis, `docs/docker.md`), no Redis suelto en Windows.

@@ -52,20 +52,20 @@ export class DocumentsController {
   }
 
   @Post(':id/reprocess')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiForbiddenResponse()
   @ApiOperation({
-    summary: 'Reencolar extract del documento (ADMIN)',
+    summary: 'Reencolar extract del documento',
   })
   reprocess(@Param('id') id: string) {
     return this.documentsService.reprocess(id);
   }
 
   @Post(':id/classify')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiForbiddenResponse()
   @ApiOperation({
-    summary: 'Reencolar clasificación OpenAI del documento (ADMIN)',
+    summary: 'Reencolar clasificación OpenAI del documento',
   })
   classify(@Param('id') id: string) {
     return this.documentsService.classify(id);

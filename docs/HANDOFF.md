@@ -34,7 +34,7 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 - Auth: **JWT Nest** (`passwordHash` bcrypt). **No** Supabase Auth
 - Header: `Authorization: Bearer <accessToken>` de `POST /auth/login`
 - Soft-status `ACTIVE`/`INACTIVE`; no hard-delete
-- Multi-tenant: `Client` + `ClientMembership`; `ADMIN` ve todo
+- Multi-tenant: `Client` + `ClientMembership`; `ADMIN` ve todo. `ANALYST` opera el mismo flujo (clientes, fuentes, crawl/HUD, hallazgos, informes) y solo ve sus clientes. Fuentes: catálogo global. Usuarios: solo `ADMIN`. `CLIENT_USER` no cambia
 - Front **no** usa PostgREST para tablas de negocio
 
 | Recurso | URL / path |

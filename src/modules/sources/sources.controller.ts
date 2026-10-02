@@ -16,6 +16,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { UserRole } from '../../database/prisma-client';
+import type { AuthUser } from '../auth/auth.types';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -43,15 +45,17 @@ export class SourcesController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Crear fuente (opcional clientIds)' })
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiOperation({
+    summary: 'Crear fuente (opcional clientIds de clientes propios)',
+  })
   @ApiForbiddenResponse()
-  create(@Body() dto: CreateSourceDto) {
-    return this.sourcesService.create(dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateSourceDto) {
+    return this.sourcesService.create(user, dto);
   }
 
   @Patch(':id/deactivate')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Soft-deactivate fuente' })
   @ApiForbiddenResponse()
   deactivate(@Param('id') id: string) {
@@ -59,7 +63,7 @@ export class SourcesController {
   }
 
   @Patch(':id/activate')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Soft-activate fuente' })
   @ApiForbiddenResponse()
   activate(@Param('id') id: string) {
@@ -67,7 +71,7 @@ export class SourcesController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Actualizar fuente (sin clientIds)' })
   @ApiForbiddenResponse()
   update(@Param('id') id: string, @Body() dto: UpdateSourceDto) {

@@ -20,16 +20,18 @@ Controller → Service → PrismaService
 
 ```typescript
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.ANALYST)
 ```
 
 - Usar `@CurrentUser()` para el usuario NORMA.
-- Mutaciones de catálogo (clients/sources/users): `ADMIN`.
-- Profiles: `ADMIN` + `ANALYST` (roles en HANDOFF / schema).
+- Flujo operativo (`ADMIN` y `ANALYST`): clientes, perfiles, contactos, delivery, fuentes, vínculos a sus clientes, crawl y jobs del HUD (`POST /jobs/crawl`, `/crawl/all`, `/extract`, `/extract/all`, `/classify`, `/classify/all`), reproceso de documento, hallazgos, reescritura, exclusión e informes. Al crear un cliente, `ANALYST` recibe `ClientMembership`.
+- Catálogo de fuentes global: listar y reutilizar no filtra por dueño. Un `ANALYST` solo vincula fuentes a clientes de su membership.
+- Usuarios y memberships (`/users`, `/memberships`): solo `ADMIN`.
+- `CLIENT_USER` no opera este flujo (sigue siendo el actor del portal S10).
 - `POST /ai/ask`: lectura de catálogo; no muta datos.
-- `POST /jobs/crawl`: solo `ADMIN`; 503 sin Redis.
+- `POST /jobs/crawl`: `ADMIN` \| `ANALYST`; 503 sin Redis.
 - `GET /jobs/progress`, `GET /documents/progress` y `GET /findings/progress`: `ADMIN` \| `ANALYST`; resumen ejecutivo (no sustituyen `GET /jobs/runs`, `GET /documents` ni `GET /findings`).
-- `GET /findings`: `ADMIN` \| `ANALYST`; no-ADMIN filtra memberships. `POST /documents/:id/classify`: `ADMIN`.
+- `GET /findings`: `ADMIN` \| `ANALYST`; no-ADMIN filtra memberships. `POST /documents/:id/classify`: `ADMIN` \| `ANALYST`.
 - S8: `PATCH /findings/:id` (`title`/`justification`/`impact` a mano), `POST /findings/:id/exclude`, `POST /findings/:id/include`, `POST /findings/:id/rewrite` (`rewrite-v6`; edita el borrador vigente, `rewriteNote` si aplicó a medias, **422** con el limitante —y sin persistir— si el modelo reporta `applied: none` o no cambia nada). Solo el PATCH mueve el semáforo. No inbox ACK/RESOLVE. Contrato: `docs/FRONTEND-ALERTAS.md`.
 - S9 D3: `POST /reports/:id/regenerate` (ADMIN / ANALYST; 200). Reescribe el lote Y/O/R vigente y el PDF. **409** si `sent`/`discarded` o classifying. `GET /reports/:id/file` sigue igual.
 - No-ADMIN: filtrar por memberships activas.

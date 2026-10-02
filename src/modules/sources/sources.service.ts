@@ -10,6 +10,8 @@ import {
   shapeSchedule,
 } from '../../common/dto/schedule.dto';
 import { PrismaService } from '../../database/prisma.service';
+import type { AuthUser } from '../auth/auth.types';
+import { assertClientAccess } from '../clients/client-access.util';
 import { CreateSourceDto } from './dto/create-source.dto';
 import { ListSourcesQueryDto } from './dto/list-sources.query.dto';
 import { normalizeSections } from './dto/section-paths';
@@ -90,9 +92,12 @@ export class SourcesService {
     return this.shapeSource(source);
   }
 
-  async create(dto: CreateSourceDto) {
+  async create(user: AuthUser, dto: CreateSourceDto) {
     const clientIds = dto.clientIds ?? [];
     await this.assertClientsExist(clientIds);
+    for (const clientId of clientIds) {
+      assertClientAccess(user, clientId);
+    }
 
     const { jurisdiction, stateCode } = resolveSourceJurisdiction({
       jurisdiction: dto.jurisdiction,

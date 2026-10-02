@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EntityStatus, Prisma } from '../../database/prisma-client';
+import { EntityStatus, Prisma, UserRole } from '../../database/prisma-client';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
 import { assertClientAccess, isAdmin } from './client-access.util';
@@ -94,7 +94,7 @@ export class ClientsService {
     return this.shapeClient(client);
   }
 
-  async create(dto: CreateClientDto) {
+  async create(user: AuthUser, dto: CreateClientDto) {
     const sourceIds = dto.sourceIds ?? [];
     await this.assertSourcesExist(sourceIds);
     const contactRows = this.toContactRows(dto.contacts);
@@ -106,6 +106,16 @@ export class ClientsService {
           slug: dto.slug,
           email: dto.email,
           phone: dto.phone,
+          memberships:
+            user.role === UserRole.ANALYST
+              ? {
+                  create: {
+                    userId: user.id,
+                    role: UserRole.ANALYST,
+                    status: EntityStatus.ACTIVE,
+                  },
+                }
+              : undefined,
           clientSources: sourceIds.length
             ? {
                 create: sourceIds.map((sourceId) => ({ sourceId })),
@@ -134,8 +144,9 @@ export class ClientsService {
     }
   }
 
-  async update(id: string, dto: UpdateClientDto) {
+  async update(user: AuthUser, id: string, dto: UpdateClientDto) {
     await this.ensureExists(id);
+    assertClientAccess(user, id);
 
     if (dto.sourceIds !== undefined) {
       await this.assertSourcesExist(dto.sourceIds);
@@ -219,8 +230,9 @@ export class ClientsService {
     return this.shapeClient(client);
   }
 
-  async deactivate(id: string) {
+  async deactivate(user: AuthUser, id: string) {
     await this.ensureExists(id);
+    assertClientAccess(user, id);
 
     return this.prisma.client.update({
       where: { id },
@@ -228,8 +240,9 @@ export class ClientsService {
     });
   }
 
-  async activate(id: string) {
+  async activate(user: AuthUser, id: string) {
     await this.ensureExists(id);
+    assertClientAccess(user, id);
 
     return this.prisma.client.update({
       where: { id },

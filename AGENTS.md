@@ -25,6 +25,7 @@ HTTP vivo: Swagger `/docs`. No uses briefs históricos (`frequency` está muerto
 - Datos de negocio solo vía **Prisma** → PostgreSQL (Supabase = hosting DB + Storage).
 - Soft-status `ACTIVE`/`INACTIVE`; evitar hard-delete.
 - `ADMIN` = backoffice total; no-ADMIN filtrar por `ClientMembership`.
+- `ANALYST` recorre el mismo flujo operativo (clientes, perfiles, contactos, delivery, fuentes, crawl/HUD, hallazgos, informes). El catálogo de fuentes es global. Solo ve sus clientes. Alta de usuarios sigue siendo solo `ADMIN`. `CLIENT_USER` no cambia.
 - Frontend **no** lee tablas de negocio por PostgREST.
 - Clientes pueden tener muchas fuentes (`client_sources`); UI: [docs/FRONTEND-ADMIN.md](docs/FRONTEND-ADMIN.md).
 - Fuentes estatales: `jurisdiction` + `stateCode`. Crawl schedule: `schedule` (no `frequency`).

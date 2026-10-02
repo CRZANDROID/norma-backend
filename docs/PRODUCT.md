@@ -54,8 +54,8 @@ Orden: cerrar WEB (S5–S6) → clasificar (S7) → informe (S8–S10) → estos
 
 | Actor | Rol en producto |
 |-------|-----------------|
-| `ADMIN` | Backoffice VCGA: catálogo, usuarios, clientes |
-| `ANALYST` | Operación diaria: perfiles, revisión de hallazgos |
+| `ADMIN` | Backoffice VCGA: ve todo, incluido el alta de usuarios |
+| `ANALYST` | Mismo flujo operativo que `ADMIN` (clientes, perfiles, contactos, delivery, fuentes, crawl, hallazgos, informes). Solo sus clientes. El catálogo de fuentes es compartido |
 | `VIEWER` | Solo lectura |
 | `CLIENT_USER` | Usuario del cliente (piloto: acceso restringido a su tenant) |
 

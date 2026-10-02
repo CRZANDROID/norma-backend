@@ -45,44 +45,48 @@ export class ClientsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({
     summary:
-      'Crear cliente (opcional sourceIds, fiscal, contacts y delivery)',
+      'Crear cliente (opcional sourceIds, fiscal, contacts y delivery). ANALYST queda como miembro.',
   })
   @ApiForbiddenResponse()
-  create(@Body() dto: CreateClientDto) {
-    return this.clientsService.create(dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateClientDto) {
+    return this.clientsService.create(user, dto);
   }
 
   @Patch(':id/deactivate')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Soft-deactivate cliente' })
   @ApiForbiddenResponse()
-  deactivate(@Param('id') id: string) {
-    return this.clientsService.deactivate(id);
+  deactivate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.clientsService.deactivate(user, id);
   }
 
   @Patch(':id/activate')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Soft-activate cliente' })
   @ApiForbiddenResponse()
-  activate(@Param('id') id: string) {
-    return this.clientsService.activate(id);
+  activate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.clientsService.activate(user, id);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({
     summary:
       'Actualizar cliente (sourceIds/contacts replace; fiscal/delivery upsert)',
   })
   @ApiForbiddenResponse()
-  update(@Param('id') id: string, @Body() dto: UpdateClientDto) {
-    return this.clientsService.update(id, dto);
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateClientDto,
+  ) {
+    return this.clientsService.update(user, id, dto);
   }
 
   @Get(':id')

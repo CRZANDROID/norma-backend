@@ -59,20 +59,20 @@ export class ProfilesController {
 
   @Patch('profiles/:id/deactivate')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Soft-deactivate perfil' })
   @ApiForbiddenResponse()
-  deactivate(@Param('id') id: string) {
-    return this.profilesService.deactivate(id);
+  deactivate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.profilesService.deactivate(user, id);
   }
 
   @Patch('profiles/:id/activate')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Soft-activate perfil' })
   @ApiForbiddenResponse()
-  activate(@Param('id') id: string) {
-    return this.profilesService.activate(id);
+  activate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.profilesService.activate(user, id);
   }
 
   @Patch('profiles/:id')

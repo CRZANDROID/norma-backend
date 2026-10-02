@@ -72,7 +72,7 @@ Familias de fallo (no se “arregla” URL a URL):
 
 YouTube / X / Facebook: conectores **después de S10**, no este spider ([PRODUCT.md](./PRODUCT.md)).
 
-### API crawl (trigger: ADMIN)
+### API crawl (trigger: ADMIN y ANALYST)
 
 | Método | Ruta | Notas |
 |--------|------|-------|
@@ -88,7 +88,7 @@ YouTube / X / Facebook: conectores **después de S10**, no este spider ([PRODUCT
 
 Admin reencola **solo FAILED** del día en crawl. Un SUCCESS del cron **o** de un clic admin bloquea el otro. Extract/classify no recrawlean. Scheduler no reintenta FAILED el mismo día.
 
-HUD de 3 agentes (ADMIN):
+HUD de 3 agentes (`ADMIN` \| `ANALYST`):
 
 | Botón | Endpoint | Qué encola | Encadena |
 |-------|----------|------------|----------|
@@ -150,7 +150,7 @@ Reescritura VCGA (S8): `POST /findings/:id/rewrite` es síncrono; no usa esta co
 
 ### API documentos
 
-Lectura: `ADMIN` \| `ANALYST`. Reproceso/classify: `ADMIN`.
+Lectura y reproceso/classify: `ADMIN` \| `ANALYST`.
 
 | Método | Ruta |
 |--------|------|

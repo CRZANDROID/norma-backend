@@ -88,6 +88,7 @@ Local: [docker.md](./docker.md). Prod: Web Render + worker Hetzner ([worker-vps.
 - `User.role` = rol **global** de backoffice
 - Membership.role = rol **dentro** de un cliente
 - `ADMIN` ve todo; no-ADMIN solo clientes de memberships `ACTIVE`
+- `ANALYST` crea y edita clientes, perfiles, contactos, delivery y fuentes, dispara el crawl/HUD y arma informes. Al crear un cliente se le asigna `ClientMembership`. El catálogo de fuentes no se filtra por dueño; solo vincula sus clientes. Usuarios: solo `ADMIN`. `CLIENT_USER` no cambia
 
 ## AuthZ
 

@@ -85,8 +85,9 @@ export class ProfilesService {
     });
   }
 
-  async deactivate(id: string) {
-    await this.getProfileOrThrow(id);
+  async deactivate(user: AuthUser, id: string) {
+    const profile = await this.getProfileOrThrow(id);
+    assertClientAccess(user, profile.clientId);
 
     return this.prisma.regulatoryProfile.update({
       where: { id },
@@ -94,8 +95,9 @@ export class ProfilesService {
     });
   }
 
-  async activate(id: string) {
-    await this.getProfileOrThrow(id);
+  async activate(user: AuthUser, id: string) {
+    const profile = await this.getProfileOrThrow(id);
+    assertClientAccess(user, profile.clientId);
 
     return this.prisma.regulatoryProfile.update({
       where: { id },

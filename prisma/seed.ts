@@ -66,7 +66,13 @@ function seedCatalogEnabled(): boolean {
   return raw !== 'false' && raw !== '0' && raw !== 'off';
 }
 
-async function upsertAdmin() {
+const ANALYST_SEEDS = [
+  { email: 'silvia.rojas@norma.local', name: 'Silvia Rojas' },
+  { email: 'alejandra.mota@norma.local', name: 'Alejandra Mota' },
+  { email: 'esteban.nunez@norma.local', name: 'Esteban Nuñez' },
+] as const;
+
+async function upsertSeedUsers() {
   const seedEmail = (
     process.env.AUTH_SEED_EMAIL ?? 'admin@norma.local'
   ).toLowerCase();
@@ -90,14 +96,33 @@ async function upsertAdmin() {
     },
   });
 
+  for (const analyst of ANALYST_SEEDS) {
+    await prisma.user.upsert({
+      where: { email: analyst.email },
+      update: {
+        name: analyst.name,
+        role: UserRole.ANALYST,
+        status: 'ACTIVE',
+        passwordHash,
+      },
+      create: {
+        email: analyst.email,
+        name: analyst.name,
+        role: UserRole.ANALYST,
+        status: 'ACTIVE',
+        passwordHash,
+      },
+    });
+  }
+
   return { admin, seedEmail };
 }
 
 async function main() {
   if (!seedCatalogEnabled()) {
-    const { seedEmail } = await upsertAdmin();
+    const { seedEmail } = await upsertSeedUsers();
     console.log(
-      `Seed completed: ADMIN only (${seedEmail}). Catálogo omitido (SEED_CATALOG=false).`,
+      `Seed completed: ADMIN (${seedEmail}) y analistas de prueba. Catálogo omitido (SEED_CATALOG=false).`,
     );
     return;
   }
@@ -311,7 +336,7 @@ async function main() {
     });
   }
 
-  const { admin, seedEmail } = await upsertAdmin();
+  const { admin, seedEmail } = await upsertSeedUsers();
 
   await prisma.clientMembership.upsert({
     where: {
@@ -405,7 +430,7 @@ async function main() {
   }
 
   console.log(
-    `Seed completed: Arca (+ fiscal/contact/delivery), DOF+Diputados ACTIVE, Senado/mañanera/COFEPRIS/PROFECO/CONAMER INACTIVE, 32 congresos, admin ${seedEmail}`,
+    `Seed completed: Arca (+ fiscal/contact/delivery), DOF+Diputados ACTIVE, Senado/mañanera/COFEPRIS/PROFECO/CONAMER INACTIVE, 32 congresos, admin ${seedEmail}, analistas silvia.rojas / alejandra.mota / esteban.nunez`,
   );
 }
 

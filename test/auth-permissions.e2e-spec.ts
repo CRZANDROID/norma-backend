@@ -92,14 +92,135 @@ describe('Auth + permissions (e2e)', () => {
       .expect(200);
   });
 
-  it('forbids ANALYST from creating clients (403)', async () => {
-    await request(app.getHttpServer())
+  it('lets ANALYST create a client and scopes it with a membership', async () => {
+    const slug = `analyst-client-${suffix}`;
+    const created = await request(app.getHttpServer())
       .post('/clients')
       .set('Authorization', `Bearer ${analystToken}`)
       .send({
-        name: 'Should Fail',
-        slug: `should-fail-${suffix}`,
+        name: 'Analyst Client',
+        slug,
+      })
+      .expect(201);
+
+    const clientId = created.body.id as string;
+    expect(created.body.slug).toBe(slug);
+
+    const me = await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${analystToken}`)
+      .expect(200);
+
+    expect(me.body.memberships).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          clientId,
+          clientSlug: slug,
+          role: 'ANALYST',
+        }),
+      ]),
+    );
+
+    const mine = await request(app.getHttpServer())
+      .get('/clients')
+      .set('Authorization', `Bearer ${analystToken}`)
+      .expect(200);
+
+    const ids = (mine.body as Array<{ id: string }>).map((row) => row.id);
+    expect(ids).toEqual([clientId]);
+
+    const otherEmail = `analyst.other.${suffix}@norma.local`;
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        email: otherEmail,
+        name: 'Other Analyst',
+        password: analystPassword,
+        role: 'ANALYST',
+      })
+      .expect(201);
+
+    const otherLogin = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: otherEmail, password: analystPassword })
+      .expect(201);
+    const otherToken = otherLogin.body.accessToken as string;
+
+    await request(app.getHttpServer())
+      .get(`/clients/${clientId}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/clients/${clientId}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ name: 'No deberia' })
+      .expect(403);
+
+    const otherList = await request(app.getHttpServer())
+      .get('/clients')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .expect(200);
+    expect(otherList.body).toEqual([]);
+
+    const source = await request(app.getHttpServer())
+      .post('/sources')
+      .set('Authorization', `Bearer ${analystToken}`)
+      .send({
+        name: `Fuente analyst ${suffix}`,
+        code: `analyst-src-${suffix}`,
+        category: 'MEDIA',
+        platform: 'WEB',
+        url: 'https://example.com/analyst',
+        clientIds: [clientId],
+      })
+      .expect(201);
+
+    const catalog = await request(app.getHttpServer())
+      .get('/sources')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .expect(200);
+    expect(
+      (catalog.body as Array<{ id: string }>).some(
+        (row) => row.id === source.body.id,
+      ),
+    ).toBe(true);
+
+    await request(app.getHttpServer())
+      .post('/sources')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        name: `Fuente ajena ${suffix}`,
+        code: `analyst-foreign-${suffix}`,
+        category: 'MEDIA',
+        platform: 'WEB',
+        clientIds: [clientId],
       })
       .expect(403);
+
+    await request(app.getHttpServer())
+      .post('/jobs/crawl')
+      .set('Authorization', `Bearer ${analystToken}`)
+      .send({})
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${analystToken}`)
+      .send({
+        email: `nope.${suffix}@norma.local`,
+        name: 'Nope',
+        password: analystPassword,
+        role: 'ANALYST',
+      })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/clients/${clientId}/deactivate`)
+      .set('Authorization', `Bearer ${analystToken}`);
+    await request(app.getHttpServer())
+      .patch(`/sources/${source.body.id}/deactivate`)
+      .set('Authorization', `Bearer ${analystToken}`);
   });
 });

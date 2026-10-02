@@ -2,7 +2,7 @@
 
 **Audiencia:** `norma-frontend`. Pantallas **ya implementadas** en API.  
 HTTP vivo: Swagger `http://localhost:3000/docs`.  
-Auth: `Authorization: Bearer <accessToken>` de `POST /auth/login`. Solo **ADMIN** escribe catálogo.
+Auth: `Authorization: Bearer <accessToken>` de `POST /auth/login`. **ADMIN** y **ANALYST** escriben clientes, perfiles, contactos, delivery y fuentes. El catálogo de fuentes es global (no se filtra por dueño). Un ANALYST solo lista y edita sus clientes (`ClientMembership`; al crear uno, queda como miembro). Usuarios: solo ADMIN.
 
 `frequency` y `type` están muertos (`400`). No hay PostgREST.
 
@@ -90,7 +90,7 @@ INACTIVE de catálogo (activar a mano): `senado-gaceta`, `mananera-presidencia`,
 
 IDs inválidos → `400`. Para selects: `GET /sources?status=ACTIVE` y `GET /clients?status=ACTIVE`.
 
-Crawl (solo ADMIN; Redis en Nest, no en el front):
+Crawl (`ADMIN` \| `ANALYST`; Redis en Nest, no en el front):
 
 | Método | Ruta | Body |
 |--------|------|------|

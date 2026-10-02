@@ -76,8 +76,9 @@ export class ClientContactsService {
     });
   }
 
-  async deactivate(id: string) {
-    await this.getContactOrThrow(id);
+  async deactivate(user: AuthUser, id: string) {
+    const contact = await this.getContactOrThrow(id);
+    assertClientAccess(user, contact.clientId);
 
     return this.prisma.clientContact.update({
       where: { id },
@@ -85,8 +86,9 @@ export class ClientContactsService {
     });
   }
 
-  async activate(id: string) {
-    await this.getContactOrThrow(id);
+  async activate(user: AuthUser, id: string) {
+    const contact = await this.getContactOrThrow(id);
+    assertClientAccess(user, contact.clientId);
 
     return this.prisma.clientContact.update({
       where: { id },

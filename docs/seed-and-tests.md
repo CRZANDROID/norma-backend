@@ -13,7 +13,7 @@ Variables (`.env`):
 |---|---|---|
 | `AUTH_SEED_EMAIL` | `admin@norma.local` | Admin creado/actualizado por seed |
 | `AUTH_SEED_PASSWORD` | `ChangeMe123!` | Password en claro (se hashea) |
-| `SEED_CATALOG` | `true` | `false` = solo ADMIN. Default siembra Arca + fuentes |
+| `SEED_CATALOG` | `true` | `false` = solo usuarios (ADMIN + 3 ANALYST). Default siembra Arca + fuentes |
 
 El seed es idempotente (`upsert`). **Default** deja:
 
@@ -24,8 +24,9 @@ El seed es idempotente (`upsert`). **Default** deja:
 - Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`, `conamer`
 - Config de entrega/semáforo del cliente Arca (acciones sugeridas de la matriz)
 - Usuario ADMIN con el email/password del `.env`
+- Tres ANALYST con el **mismo** password (`AUTH_SEED_PASSWORD`, default `ChangeMe123!`): `silvia.rojas@norma.local`, `alejandra.mota@norma.local`, `esteban.nunez@norma.local`. Sin membership de Arca
 
-`SEED_CATALOG=false` (capacitación): solo upsert del ADMIN. No recrea clientes ni fuentes.
+`SEED_CATALOG=false` (capacitación): upsert del ADMIN y de esos tres analistas. No recrea clientes ni fuentes. El wipe de abajo sigue dejando solo el ADMIN.
 
 Wipe de negocio (irreversible; deja el ADMIN de `AUTH_SEED_EMAIL`):
 
@@ -58,7 +59,7 @@ Cobertura:
 | Archivo | Qué valida |
 |---|---|
 | `test/app.e2e-spec.ts` | `GET /health` |
-| `test/auth-permissions.e2e-spec.ts` | login 400/401, `/auth/me`, ANALYST `403` en `/users` y create client |
+| `test/auth-permissions.e2e-spec.ts` | login 400/401, `/auth/me`, ANALYST `403` en `/users`, crea cliente con membership, no ve el ajeno, catálogo de fuentes global |
 | `test/crud-smoke.e2e-spec.ts` | create source/client+`sourceIds`, filter `clientId`, profile, validation 400 |
 | `test/client-fiscal-contacts.e2e-spec.ts` | fiscales + contactos anidados |
 | `test/source-state-delivery.e2e-spec.ts` | `stateCode` / `schedule` + `deliveryConfig` |

@@ -43,7 +43,7 @@ export class ClientDeliveryController {
 
   @Patch(':clientId/delivery')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({
     summary:
       'Actualizar canales, disparador de entrega y acciones por nivel (no envía)',

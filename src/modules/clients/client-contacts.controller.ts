@@ -46,7 +46,7 @@ export class ClientContactsController {
 
   @Post('clients/:clientId/contacts')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Crear contacto directo del cliente' })
   @ApiForbiddenResponse()
   create(
@@ -59,25 +59,25 @@ export class ClientContactsController {
 
   @Patch('contacts/:id/deactivate')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Soft-deactivate contacto' })
   @ApiForbiddenResponse()
-  deactivate(@Param('id') id: string) {
-    return this.contactsService.deactivate(id);
+  deactivate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.contactsService.deactivate(user, id);
   }
 
   @Patch('contacts/:id/activate')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Soft-activate contacto' })
   @ApiForbiddenResponse()
-  activate(@Param('id') id: string) {
-    return this.contactsService.activate(id);
+  activate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.contactsService.activate(user, id);
   }
 
   @Patch('contacts/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @ApiOperation({ summary: 'Actualizar contacto' })
   @ApiForbiddenResponse()
   update(

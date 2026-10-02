@@ -27,9 +27,9 @@ Fuentes: **solo `ACTIVE`**. Si apagas una (piloto o no), deja de aparecer en los
 | `GET` | `/documents?pilotOnly=true&limit=&date=&sourceId=` | Páginas internas: preview + `url`. `limit` hasta 800. `date` = día civil. `sourceId` = detalle de una fuente |
 | `GET` | `/documents/:id` | Texto extraído de una página (`extractedText`, no HTML crudo) |
 
-## HUD — 3 botones ADMIN
+## HUD — 3 botones (ADMIN y ANALYST)
 
-Cada hueco del HUD es un agente. Body opcional `{ "date": "YYYY-MM-DD" }` (default hoy CDMX). Role `ADMIN`. Worker tiene que estar vivo (`GET /jobs/status` → `worker: true`); si no, queda en cola.
+Cada hueco del HUD es un agente. Body opcional `{ "date": "YYYY-MM-DD" }` (default hoy CDMX). Roles `ADMIN` \| `ANALYST`. Worker tiene que estar vivo (`GET /jobs/status` → `worker: true`); si no, queda en cola.
 
 | Hueco | Botón | Endpoint | Encadena |
 |-------|--------|----------|----------|
@@ -189,8 +189,8 @@ En `unchanged`, `headline` es el texto que ya teníamos (no HTML) y `note` aclar
 | `POST /jobs/extract/all` | HUD **Extracción**. Body `{ date? }`. No recrawlea. Respuesta `extract` + `classify` (conteos) |
 | `POST /jobs/classify` | Una fuente. **400** si no hay clientes |
 | `POST /jobs/classify/all` | HUD **Análisis**. Body `{ date? }`. Fuentes sin cliente: `reason: "no-clients"` |
-| `POST /documents/:id/reprocess` | Reintento ADMIN de un archivo (extract) |
-| `POST /documents/:id/classify` | Reintento ADMIN de un archivo (clasificación S7) |
+| `POST /documents/:id/reprocess` | Reintento (`ADMIN` \| `ANALYST`) de un archivo (extract) |
+| `POST /documents/:id/classify` | Reintento (`ADMIN` \| `ANALYST`) de un archivo (clasificación S7) |
 | `GET /findings` | Lista de hallazgos / semáforo (otra pantalla, no este resumen) |
 
 `GET /documents` y `GET /documents/:id` **sí** van en el dashboard, en el **detalle de la fuente** (PDF / Word / HTML), no en el resumen ejecutivo.
