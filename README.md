@@ -100,7 +100,7 @@ Swagger UI: `http://localhost:3000/docs` (Authorize con JWT de `POST /auth/login
 | `pnpm prisma:migrate` | Migraciones en desarrollo |
 | `pnpm prisma:studio` | UI de Prisma Studio |
 | `pnpm prisma:deploy` | Aplica migraciones (staging/prod) |
-| `pnpm prisma:seed` | Seed Arca + fuentes + admin y 3 analistas (`SEED_CATALOG=false` = solo esos usuarios) |
+| `pnpm prisma:seed` | Seed Arca, un cliente por analista, fuentes, admin y 3 analistas (`SEED_CATALOG=false` = solo esos usuarios) |
 | `pnpm prisma:reset-training` | Dry-run del wipe de capacitación; `-- --yes` borra el negocio |
 
 ## Ambientes
