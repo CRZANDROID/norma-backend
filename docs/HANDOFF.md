@@ -1,4 +1,4 @@
-# HANDOFF — Estado NORMA Backend (2026-09-17)
+# HANDOFF — Estado NORMA Backend (2026-09-24)
 
 Documento de continuidad para el **próximo agente de backend** y contexto para el **agente de frontend**.  
 Índice: [README.md](./README.md). Informe: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). Capacitación: [TRAINING.md](./TRAINING.md).
@@ -82,11 +82,11 @@ src/jobs/            # BullMQ source.crawl + extract/normalize_dedup/classify
 
 ## 4. Qué falta (prioridad)
 
-1. **Capacitación / staging limpio:** catálogo vacío; ADMIN de pruebas; usuarios crean clientes y fuentes. [TRAINING.md](./TRAINING.md).
-2. **Sprint 9 resto:** envío/`autoSend`, descartar, correo a contactos. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
-3. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
-4. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
-5. Redis = Key Value Render. HTTP = Web Service (`JOBS_WORKER=false`, `JOBS_SCHEDULER=false`). Worker BullMQ = **Hetzner** ([worker-vps.md](./worker-vps.md)); el Background Worker de Render queda Suspend. Scheduler 07:00 **off** (`JOBS_SCHEDULER=false`) hasta acotar crawl 2026 / `gob.mx`.
+1. **Sprint 9 resto:** envío/`autoSend`, descartar, correo a contactos. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+2. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
+3. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
+
+Pausa de pruebas ([DECISIONES-PRUEBA.md](./DECISIONES-PRUEBA.md)): se quedan el piso `CRAWL_MIN_YEAR` 2026 y el HUD de tres botones. Cron 07:00 apagado solo hasta la recarga de créditos OpenAI; después encendido. Este mes API y worker en Render; el mes que viene el worker pasa a Hetzner.
 
 ---
 
@@ -120,4 +120,4 @@ API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras 
 
 > Lee `docs/HANDOFF.md` §4 y `docs/TRAINING.md`. Foco: staging limpio para capacitación. S9 envío pendiente. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
 
-**Última actualización:** 2026-09-18 — stall de extract/classify/crawl cierra el tablero (no deja `RUNNING` eterno). Split API/worker. Envío S9 pendiente.
+**Última actualización:** 2026-09-24 — código de prueba `7f6ea43` (2026-09-23). Bitácora en [DECISIONES-PRUEBA.md](./DECISIONES-PRUEBA.md). Envío S9 pendiente.

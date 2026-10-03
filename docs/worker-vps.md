@@ -1,6 +1,8 @@
 # Worker en VPS (Hetzner)
 
-La API HTTP se queda en **Render**. El crawl/extract/classify corre en un VPS **Hetzner** (2 vCPU / 4 GB, ~€4–6/mes) para no pagar el Pro de Render ($85).
+**Todavía no.** Este mes (septiembre 2026) la API y el worker siguen los dos en Render: Web Service + Background Worker ([render-deploy.md](./render-deploy.md)). El mes que viene el worker se mueve a este VPS por capacidad. Hasta ese corte, el Background Worker de Render sigue activo. Lo de abajo es el runbook de cuando se mueva.
+
+La API HTTP se queda en **Render**. El crawl/extract/classify pasa a un VPS **Hetzner** (2 vCPU / 4 GB, ~€4–6/mes) para no pagar el Pro de Render ($85).
 
 **Redis no se mueve.** Sigue el Key Value de Render. El Web Service usa la URL **interna**; el VPS usa la URL **externa** (`rediss://`) con la IP del servidor en el allowlist.
 
@@ -36,7 +38,7 @@ Firewall de Hetzner (el servidor):
 2. **Connect** → enable **external connections**.
 3. Allowlist: IPv4 del VPS `/32`.
 4. Copia **External Redis URL** (`rediss://default:…@….render.com:6379`).
-5. Worker de Render: **sigue en Suspend**. `JOBS_SCHEDULER=false` en Web y en el worker viejo.
+5. Al mover el worker: el Background Worker de Render pasa a **Suspend**. Hasta entonces sigue activo. `JOBS_SCHEDULER=false` en el Web Service siempre (el cron no vive en el HTTP).
 
 No uses la URL interna `redis://red-…:6379` en Hetzner: no sale de la red de Render.
 
@@ -74,7 +76,7 @@ DATABASE_CONNECTION_LIMIT=2
 CRAWL_CONCURRENCY=1
 ```
 
-`REDIS_URL` = External URL. `DATABASE_URL` / `OPENAI_*` / `SUPABASE_*` / `JWT_SECRET` = los de Render. Scheduler off hasta que el crawl 2026 esté bien; entonces `JOBS_SCHEDULER=true` **solo aquí**, no en Render.
+`REDIS_URL` = External URL. `DATABASE_URL` / `OPENAI_*` / `SUPABASE_*` / `JWT_SECRET` = los de Render. El cron de las 07:00 está apagado solo hasta que el cliente recargue créditos de OpenAI; después queda encendido, en un solo proceso worker (este mes, el Background Worker de Render; el mes que viene, este VPS). No es un apagado permanente.
 
 Arranque:
 
@@ -92,7 +94,7 @@ Desde el front o:
 curl -s https://TU-API.onrender.com/jobs/status
 ```
 
-Esperado: `redis: "up"`, `worker: true`, `consumers["source.crawl"]` ≥ 1, `scheduler: false` en el JSON del **Web Service** (`scheduler` es el del proceso HTTP; el cron vive en el VPS).
+Esperado, ya con el VPS: `redis: "up"`, `worker: true`, `consumers["source.crawl"]` ≥ 1, `scheduler: false` en el JSON del **Web Service** (`scheduler` es el del proceso HTTP; el cron vive en el worker, este mes en Render y el mes que viene en el VPS).
 
 El HUD **Rastrear** encola en Redis de Render; el contenedor de Hetzner consume. Si `worker: false`, el VPS no llegó a Redis (allowlist, URL interna por error, o contenedor caído).
 
@@ -119,4 +121,4 @@ No levantes el Background Worker de Render a la vez: dos consumidores pisan lock
 - No abrir Redis en el VPS.
 - No poner `JOBS_WORKER=true` otra vez en el Web Service.
 - No pagar el Pro de Render “por si acaso”.
-- No encender el scheduler (`JOBS_SCHEDULER=true`) hasta el recorte de `gob.mx` / año en el HTML.
+- No dejar el scheduler apagado por el piso 2026 ni por `gob.mx`. Se enciende (`JOBS_SCHEDULER=true`) cuando el cliente recargue créditos de OpenAI, en un solo worker.
