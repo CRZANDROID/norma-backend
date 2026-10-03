@@ -67,24 +67,9 @@ function seedCatalogEnabled(): boolean {
 }
 
 const ANALYST_SEEDS = [
-  {
-    email: 'silvia.rojas@norma.local',
-    name: 'Silvia Rojas',
-    clientName: 'Cliente Silvia Rojas',
-    clientSlug: 'cliente-silvia-rojas',
-  },
-  {
-    email: 'alejandra.mota@norma.local',
-    name: 'Alejandra Mota',
-    clientName: 'Cliente Alejandra Mota',
-    clientSlug: 'cliente-alejandra-mota',
-  },
-  {
-    email: 'esteban.nunez@norma.local',
-    name: 'Esteban Nuñez',
-    clientName: 'Cliente Esteban Nuñez',
-    clientSlug: 'cliente-esteban-nunez',
-  },
+  { email: 'silvia.rojas@norma.local', name: 'Silvia Rojas' },
+  { email: 'alejandra.mota@norma.local', name: 'Alejandra Mota' },
+  { email: 'esteban.nunez@norma.local', name: 'Esteban Nuñez' },
 ] as const;
 
 async function upsertSeedUsers() {
@@ -111,29 +96,26 @@ async function upsertSeedUsers() {
     },
   });
 
-  const analysts: Array<{ id: string; email: string }> = [];
   for (const analyst of ANALYST_SEEDS) {
-    analysts.push(
-      await prisma.user.upsert({
-        where: { email: analyst.email },
-        update: {
-          name: analyst.name,
-          role: UserRole.ANALYST,
-          status: 'ACTIVE',
-          passwordHash,
-        },
-        create: {
-          email: analyst.email,
-          name: analyst.name,
-          role: UserRole.ANALYST,
-          status: 'ACTIVE',
-          passwordHash,
-        },
-      }),
-    );
+    await prisma.user.upsert({
+      where: { email: analyst.email },
+      update: {
+        name: analyst.name,
+        role: UserRole.ANALYST,
+        status: 'ACTIVE',
+        passwordHash,
+      },
+      create: {
+        email: analyst.email,
+        name: analyst.name,
+        role: UserRole.ANALYST,
+        status: 'ACTIVE',
+        passwordHash,
+      },
+    });
   }
 
-  return { admin, seedEmail, analysts };
+  return { admin, seedEmail };
 }
 
 async function main() {
@@ -354,7 +336,7 @@ async function main() {
     });
   }
 
-  const { admin, seedEmail, analysts } = await upsertSeedUsers();
+  const { admin, seedEmail } = await upsertSeedUsers();
 
   await prisma.clientMembership.upsert({
     where: {
@@ -371,40 +353,6 @@ async function main() {
       status: 'ACTIVE',
     },
   });
-
-  for (const analyst of analysts) {
-    const seed = ANALYST_SEEDS.find((row) => row.email === analyst.email);
-    if (!seed) {
-      continue;
-    }
-    const client = await prisma.client.upsert({
-      where: { slug: seed.clientSlug },
-      update: {
-        name: seed.clientName,
-        status: 'ACTIVE',
-      },
-      create: {
-        name: seed.clientName,
-        slug: seed.clientSlug,
-        status: 'ACTIVE',
-      },
-    });
-    await prisma.clientMembership.upsert({
-      where: {
-        userId_clientId: {
-          userId: analyst.id,
-          clientId: client.id,
-        },
-      },
-      update: { role: UserRole.ANALYST, status: 'ACTIVE' },
-      create: {
-        userId: analyst.id,
-        clientId: client.id,
-        role: UserRole.ANALYST,
-        status: 'ACTIVE',
-      },
-    });
-  }
 
   await prisma.clientFiscalData.upsert({
     where: { clientId: arca.id },
@@ -482,7 +430,7 @@ async function main() {
   }
 
   console.log(
-    `Seed completed: Arca (+ fiscal/contact/delivery), clientes cliente-silvia-rojas / cliente-alejandra-mota / cliente-esteban-nunez, DOF+Diputados ACTIVE, Senado/mañanera/COFEPRIS/PROFECO/CONAMER INACTIVE, 32 congresos, admin ${seedEmail}, analistas silvia.rojas / alejandra.mota / esteban.nunez`,
+    `Seed completed: Arca (+ fiscal/contact/delivery), DOF+Diputados ACTIVE, Senado/mañanera/COFEPRIS/PROFECO/CONAMER INACTIVE, 32 congresos, admin ${seedEmail}, analistas silvia.rojas / alejandra.mota / esteban.nunez`,
   );
 }
 

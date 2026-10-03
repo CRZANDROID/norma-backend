@@ -18,14 +18,13 @@ Variables (`.env`):
 El seed es idempotente (`upsert`). **Default** deja:
 
 - Cliente `arca-continental`
-- Un cliente por analista, sin fuentes propias: `cliente-silvia-rojas`, `cliente-alejandra-mota`, `cliente-esteban-nunez`
 - Perfil `seed-arca-profile`
 - Fuentes federales `dof`, `diputados-gaceta` (ACTIVE)
 - 32 congresos estatales (ACTIVE crawl: AGU, BC, BCS, Campeche, Chihuahua, Jalisco; el resto INACTIVE). Shape: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md)
 - Catálogo INACTIVE: `senado-gaceta`, `mananera-presidencia`, `cofepris`, `profeco`, `conamer`
 - Config de entrega/semáforo del cliente Arca (acciones sugeridas de la matriz)
 - Usuario ADMIN con el email/password del `.env`
-- Tres ANALYST con el **mismo** password (`AUTH_SEED_PASSWORD`, default `ChangeMe123!`): `silvia.rojas@norma.local`, `alejandra.mota@norma.local`, `esteban.nunez@norma.local`. Cada uno tiene membership solo de su cliente. Sin membership de Arca. El catálogo de fuentes sigue siendo global
+- Tres ANALYST con el **mismo** password (`AUTH_SEED_PASSWORD`, default `ChangeMe123!`): `silvia.rojas@norma.local`, `alejandra.mota@norma.local`, `esteban.nunez@norma.local`. Sin cliente ni membership de seed. El catálogo de fuentes sigue siendo global
 
 `SEED_CATALOG=false` (capacitación): upsert del ADMIN y de esos tres analistas. No recrea clientes ni fuentes. El wipe de abajo sigue dejando solo el ADMIN.
 

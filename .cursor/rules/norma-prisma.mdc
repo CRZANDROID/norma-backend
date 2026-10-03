@@ -31,4 +31,4 @@ alwaysApply: false
 
 ## Seed
 
-`prisma/seed.ts` debe ser idempotente (`upsert`). Piloto: Arca + DOF + Diputados ACTIVE; congresos ACTIVE: AGU, BC, BCS, Campeche, Chihuahua, Jalisco; Senado/mañanera/COFEPRIS/PROFECO INACTIVE hasta conector. YouTube/X/Facebook son MVP (no activar en seed sin conector de plataforma). Además del ADMIN, el seed upserta tres `ANALYST` con el mismo `AUTH_SEED_PASSWORD` (Silvia Rojas, Alejandra Mota, Esteban Nuñez), cada uno con su cliente (`cliente-silvia-rojas`, `cliente-alejandra-mota`, `cliente-esteban-nunez`) y sin membership de Arca ni fuente propia. No corre solo: no toca producción.
+`prisma/seed.ts` debe ser idempotente (`upsert`). Piloto: Arca + DOF + Diputados ACTIVE; congresos ACTIVE: AGU, BC, BCS, Campeche, Chihuahua, Jalisco; Senado/mañanera/COFEPRIS/PROFECO INACTIVE hasta conector. YouTube/X/Facebook son MVP (no activar en seed sin conector de plataforma). Además del ADMIN, el seed upserta tres `ANALYST` con el mismo `AUTH_SEED_PASSWORD` (Silvia Rojas, Alejandra Mota, Esteban Nuñez), sin cliente ni membership de seed. No corre solo: no toca producción.
