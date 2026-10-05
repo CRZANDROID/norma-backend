@@ -13,7 +13,7 @@ Variables (`.env`):
 |---|---|---|
 | `AUTH_SEED_EMAIL` | `admin@norma.local` | Admin creado/actualizado por seed |
 | `AUTH_SEED_PASSWORD` | `ChangeMe123!` | Password en claro (se hashea) |
-| `SEED_CATALOG` | `true` | `false` = solo usuarios (ADMIN + 3 ANALYST). Default siembra Arca + fuentes |
+| `SEED_CATALOG` | `true` | `false` = ADMIN + 3 ANALYST y su cliente vacío (sin Arca ni fuentes). Default siembra Arca + fuentes |
 
 El seed es idempotente (`upsert`). **Default** deja:
 
@@ -27,7 +27,7 @@ El seed es idempotente (`upsert`). **Default** deja:
 - Usuario ADMIN con el email/password del `.env`
 - Tres ANALYST con el **mismo** password (`AUTH_SEED_PASSWORD`, default `ChangeMe123!`): `silvia.rojas@norma.local`, `alejandra.mota@norma.local`, `esteban.nunez@norma.local`. Cada uno tiene membership solo de su cliente. Sin membership de Arca. El catálogo de fuentes sigue siendo global
 
-`SEED_CATALOG=false` (capacitación): upsert del ADMIN y de esos tres analistas. No recrea clientes ni fuentes. El wipe de abajo sigue dejando solo el ADMIN.
+`SEED_CATALOG=false` (capacitación): upsert del ADMIN, de esos tres analistas y de su cliente vacío (`cliente-silvia-rojas`, `cliente-alejandra-mota`, `cliente-esteban-nunez`) con membership. No recrea Arca ni fuentes ni hallazgos. El wipe de abajo sigue dejando solo el ADMIN.
 
 Wipe de negocio (irreversible; deja el ADMIN de `AUTH_SEED_EMAIL`):
 

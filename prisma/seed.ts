@@ -136,11 +136,51 @@ async function upsertSeedUsers() {
   return { admin, seedEmail, analysts };
 }
 
+/** Clientes vacíos de los analistas: membership, sin fuentes ni hallazgos. */
+async function upsertAnalystClients(
+  analysts: Array<{ id: string; email: string }>,
+): Promise<void> {
+  for (const analyst of analysts) {
+    const seed = ANALYST_SEEDS.find((row) => row.email === analyst.email);
+    if (!seed) {
+      continue;
+    }
+    const client = await prisma.client.upsert({
+      where: { slug: seed.clientSlug },
+      update: {
+        name: seed.clientName,
+        status: 'ACTIVE',
+      },
+      create: {
+        name: seed.clientName,
+        slug: seed.clientSlug,
+        status: 'ACTIVE',
+      },
+    });
+    await prisma.clientMembership.upsert({
+      where: {
+        userId_clientId: {
+          userId: analyst.id,
+          clientId: client.id,
+        },
+      },
+      update: { role: UserRole.ANALYST, status: 'ACTIVE' },
+      create: {
+        userId: analyst.id,
+        clientId: client.id,
+        role: UserRole.ANALYST,
+        status: 'ACTIVE',
+      },
+    });
+  }
+}
+
 async function main() {
   if (!seedCatalogEnabled()) {
-    const { seedEmail } = await upsertSeedUsers();
+    const { seedEmail, analysts } = await upsertSeedUsers();
+    await upsertAnalystClients(analysts);
     console.log(
-      `Seed completed: ADMIN (${seedEmail}) y analistas de prueba. Catálogo omitido (SEED_CATALOG=false).`,
+      `Seed completed: ADMIN (${seedEmail}), analistas de prueba y sus clientes vacíos. Sin Arca ni fuentes (SEED_CATALOG=false).`,
     );
     return;
   }
@@ -372,39 +412,7 @@ async function main() {
     },
   });
 
-  for (const analyst of analysts) {
-    const seed = ANALYST_SEEDS.find((row) => row.email === analyst.email);
-    if (!seed) {
-      continue;
-    }
-    const client = await prisma.client.upsert({
-      where: { slug: seed.clientSlug },
-      update: {
-        name: seed.clientName,
-        status: 'ACTIVE',
-      },
-      create: {
-        name: seed.clientName,
-        slug: seed.clientSlug,
-        status: 'ACTIVE',
-      },
-    });
-    await prisma.clientMembership.upsert({
-      where: {
-        userId_clientId: {
-          userId: analyst.id,
-          clientId: client.id,
-        },
-      },
-      update: { role: UserRole.ANALYST, status: 'ACTIVE' },
-      create: {
-        userId: analyst.id,
-        clientId: client.id,
-        role: UserRole.ANALYST,
-        status: 'ACTIVE',
-      },
-    });
-  }
+  await upsertAnalystClients(analysts);
 
   await prisma.clientFiscalData.upsert({
     where: { clientId: arca.id },
