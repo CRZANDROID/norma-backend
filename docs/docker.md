@@ -29,7 +29,7 @@ Compose **pisa** `PORT=3000` y `REDIS_URL=redis://redis:6379` aunque el `.env` t
 | `api` | `false` | `false` |
 | `worker` | `true` | `false` (local: no cron 07:00; HUD sí). Compose: `CRAWL_MAX_PAGES=200`, profundidad 4, 1 sitio a la vez. |
 
-El catálogo entero se encola en segundos (`POST /jobs/crawl/all` o el cron). Solo `CRAWL_CONCURRENCY` crawls corren a la vez (default 2). `waiting` alto es normal.
+El catálogo entero se encola en segundos (`POST /jobs/crawl/all` o el cron). Solo `CRAWL_CONCURRENCY` crawls corren a la vez (default 1). `waiting` alto es normal.
 
 Rebuild si cambiaste código: `docker compose up -d --build` (misma imagen `norma-backend:local` para `api` y `worker`). Un `restart` sin `--build` sigue la imagen vieja. No reconstruyas solo `api`.
 

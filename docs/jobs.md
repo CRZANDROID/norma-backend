@@ -29,9 +29,9 @@ PDF pesado (congreso estatal, gaceta escaneada a medias): extract **no** usa el 
 | `REDIS_URL` | — | Vacío → `POST /jobs/crawl` 503. Compose pisa `redis://redis:6379` |
 | `JOBS_WORKER` | on salvo `false` | Compose `api` = `false`; `worker` = on |
 | `JOBS_SCHEDULER` | off en dev/test salvo `true`; on en prod salvo `false` | Cron en el **worker**. Compose `api` = `false`, `worker` = `true` |
-| `CRAWL_CONCURRENCY` | `2` | Sitios a la vez. Da igual si hay 8 o 800 ACTIVE. **No subir** en el piloto (RAM + origen) |
-| `JOBS_CONCURRENCY` | `2` | extract + normalize. **No subir** a ciegas |
-| `CLASSIFY_CONCURRENCY` | igual que `JOBS_CONCURRENCY` | Solo cola `document.classify` (bajar si OpenAI 429) |
+| `CRAWL_CONCURRENCY` | `1` | Sitios a la vez. Da igual si hay 8 o 800 ACTIVE. **No subir** en el piloto (RAM + origen) |
+| `JOBS_CONCURRENCY` | `1` | extract + normalize. **No subir** a ciegas |
+| `CLASSIFY_CONCURRENCY` | `1` | Solo cola `document.classify`. Si no se define, igual que `JOBS_CONCURRENCY` (bajar si OpenAI 429) |
 | `CRAWL_LOCK_MS` | `5400000` (90 min) | Lock BullMQ del crawl + renew 15 s. Si Render sigue en 1800000, pisa este default |
 | `DOCUMENT_LOCK_MS` | `900000` (15 min) | Lock extract / normalize / classify |
 | `EXTRACT_PDF_TIMEOUT_MS` | `300000` (5 min) | unpdf en worker thread; ese PDF falla, el resto sigue |

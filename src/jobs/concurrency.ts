@@ -14,7 +14,7 @@ export const DEFAULT_CRAWL_LOCK_MS = 90 * 60 * 1000;
 /** Extract of huge PDFs / OpenAI classify can exceed the BullMQ default ~30 s lock. */
 export const DEFAULT_DOCUMENT_LOCK_MS = 15 * 60 * 1000;
 export const DEFAULT_LOCK_RENEW_MS = 15_000;
-export const DEFAULT_QUEUE_CONCURRENCY = 2;
+export const DEFAULT_QUEUE_CONCURRENCY = 1;
 /** One Render restart should not exhaust the job; the failed handler still closes DB. */
 export const DEFAULT_MAX_STALLED_COUNT = 2;
 /** unpdf in a worker thread. After this, that PDF fails; crawl/classify keep the event loop. */
