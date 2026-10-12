@@ -148,17 +148,39 @@ Destinatarios del PDF (S9) = estos `contacts[]`.
 
 ## Asistente de catálogo
 
-**No** clasifica normas ni reescribe hallazgos. Eso es classify / `POST /findings/:id/rewrite` ([FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md)).
+NORMA en el chat flotante del backoffice. **No** clasifica normas ni reescribe hallazgos. Eso es classify / `POST /findings/:id/rewrite` ([FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md)). **No** crea clientes, **no** guarda el formulario y **no** lanza rastreo.
 
-Env backend: `OPENAI_API_KEY` (vacío → `503`), `OPENAI_MODEL` default `gpt-4o-mini`.
+Env: `OPENAI_API_KEY` (vacío → `503`), `OPENAI_MODEL` default `gpt-4o-mini`. `WEB_SEARCH_ENABLED=off` apaga la búsqueda pública del borrador de perfil (sin resultados, o apagada, `draft` es null).
 
 | Método | Ruta | Uso |
 |--------|------|-----|
 | `GET` | `/ai/status` | `{ configured, model }` — si `false`, deshabilitar envío |
-| `POST` | `/ai/ask` | `{ "question": "…", "clientId": "opcional" }` |
+| `POST` | `/ai/ask` | Ver cuerpo. También responde en `/catalog-ai/ask` |
 
-`question`: 3–2000 chars. Roles: cualquier autenticado. No-ADMIN: catálogo filtrado por memberships.
+```json
+{
+  "question": "¿Qué fuentes tiene Arca vinculadas?",
+  "clientId": null,
+  "draftTarget": null,
+  "profileSeed": null,
+  "sourceUrl": null,
+  "messages": [
+    { "role": "user", "content": "¿Qué clientes tengo activos?" },
+    { "role": "assistant", "content": "En tus registros consta Arca Continental, activo." }
+  ]
+}
+```
 
-Respuesta: `{ answer, model, catalog: { clientCount, profileCount, sourceCount, scopedToClientId } }`. Mostrar `answer`; `catalog` puede ir en un pie. No mostrar tokens.
+`question`: 3–2000, la burbuja nueva, sin el catálogo. `clientId` opcional; el flotante no lo manda. `messages`: hasta 15 burbujas ya mostradas (`user` o `assistant`, texto ≤ 2000). Si llegan más, se usan las 15 últimas. Un rol distinto o un texto que no es string → `400`.
 
-`503` sin key o OpenAI caído. `403` sin acceso al `clientId`.
+`draftTarget`: `"profile"`, `"source"` o ausente. El front lo manda solo si ese formulario está abierto y el rol puede editar (`ADMIN` o `ANALYST`). `profileSeed` (`companyName` obligatorio, `description` opcional) solo con `"profile"`; sin `companyName` → `400`. `sourceUrl` http(s) solo con `"source"`. Sin URL no hay descarga y `draft` es null.
+
+El catálogo viaja una vez por llamada. Clientes: solo los de la persona (`ADMIN` ve todos). Fuentes: el catálogo global, como `/fuentes`, sin nombrar clientes ajenos. El perfil activo incluye `descripcion`. Tope: 50 clientes y 90 fuentes.
+
+Perfil: antes de la completación se busca `companyName` en la web pública. Keywords, categorías y productos salen de esos resultados. El nombre queda en el que escribió la persona. Sin resultados, o con la búsqueda apagada, `draft` es null y no se rellena de memoria.
+
+Fuente nueva: un solo `fetchPage` de `sourceUrl` (timeout 25 s, tope de bytes del crawl). No sigue enlaces ni encola rastreo. `keywordsGuide` y `searchFocus` salen de ese HTML, en materia sanitaria. PDF, timeout o página ilegible → `draft` null.
+
+Respuesta: `{ answer, model, catalog: { clientCount, profileCount, sourceCount, scopedToClientId }, draft }`. Mostrar `answer`. El pie lee `clientCount`, `profileCount` y `sourceCount`. `draft` no se pinta; el front lo escribe en el formulario abierto. Sin `draftTarget`, `draft` es null. Guardar sigue siendo Crear perfil, Guardar cambios o el alta de la fuente.
+
+`401` sin token. `400` body inválido. `403` `clientId` ajeno. `503` sin key o con OpenAI caído. `500` si el modelo no deja una respuesta usable.

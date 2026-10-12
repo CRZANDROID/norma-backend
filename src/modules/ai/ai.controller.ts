@@ -46,7 +46,7 @@ export class AiController {
   )
   @ApiOperation({
     summary:
-      'Preguntar al modelo sobre clientes, perfiles y fuentes ya registrados',
+      'NORMA responde sobre el flujo y el catálogo visible. Un borrador no guarda ni lanza rastreo',
   })
   @ApiForbiddenResponse()
   ask(@CurrentUser() user: AuthUser, @Body() dto: AskAiDto) {

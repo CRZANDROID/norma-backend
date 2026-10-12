@@ -14,7 +14,7 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 | 3 extensión | **API hecha** | N:N **client ↔ sources** (`sourceIds` / `clientIds`) |
 | 3+ ajustes | **API hecha** | Fiscales 1:1 + contactos 1:N |
 | Pre-S5 modelo | **API hecha** | Entidad federativa, disparador, 32 congresos, delivery |
-| Bloque 1 OpenAI | **API hecha** | `GET /ai/status` + `POST /ai/ask` (catálogo; no clasifica) |
+| Bloque 1 OpenAI | **API hecha** | `GET /ai/status` + `POST /ai/ask` (chat NORMA: flujo, catálogo, borrador sin guardar; no clasifica) |
 | 5 crawl | **Hecho** | Redis/BullMQ + crawl del mismo sitio (no solo portada) |
 | 6 documentos | **Hecho** | extract / normalize / SHA-256 / dedup + `GET /documents` |
 | 7 clasificación | **Hecho** | `document.classify` + `GET /findings` en `/alertas` |
@@ -63,7 +63,7 @@ Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_st
 - Fiscales 1:1: `fiscal` → `fiscalData`. Contactos: `contacts[]` (**replace** en PATCH)
 - Fuentes: `jurisdiction` + `stateCode` + `schedule`; `searchFocus` / `keywordsGuide` (`string[]`)
 - Delivery 1:1: `suggestedAction` por nivel + `autoSend` (S9)
-- `GET /ai/status`, `POST /ai/ask` (503 sin `OPENAI_API_KEY`)
+- `GET /ai/status`, `POST /ai/ask` (503 sin `OPENAI_API_KEY`). Brief de flujo + catálogo una vez (`descripcion` del perfil; fuentes globales para el no-admin, sin clientes ajenos). Hilo de 15 que manda el cliente. Borrador de perfil solo tras búsqueda pública; borrador de fuente con un `fetchPage` (palabras guía y enfoque). `draft` null si no hay formulario, resultados o texto HTML. No escribe en Prisma ni encola rastreo. `WEB_SEARCH_ENABLED=off` apaga la búsqueda.
 - Crawl: cola `source.crawl`, `GET /jobs/status` (`queues` + `consumers`; `worker` = hay consumidor, no el flag del API), `POST /jobs/crawl` / `crawl/all`, `job_runs`. Tope `CRAWL_MAX_PAGES` 200 (absoluto 2000; menús no cuentan), profundidad 4. **Piso `CRAWL_MIN_YEAR` 2026** (URL/`ddMMyyyy`/dateline del texto; `gob.mx` se queda en el path de la fuente + `/cms/uploads`). HTTP: cookie jar + UA Chrome (portadas tipo Senado que redirigen sin cookie). Concurrencia de sitios: `CRAWL_CONCURRENCY` (default 1, **no subir**). `JOBS_CONCURRENCY` y `CLASSIFY_CONCURRENCY` default 1. Lock crawl ~90 min; extract/classify `DOCUMENT_LOCK_MS` ~15 min. Body HTTP 25 MB; classify 25k caracteres. Sitio caído = error de origen. Compose: `api` sin workers + `worker`. El seed completo (`SEED_CATALOG` default) deja ACTIVE: DOF, Diputados, AGU, BC, BCS, Campeche, Chihuahua, Jalisco. **DB actual (pruebas de informe):** Arca Continental vinculada a `dof`, `diputados-gaceta`, `jalisco-congreso`, `cofepris` (ACTIVE) y `conamer` (INACTIVE, demo de capacitación: activar + rastrear). El resto de congresos del seed está INACTIVE. Stall/restart: cierra `job_runs` y documentos a medias; PDF en worker thread.
 - Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
 - Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
@@ -120,4 +120,4 @@ API: `http://localhost:3000`. Front: `VITE_API_URL=http://localhost:3000`. Tras 
 
 > Lee `docs/HANDOFF.md` §4 y `docs/TRAINING.md`. Foco: staging limpio para capacitación. S9 envío pendiente. S10 = portal. Conectores YouTube/X **después de S10**. Pipeline: `docs/jobs.md`.
 
-**Última actualización:** 2026-09-18 — stall de extract/classify/crawl cierra el tablero (no deja `RUNNING` eterno). Split API/worker. Envío S9 pendiente.
+**Última actualización:** 2026-10-12 — chat NORMA en `POST /ai/ask` (flotante, borrador de perfil con búsqueda pública y de fuente con una página; no guarda). 2026-09-18 — stall de extract/classify/crawl cierra el tablero. Split API/worker. Envío S9 pendiente.

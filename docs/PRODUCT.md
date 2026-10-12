@@ -17,7 +17,7 @@ Equipos regulatorios revisan manualmente muchas fuentes (DOF, congresos, autorid
 - Catálogo de **fuentes** con entidad federativa: federales (DOF, Diputados) + 32 congresos locales (piloto crawlea AGU, BC, BCS, Campeche, Chihuahua, Jalisco)
 - **Perfil regulatorio** del cliente (keywords, categorías, portafolio)
 - Config de **semáforo y canales** por cliente (acciones por nivel; correo por defecto; WhatsApp como opción, sin envío). En S9: flag **cliente automático** (`autoSend`)
-- **Asistente de catálogo** (`POST /ai/ask`): el modelo responde sobre clientes, perfiles y fuentes ya registrados
+- **NORMA en el chat** (`POST /ai/ask`): responde sobre el flujo y el catálogo visible; con el perfil abierto puede dejar un borrador tras buscar la empresa en la web pública, y en el alta de una fuente propone palabras guía y enfoque desde esa página. No guarda ni lanza rastreos
 - **Crawl HTTP** de fuentes `ACTIVE` (`POST /jobs/crawl`): mismo sitio (gaceta, iniciativas, notas, PDFs), no solo la portada
 - **Registro documental** (extract / normalize / SHA-256 / dedup + `GET /documents`)
 - **Clasificación S7** (hecho): semáforo GREEN/YELLOW/ORANGE/RED en `/alertas`

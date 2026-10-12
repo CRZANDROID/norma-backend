@@ -42,6 +42,7 @@ export class CatalogContextService {
             where: { status: EntityStatus.ACTIVE },
             select: {
               name: true,
+              description: true,
               keywords: true,
               categories: true,
             },
@@ -90,6 +91,7 @@ export class CatalogContextService {
         estado: client.status === EntityStatus.ACTIVE ? 'activo' : 'inactivo',
         perfiles: client.profiles.map((profile) => ({
           nombre: profile.name,
+          descripcion: profile.description,
           palabrasClave: profile.keywords,
           categorias: profile.categories,
         })),
@@ -140,13 +142,10 @@ export class CatalogContextService {
     return {};
   }
 
-  private sourceWhere(user: AuthUser, clientId?: string) {
+  /** Sin clientId el catálogo de fuentes es el global, también para quien no es ADMIN. */
+  private sourceWhere(_user: AuthUser, clientId?: string) {
     if (clientId) {
       return { clientSources: { some: { clientId } } };
-    }
-    if (!isAdmin(user)) {
-      const ids = user.memberships.map((m) => m.clientId);
-      return { clientSources: { some: { clientId: { in: ids } } } };
     }
     return {};
   }
