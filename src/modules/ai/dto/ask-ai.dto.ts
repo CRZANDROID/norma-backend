@@ -8,6 +8,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ASK_SCREENS } from '../ai.constants';
 
 export class AskMessageDto {
   @IsIn(['user', 'assistant'])
@@ -62,4 +63,9 @@ export class AskAiDto {
   @ValidateNested({ each: true })
   @Type(() => AskMessageDto)
   messages?: AskMessageDto[];
+
+  /** Pantalla abierta. «¿Qué estoy viendo?» responde solo eso. */
+  @IsOptional()
+  @IsIn(ASK_SCREENS)
+  screen?: (typeof ASK_SCREENS)[number];
 }

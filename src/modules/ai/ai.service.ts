@@ -7,6 +7,7 @@ import {
 import { APIError, type OpenAI } from 'openai';
 import { fetchPage } from '../../jobs/connectors/fetch-page';
 import type { AuthUser } from '../auth/auth.types';
+import { CHAT_TEMPERATURE } from './ai.constants';
 import {
   buildAskMessages,
   htmlToVisibleText,
@@ -15,6 +16,7 @@ import {
   parseModelPayload,
   sanitizeAskDraft,
   trimAskHistory,
+  withoutSaveReminder,
   type AskDraft,
   type AskDraftTarget,
 } from './ask-contract';
@@ -78,6 +80,7 @@ export class AiService {
         history,
         question: dto.question,
         draftTarget,
+        screen: dto.screen,
         evidence: `Resultados de la búsqueda pública de este turno:\n${evidenceText}`,
         companyName,
         writtenDescription,
@@ -109,6 +112,7 @@ export class AiService {
         history,
         question: dto.question,
         draftTarget,
+        screen: dto.screen,
         evidence: `Texto visible de la página de este turno:\n${page.text}`,
         sourceUrl,
         evidenceText: page.text,
@@ -126,6 +130,7 @@ export class AiService {
       history,
       question: dto.question,
       draftTarget: null,
+      screen: dto.screen,
     });
     return {
       answer: parsed.answer,
@@ -170,6 +175,7 @@ export class AiService {
       history: ReturnType<typeof trimAskHistory>;
       question: string;
       draftTarget: AskDraftTarget | null;
+      screen?: AskAiDto['screen'];
       evidence?: string;
       evidenceText?: string;
       companyName?: string;
@@ -181,13 +187,14 @@ export class AiService {
     try {
       completion = await openai.chat.completions.create({
         model: this.openaiClient.getModel(),
-        temperature: 0.2,
+        temperature: CHAT_TEMPERATURE,
         response_format: { type: 'json_object' },
         messages: buildAskMessages({
           catalog: input.catalog,
           history: input.history,
           question: input.question,
           draftTarget: input.draftTarget,
+          screen: input.screen,
           evidence: input.evidence,
           companyName: input.companyName,
           writtenDescription: input.writtenDescription,
@@ -208,15 +215,17 @@ export class AiService {
     } catch {
       throw new InternalServerErrorException(EMPTY_MODEL);
     }
+    const draft = sanitizeAskDraft(parsed.draft, {
+      draftTarget: input.draftTarget,
+      companyName: input.companyName,
+      writtenDescription: input.writtenDescription,
+      evidenceText: input.evidenceText,
+    });
+    const answer = draft ? parsed.answer : withoutSaveReminder(parsed.answer);
     return {
-      answer: parsed.answer,
+      answer: answer || parsed.answer,
       model: completion.model ?? this.openaiClient.getModel(),
-      draft: sanitizeAskDraft(parsed.draft, {
-        draftTarget: input.draftTarget,
-        companyName: input.companyName,
-        writtenDescription: input.writtenDescription,
-        evidenceText: input.evidenceText,
-      }),
+      draft,
     };
   }
 

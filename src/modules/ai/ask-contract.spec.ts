@@ -1,10 +1,15 @@
-import { ASK_HISTORY_LIMIT, CATALOG_BLOCK_MARKER } from './ai.constants';
+import {
+  ASK_HISTORY_LIMIT,
+  CATALOG_BLOCK_MARKER,
+  NORMA_SYSTEM_PROMPT,
+} from './ai.constants';
 import {
   buildAskMessages,
   htmlToVisibleText,
   parseModelPayload,
   sanitizeAskDraft,
   trimAskHistory,
+  withoutSaveReminder,
 } from './ask-contract';
 
 describe('ask contract', () => {
@@ -40,6 +45,41 @@ describe('ask contract', () => {
     expect(
       messages.filter((message) => message.content.includes('Esto no va')),
     ).toHaveLength(1);
+  });
+
+  it('names the open screen once and keeps it out of the question', () => {
+    const messages = buildAskMessages({
+      catalog: { clientes: [{ nombre: 'Arca' }], fuentes: [{ nombre: 'DOF' }] },
+      history: [],
+      question: '¿Qué estoy viendo?',
+      draftTarget: null,
+      screen: 'fuentes',
+    });
+    const screenMessages = messages.filter((message) =>
+      message.content.includes('Pantalla actual: Fuentes'),
+    );
+    expect(screenMessages).toHaveLength(1);
+    expect(screenMessages[0]?.content).toMatch(/solo con las fuentes/);
+    expect(messages.at(-1)?.content).toBe('¿Qué estoy viendo?');
+    expect(messages.at(-1)?.content).not.toContain('Pantalla actual');
+  });
+
+  it('describes a profile as the agent signals, not the client name', () => {
+    expect(NORMA_SYSTEM_PROMPT).toMatch(/categorías y keywords/);
+    expect(NORMA_SYSTEM_PROMPT).toMatch(
+      /nombre y la descripción son del cliente/,
+    );
+    expect(NORMA_SYSTEM_PROMPT).not.toMatch(
+      /Perfil regulatorio, en Clientes: Nombre, Descripción/,
+    );
+  });
+
+  it('drops the save reminder from a general answer', () => {
+    expect(
+      withoutSaveReminder(
+        'Arca está activo. No se guarda hasta que pulses Crear perfil o Guardar cambios.',
+      ),
+    ).toBe('Arca está activo.');
   });
 
   it('forces draft null without a target and drops the other target', () => {

@@ -2,6 +2,7 @@ import {
   ASK_HISTORY_LIMIT,
   CATALOG_BLOCK_MARKER,
   NORMA_SYSTEM_PROMPT,
+  type AskScreen,
 } from './ai.constants';
 
 export type AskRole = 'user' | 'assistant';
@@ -108,11 +109,45 @@ export function sanitizeAskDraft(
   return sanitizeSource(raw, input.evidenceText ?? '');
 }
 
+const SAVE_REMINDER =
+  /no se guarda|no queda guardad|no quedan guardad|hasta que pulses|clic de guardar|se guardan solas|guarda la persona|nada se guarda hasta/i;
+
+/** Quita el recordatorio de guardar cuando este turno no dejó un borrador. */
+export function withoutSaveReminder(answer: string): string {
+  const sentences = answer
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  return sentences
+    .filter((sentence) => !SAVE_REMINDER.test(sentence))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function screenNote(screen: AskScreen): string {
+  switch (screen) {
+    case 'clientes':
+      return 'Pantalla actual: Clientes. Si preguntan qué están viendo, responde solo con los clientes de esta pantalla: nombre y si están activos. No describas fuentes ni el resto del catálogo.';
+    case 'fuentes':
+      return 'Pantalla actual: Fuentes. Si preguntan qué están viendo, responde solo con las fuentes de esta pantalla. No describas clientes ni el resto del catálogo.';
+    case 'agentes':
+      return 'Pantalla actual: Agentes, el tablero de rastreo. Si preguntan qué están viendo, habla solo de esa sala. No describas el catálogo.';
+    case 'clasificacion':
+      return 'Pantalla actual: Clasificación. Si preguntan qué están viendo, habla solo de esa pantalla. No describas el catálogo.';
+    case 'informes':
+      return 'Pantalla actual: Informes. Si preguntan qué están viendo, habla solo de esa pantalla. No describas el catálogo.';
+    case 'usuarios':
+      return 'Pantalla actual: Usuarios. Si preguntan qué están viendo, habla solo de esa pantalla. No describas el catálogo.';
+  }
+}
+
 export function buildAskMessages(input: {
   catalog: unknown;
   history: AskTurn[];
   question: string;
   draftTarget: AskDraftTarget | null;
+  screen?: AskScreen;
   evidence?: string;
   companyName?: string;
   writtenDescription?: string;
@@ -121,6 +156,9 @@ export function buildAskMessages(input: {
   const history = trimAskHistory(input.history);
   const messages: ChatMessage[] = [
     { role: 'system', content: NORMA_SYSTEM_PROMPT },
+    ...(input.screen
+      ? [{ role: 'system' as const, content: screenNote(input.screen) }]
+      : []),
     { role: 'system', content: jsonInstruction(input.draftTarget) },
     {
       role: 'system',
@@ -141,7 +179,8 @@ export function buildAskMessages(input: {
 function jsonInstruction(draftTarget: AskDraftTarget | null): string {
   if (draftTarget === 'profile') {
     return `Responde solo con un objeto JSON {"answer":"...","draft":{"target":"profile","profile":{"description":"","keywords":[],"categories":[],"products":[]}}} o {"answer":"...","draft":null}.
-answer es la prosa en español. No digas que guardaste ni que lanzaste un rastreo.
+answer contesta en el hilo, con naturalidad. No digas que guardaste ni que lanzaste un rastreo.
+Si dejas un borrador, una frase basta para decir que no se guarda hasta Crear perfil o Guardar cambios. Si draft es null, no menciones el guardado.
 No pongas name: el servidor copia el nombre que escribió la persona.
 keywords, categories y products solo si esas palabras están en los resultados de búsqueda de este mensaje. Si no están, deja el arreglo vacío. No uses el catálogo ni tu memoria.
 Si la persona ya escribió una descripción, omite description. Si la dejó vacía, proponla solo cuando los fragmentos la sostengan.
@@ -149,12 +188,13 @@ Sin resultados que nombren la empresa, draft es null.`;
   }
   if (draftTarget === 'source') {
     return `Responde solo con un objeto JSON {"answer":"...","draft":{"target":"source","source":{"keywordsGuide":[],"searchFocus":[]}}} o {"answer":"...","draft":null}.
-answer es la prosa en español. No digas que guardaste ni que lanzaste un rastreo.
+answer contesta en el hilo, con naturalidad. No digas que guardaste ni que lanzaste un rastreo.
+Si dejas un borrador, una frase basta para decir que no se guarda hasta el alta de la fuente. Si draft es null, no menciones el guardado.
 keywordsGuide y searchFocus salen solo del texto de la página de este mensaje, en materia sanitaria. No uses el giro del cliente ni el catálogo para rellenarlos.
 No incluyas nombre, URL, horario, notas ni clientes. Si el texto no alcanza, draft es null.`;
   }
   return `Responde solo con un objeto JSON {"answer":"...","draft":null}.
-answer es la prosa en español. draft es null. No digas que guardaste ni que lanzaste un rastreo.`;
+answer contesta esa pregunta, en el hilo, con naturalidad. No recites el flujo ni el catálogo. No agregues que nada se guarda hasta el clic. draft es null. No digas que guardaste ni que lanzaste un rastreo.`;
 }
 
 function finalQuestion(input: {

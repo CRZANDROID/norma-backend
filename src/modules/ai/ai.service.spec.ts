@@ -1,7 +1,7 @@
 import { UserRole } from '../../database/prisma-client';
 import { fetchPage } from '../../jobs/connectors/fetch-page';
 import type { AuthUser } from '../auth/auth.types';
-import { CATALOG_BLOCK_MARKER } from './ai.constants';
+import { CATALOG_BLOCK_MARKER, CHAT_TEMPERATURE } from './ai.constants';
 import { AiService } from './ai.service';
 
 jest.mock('../../jobs/connectors/fetch-page', () => ({
@@ -79,10 +79,40 @@ describe('AiService.ask', () => {
     expect(create).toHaveBeenCalledTimes(1);
     expect(create.mock.calls[0][0]).toMatchObject({
       model: 'gpt-4o-mini',
-      temperature: 0.2,
+      temperature: CHAT_TEMPERATURE,
       response_format: { type: 'json_object' },
     });
     expect(create.mock.calls[0][0].tools).toBeUndefined();
+  });
+
+  it('drops a save reminder from a general answer and sends the open screen', async () => {
+    create.mockResolvedValue({
+      model: 'gpt-4o-mini',
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              answer:
+                'Estás en Clientes, con Arca activo. No se guarda hasta que pulses Crear perfil o Guardar cambios.',
+              draft: null,
+            }),
+          },
+        },
+      ],
+    });
+    const result = await service.ask(user, {
+      question: '¿Qué estoy viendo?',
+      screen: 'clientes',
+    });
+    expect(result.draft).toBeNull();
+    expect(result.answer).toBe('Estás en Clientes, con Arca activo.');
+    const sent = create.mock.calls[0][0].messages;
+    expect(
+      sent.filter((message) =>
+        message.content.includes('Pantalla actual: Clientes'),
+      ),
+    ).toHaveLength(1);
+    expect(sent.at(-1)?.content).toBe('¿Qué estoy viendo?');
   });
 
   it('sends only the last 15 bubbles and the catalog once', async () => {
