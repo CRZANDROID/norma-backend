@@ -2,7 +2,7 @@
 
 **Audiencia:** backend y `norma-frontend`.  
 **Hecho:** S7 — `GET /findings` en `/alertas` (nav: **Clasificación**). S8 — editar / IA / excluir.  
-**Pendiente:** S9 envío/`autoSend` · S10 portal `CLIENT_USER`. PDF draft: generar en `/alertas`; ver / descargar / regenerar en `/informes`.  
+**Pendiente:** S10 portal `CLIENT_USER`. S9 envío hecho: `autoSend` en la ficha del cliente; confirmar o descartar el borrador en `/informes`. PDF: generar en `/alertas`; ver / descargar / regenerar / enviar / descartar en `/informes`.  
 Pastillas de lote en Clasificación: Incluidos / Excluidos / Enviados.  
 Panel de rastreo: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). Config `autoSend`: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md). Pipeline: [jobs.md](./jobs.md).
 
@@ -241,20 +241,26 @@ UI `/alertas`: **Generar PDF** (cliente obligatorio, `{ clientId }` — no copie
 
 UI `/informes`: lista VCGA (Borradores / Enviados). Ver / Descargar; **Regenerar** solo en `draft`. El archivo se pide con Bearer y se abre como blob.
 
-`clientId` es obligatorio al generar: un informe no mezcla tenants. Esta semana **no** manda correo.
+`clientId` es obligatorio al generar: un informe no mezcla tenants.
 
 El PDF: briefing sin portada. Franja NORMA + documento de trabajo; cliente, razón social, periodo y contadores Crítico / Alto / Medio en la primera página. Hallazgos en ficha (acción sugerida, justificación, «Ver documento»). Pie: no enviado. Verde no entra.
 
 `lote=incluidos` es el mismo criterio que `POST /reports` sin fechas: Y/O/R, no excluidos, no quemados, **todo el lote del cliente**. Fecha/`status`/fuente/semáforo en `GET /findings` no recortan esa cubeta ni `counts.included`. Enviados = hallazgo en un `ReportFinding` de un informe `sent`. Excluidos = flag y todavía no quemados.
 
-### S9 — pendiente
+### S9 — envío (hecho)
 
 | Método | Ruta | Quién | Qué |
 |--------|------|--------|-----|
-| `POST` | `/reports/:id/send` | ADMIN / ANALYST | Confirmar (cliente no automático) |
-| `POST` | `/reports/:id/discard` | ADMIN / ANALYST | Draft fuera; hallazgos vuelven |
+| `POST` | `/reports/:id/send` | ADMIN / ANALYST | Confirma un `draft`. **200**. Pasa a `sent` e intenta el correo a `contacts[]` activos con email. **409** si ya está `sent` o `discarded` |
+| `POST` | `/reports/:id/discard` | ADMIN / ANALYST | **200**. El draft queda `discarded`; los hallazgos vuelven a candidatos y se limpia `excludedFromNextReport` de los que no están en un `sent`. **409** si ya está `sent` o `discarded` |
 
-`autoSend: true` → `POST /reports` deja `sent` y manda correo (**no esta semana**). Estados: `draft` → `sent` \| `discarded`.
+`autoSend` vive en la ficha del cliente (`delivery.autoSend`, default `false`), no en la pantalla del informe. `true` → `POST /reports` deja `sent` e intenta el correo. `false` → queda `draft`; Enviar y Descartar están en `/informes`.
+
+Correo: Resend (`RESEND_API_KEY` + `RESEND_FROM`). Si falta la llave o el remitente, **no** se llama al proveedor y **no** se simula el envío: el informe igual puede quedar `sent` y la respuesta trae `email.sent: false` con `email.message` (nombra la variable que falta). También si no hay contactos con correo o Resend rechaza. `email` es `null` en `draft`.
+
+Misma norma (misma URL) y hash distinto en un crawl nuevo, sobre un hallazgo ya `sent`: el hallazgo nuevo queda abierto con `changeNote`. El PDF y el detalle imprimen **Qué cambió**.
+
+Estados: `draft` → `sent` \| `discarded`.
 
 ### S10
 

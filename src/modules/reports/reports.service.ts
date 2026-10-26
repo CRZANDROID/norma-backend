@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  EntityStatus,
   ImpactLevel,
   Prisma,
   ReportStatus,
@@ -25,6 +26,11 @@ import {
   addImpactCount,
   emptyImpactCounts,
 } from '../findings/progress.labels';
+import {
+  reportFooterNote,
+  type EmailDelivery,
+} from '../mail/email-delivery';
+import { TransactionalMailService } from '../mail/transactional-mail.service';
 import { StorageService } from '../storage/storage.service';
 import type { CreateReportDto } from './dto/create-report.dto';
 import type { ListReportsQueryDto } from './dto/list-reports.query.dto';
@@ -78,6 +84,7 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly findings: FindingsService,
     private readonly storage: StorageService,
+    private readonly mail: TransactionalMailService,
   ) {}
 
   async create(user: AuthUser, dto: CreateReportDto) {
@@ -125,6 +132,9 @@ export class ReportsService {
       findings: candidates.map((row) => this.toPdfFinding(row)),
     });
 
+    if (await this.isAutoSend(clientId)) {
+      return this.send(user, created);
+    }
     return this.findOne(user, created);
   }
 
@@ -155,6 +165,99 @@ export class ReportsService {
       generatedAt: new Date(),
       generatedByName: user.name,
       findings: candidates.map((finding) => this.toPdfFinding(finding)),
+    });
+    return this.findOne(user, row.id);
+  }
+
+  async send(user: AuthUser, id: string) {
+    const row = await this.loadAccessibleRow(user, id);
+    if (row.status === ReportStatus.SENT) {
+      throw new ConflictException('El informe ya fue enviado.');
+    }
+    if (row.status === ReportStatus.DISCARDED) {
+      throw new ConflictException('No se puede enviar un informe descartado.');
+    }
+
+    const recipients = await this.recipientEmails(row.clientId);
+    const filename = reportDownloadName({
+      slug: row.client.slug,
+      dateFrom: row.dateFrom,
+      dateTo: row.dateTo,
+      generatedAt: row.createdAt,
+    });
+    const base = this.toPdfInput(row);
+    const blocked = this.mail.blocked(recipients);
+    let email = blocked;
+    let footer = blocked
+      ? reportFooterNote(blocked)
+      : reportFooterNote({
+          sent: true,
+          reason: 'sent',
+          message: '',
+          recipients,
+        });
+    let buffer = await this.renderBuffer({ ...base, footerNote: footer }, row.id);
+    if (!blocked) {
+      email = await this.mail.sendReport({
+        recipients,
+        subject: `Informe NORMA — ${row.client.name}`,
+        html: reportEmailHtml(row.client.name, row.dateFrom, row.dateTo, row.items.length),
+        text: reportEmailText(row.client.name, row.dateFrom, row.dateTo, row.items.length),
+        filename,
+        pdf: buffer,
+      });
+      if (!email.sent) {
+        buffer = await this.renderBuffer(
+          {
+            ...base,
+            footerNote: reportFooterNote(email),
+          },
+          row.id,
+        );
+      }
+    }
+    if (!email) {
+      throw new InternalServerErrorException(
+        'No se registró el resultado del correo.',
+      );
+    }
+    await this.storePdf(row.id, row.clientId, buffer);
+    await this.prisma.report.update({
+      where: { id: row.id },
+      data: {
+        status: ReportStatus.SENT,
+        sentAt: new Date(),
+        emailDelivery: email as unknown as Prisma.InputJsonValue,
+      },
+    });
+    return this.findOne(user, row.id);
+  }
+
+  async discard(user: AuthUser, id: string) {
+    const row = await this.loadAccessibleRow(user, id);
+    if (row.status === ReportStatus.SENT) {
+      throw new ConflictException('No se puede descartar un informe enviado.');
+    }
+    if (row.status === ReportStatus.DISCARDED) {
+      throw new ConflictException('El informe ya está descartado.');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.report.update({
+        where: { id: row.id },
+        data: {
+          status: ReportStatus.DISCARDED,
+          discardedAt: new Date(),
+        },
+      });
+      await tx.finding.updateMany({
+        where: {
+          clientId: row.clientId,
+          excludedFromNextReport: true,
+          reportItems: { none: { report: { status: ReportStatus.SENT } } },
+        },
+        data: { excludedFromNextReport: false },
+      });
     });
     return this.findOne(user, row.id);
   }
@@ -269,9 +372,16 @@ export class ReportsService {
     clientId: string,
     input: Parameters<typeof renderReportPdf>[0],
   ) {
-    let buffer: Buffer;
+    const buffer = await this.renderBuffer(input, reportId);
+    await this.storePdf(reportId, clientId, buffer);
+  }
+
+  private async renderBuffer(
+    input: Parameters<typeof renderReportPdf>[0],
+    reportId = 'pending',
+  ): Promise<Buffer> {
     try {
-      buffer = await renderReportPdf(input);
+      return await renderReportPdf(input);
     } catch (error) {
       this.logger.error(
         `No se pudo renderizar el PDF report=${reportId}: ${String(error)}`,
@@ -280,7 +390,9 @@ export class ReportsService {
         'No se pudo generar el PDF del informe.',
       );
     }
+  }
 
+  private async storePdf(reportId: string, clientId: string, buffer: Buffer) {
     const path = reportFilePath(clientId, reportId);
     try {
       const uploaded = await this.storage.putObject({
@@ -304,6 +416,36 @@ export class ReportsService {
         'No se pudo guardar el PDF del informe. Intenta de nuevo.',
       );
     }
+  }
+
+  private toPdfInput(row: ReportRow): Parameters<typeof renderReportPdf>[0] {
+    return {
+      clientName: row.client.name,
+      legalName: row.client.fiscalData?.legalName ?? null,
+      dateFrom: row.dateFrom,
+      dateTo: row.dateTo,
+      generatedAt: row.createdAt,
+      generatedByName: row.generatedBy.name,
+      findings: row.items.map((item) => this.toPdfFinding(item.finding)),
+    };
+  }
+
+  private async isAutoSend(clientId: string): Promise<boolean> {
+    const config = await this.prisma.clientDeliveryConfig.findUnique({
+      where: { clientId },
+      select: { autoSend: true },
+    });
+    return config?.autoSend === true;
+  }
+
+  private async recipientEmails(clientId: string): Promise<string[]> {
+    const contacts = await this.prisma.clientContact.findMany({
+      where: { clientId, status: EntityStatus.ACTIVE },
+      select: { email: true },
+    });
+    return contacts
+      .map((row) => row.email?.trim() ?? '')
+      .filter((email) => email.length > 0);
   }
 
   private async loadLegalName(clientId: string): Promise<string | null> {
@@ -421,6 +563,7 @@ export class ReportsService {
       fileUrl: row.filePath ? `/reports/${row.id}/file` : null,
       generatedAt: row.createdAt,
       generatedBy: row.generatedBy,
+      email: parseEmailDelivery(row.emailDelivery),
     };
   }
 
@@ -451,6 +594,7 @@ export class ReportsService {
         filename: row.document.filename,
         url: documentUrlFromMetadata(row.document.metadata),
       },
+      changeNote: row.changeNote,
       createdAt: row.createdAt,
     };
   }
@@ -467,9 +611,87 @@ export class ReportsService {
       justification: row.justification,
       sourceName: row.source?.name ?? null,
       documentUrl: documentUrlFromMetadata(row.document.metadata),
+      changeNote: row.changeNote,
       createdAt: row.createdAt,
     };
   }
+}
+
+function reportEmailHtml(
+  clientName: string,
+  dateFrom: string | null,
+  dateTo: string | null,
+  findingCount: number,
+): string {
+  const period = periodLabel(dateFrom, dateTo);
+  const noun = findingCount === 1 ? 'hallazgo' : 'hallazgos';
+  return [
+    `<p>NORMA preparó el informe de <strong>${escapeHtml(clientName)}</strong>.</p>`,
+    `<p>Periodo: ${escapeHtml(period)}. Incluye ${findingCount} ${noun}.</p>`,
+    '<p>El PDF va adjunto.</p>',
+  ].join('');
+}
+
+function reportEmailText(
+  clientName: string,
+  dateFrom: string | null,
+  dateTo: string | null,
+  findingCount: number,
+): string {
+  const period = periodLabel(dateFrom, dateTo);
+  const noun = findingCount === 1 ? 'hallazgo' : 'hallazgos';
+  return `NORMA preparó el informe de ${clientName}. Periodo: ${period}. Incluye ${findingCount} ${noun}. El PDF va adjunto.`;
+}
+
+function periodLabel(from: string | null, to: string | null): string {
+  if (from && to) {
+    return from === to ? from : `${from} a ${to}`;
+  }
+  if (from) {
+    return `desde ${from}`;
+  }
+  if (to) {
+    return `hasta ${to}`;
+  }
+  return 'hallazgos candidatos a la fecha de generación';
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function parseEmailDelivery(value: Prisma.JsonValue | null): EmailDelivery | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.sent !== 'boolean' || typeof row.message !== 'string') {
+    return null;
+  }
+  const reason = row.reason;
+  const allowed = [
+    'sent',
+    'missing_api_key',
+    'missing_from',
+    'no_recipients',
+    'provider_error',
+  ] as const;
+  if (typeof reason !== 'string' || !allowed.includes(reason as (typeof allowed)[number])) {
+    return null;
+  }
+  const recipients = Array.isArray(row.recipients)
+    ? row.recipients.filter((item): item is string => typeof item === 'string')
+    : [];
+  return {
+    sent: row.sent,
+    reason: reason as EmailDelivery['reason'],
+    message: row.message,
+    recipients,
+  };
 }
 
 function documentUrlFromMetadata(value: Prisma.JsonValue | null): string | null {

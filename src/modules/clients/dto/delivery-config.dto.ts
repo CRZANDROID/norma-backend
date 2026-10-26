@@ -18,6 +18,11 @@ export class DeliveryConfigDto {
   @IsBoolean()
   whatsappEnabled?: boolean;
 
+  /** Cliente automático: generar el PDF también lo envía. Default false. */
+  @IsOptional()
+  @IsBoolean()
+  autoSend?: boolean;
+
   @IsOptional()
   @ValidateNested()
   @Type(() => ScheduleDto)

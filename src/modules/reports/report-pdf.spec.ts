@@ -1,3 +1,4 @@
+import { inflateSync } from 'zlib';
 import { ImpactLevel } from '../../database/prisma-client';
 import { markdownToPdfText, renderReportPdf } from './report-pdf';
 
@@ -38,4 +39,51 @@ describe('report-pdf', () => {
     expect(asText).toMatch(/\/Count 1/);
     expect(asText).toMatch(/A\x00r\x00c\x00a\x00 \x00C\x00o\x00n\x00t\x00i\x00n\x00e\x00n\x00t\x00a\x00l/);
   });
+
+  it('prints what changed and an honest footer when mail was not delivered', async () => {
+    const buffer = await renderReportPdf({
+      clientName: 'Arca Continental',
+      legalName: null,
+      dateFrom: null,
+      dateTo: null,
+      generatedAt: new Date('2026-10-26T18:00:00.000Z'),
+      generatedByName: 'Admin NORMA',
+      footerNote: 'Registrado como enviado. Correo no entregado.',
+      findings: [
+        {
+          title: 'Reforma de etiquetado',
+          impact: ImpactLevel.ORANGE,
+          suggestedAction: null,
+          justification: 'Texto vigente.',
+          sourceName: 'DOF',
+          documentUrl: null,
+          createdAt: new Date('2026-10-26T18:00:00.000Z'),
+          changeNote:
+            'Esta norma ya se envio. El nuevo rastreo trae otro contenido.',
+        },
+      ],
+    });
+    const text = decodePdfText(buffer);
+    expect(text).toContain('Qué cambió');
+    expect(text).toContain('otro contenido');
+    expect(text).toContain('Correo no entregado');
+  });
 });
+
+function decodePdfText(buffer: Buffer): string {
+  const raw = buffer.toString('latin1');
+  const parts = [raw];
+  const re = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  for (const match of raw.matchAll(re)) {
+    try {
+      parts.push(inflateSync(Buffer.from(match[1], 'latin1')).toString('latin1'));
+    } catch {
+      // stream that is not flate
+    }
+  }
+  const inflated = parts.join('\n');
+  const decoded = [...inflated.matchAll(/<([0-9a-fA-F]+)>/g)].map((item) =>
+    Buffer.from(item[1], 'hex').toString('latin1'),
+  );
+  return `${inflated}\n${decoded.join('')}`;
+}

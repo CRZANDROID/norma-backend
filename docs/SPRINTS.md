@@ -137,10 +137,10 @@ Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
 - [x] Regenerar mientras el informe no esté enviado
 - [x] Front `/alertas`: Generar PDF + pastillas Incluidos / Excluidos / Enviados
 - [x] Front `/informes`: lista VCGA (borradores / enviados); Ver / Descargar / Regenerar
-- [ ] `autoSend` por cliente: generar = enviar. Si no: confirmar envío
-- [ ] Descartar el informe (los hallazgos vuelven a candidatos)
-- [ ] Correo a los **contactos** del cliente
-- [ ] Reabrir automático si crawl + hash distinto sobre una norma ya enviada
+- [x] `autoSend` por cliente: generar = enviar. Si no: confirmar envío
+- [x] Descartar el informe (los hallazgos vuelven a candidatos)
+- [x] Correo a los **contactos** del cliente
+- [x] Reabrir automático si crawl + hash distinto sobre una norma ya enviada
 
 **Entregable de esta semana:** PDF draft descargable (sin correo). Entregable S9 completo: ciclo VCGA cerrado (validar → PDF → mail).  
 Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).

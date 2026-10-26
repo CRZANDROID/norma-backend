@@ -13,6 +13,7 @@ export type ReportPdfFinding = {
   sourceName: string | null;
   documentUrl: string | null;
   createdAt: Date;
+  changeNote?: string | null;
 };
 
 export type ReportPdfInput = {
@@ -23,6 +24,8 @@ export type ReportPdfInput = {
   generatedAt: Date;
   generatedByName: string;
   findings: ReportPdfFinding[];
+  /** Pie. Draft: no enviado. Sent: enviado, o registrado sin correo. */
+  footerNote?: string;
 };
 
 const PAGE = {
@@ -345,6 +348,22 @@ function drawFinding(doc: PDFKit.PDFDocument, finding: ReportPdfFinding) {
     doc.moveDown(0.2);
   }
 
+  const change = finding.changeNote?.trim() ?? '';
+  if (change) {
+    doc
+      .fillColor(color)
+      .font('Helvetica-Bold')
+      .fontSize(8)
+      .text('Qué cambió', innerX, doc.y, { width: innerW });
+    doc.moveDown(0.15);
+    doc
+      .fillColor(INK)
+      .font('Helvetica')
+      .fontSize(9)
+      .text(markdownToPdfText(change), innerX, doc.y, { width: innerW });
+    doc.moveDown(0.25);
+  }
+
   if (finding.documentUrl) {
     doc
       .fillColor(LINK)
@@ -391,18 +410,22 @@ function stampChrome(doc: PDFKit.PDFDocument, input: ReportPdfInput) {
       .moveTo(PAGE.margin, y)
       .lineTo(PAGE.width - PAGE.margin, y)
       .stroke();
+    const footer = input.footerNote?.trim() || 'No enviado al cliente';
+    const longFooter = footer.length > 28;
     doc.fillColor(MUTED).font('Helvetica').fontSize(7.5);
-    doc.text('No enviado al cliente', PAGE.margin, y + 8, {
-      width: 150,
+    doc.text(footer, PAGE.margin, y + 8, {
+      width: longFooter ? contentWidth() - 80 : 150,
       lineBreak: false,
       height: 10,
     });
-    doc.text(input.clientName, PAGE.margin + 150, y + 8, {
-      width: contentWidth() - 220,
-      align: 'center',
-      lineBreak: false,
-      height: 10,
-    });
+    if (!longFooter) {
+      doc.text(input.clientName, PAGE.margin + 150, y + 8, {
+        width: contentWidth() - 220,
+        align: 'center',
+        lineBreak: false,
+        height: 10,
+      });
+    }
     doc.text(`${i + 1} / ${range.count}`, PAGE.width - PAGE.margin - 70, y + 8, {
       width: 70,
       align: 'right',

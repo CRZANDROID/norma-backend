@@ -282,7 +282,7 @@ model Source {
   @@map("sources")
 }
 
-/// Config de entrega y semáforo por cliente (1:1). No envía email/WhatsApp todavía.
+/// Config de entrega y semáforo por cliente (1:1). `autoSend` envía el PDF al generarlo. WhatsApp no se envía.
 model ClientDeliveryConfig {
   id               String   @id @default(cuid())
   clientId         String   @unique @map("client_id")
@@ -293,6 +293,8 @@ model ClientDeliveryConfig {
   deliveryWeekdays Int[]    @default([1, 2, 3, 4, 5]) @map("delivery_weekdays")
   /// Acciones por nivel GREEN|YELLOW|ORANGE|RED (JSON validado en Nest).
   impactActions    Json     @map("impact_actions")
+  /// Cliente automático (S9): generar el PDF también lo envía.
+  autoSend         Boolean  @default(false) @map("auto_send")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -330,6 +332,8 @@ model Finding {
   aiMeta          Json?         @map("ai_meta")
   /// Fuera del próximo informe (S8). No es DISMISSED; S9 lo lee al armar el PDF.
   excludedFromNextReport Boolean @default(false) @map("excluded_from_next_report")
+  /// Crawl nuevo con hash distinto sobre una norma ya enviada. El PDF lo imprime.
+  changeNote      String?       @map("change_note") @db.Text
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
@@ -436,6 +440,8 @@ model Report {
   filePath           String?      @map("file_path")
   sentAt             DateTime?    @map("sent_at")
   discardedAt        DateTime?    @map("discarded_at")
+  /// Resultado del correo al pasar a SENT. Null en draft. sent=false no simula envío.
+  emailDelivery      Json?        @map("email_delivery")
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @updatedAt @map("updated_at")
 
