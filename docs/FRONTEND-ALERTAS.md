@@ -239,7 +239,7 @@ El borrador que edita la IA es **el vigente**, incluido lo que VCGA escribió a 
 
 UI `/alertas`: **Generar PDF** (cliente obligatorio, `{ clientId }` — no copies los filtros de la lista) + pastillas de lote. Tras generar, toast con enlace a `/informes/:id`. Copy: informe, no inbox.
 
-UI `/informes`: lista VCGA (Borradores / Enviados). Ver / Descargar; **Regenerar** solo en `draft`. El archivo se pide con Bearer y se abre como blob.
+UI `/informes`: lista VCGA (Borradores / Enviados). Cada tarjeta muestra quién generó y, si está `sent`, quién envió (`generatedAt` / `generatedBy`, `sentAt` / `sentBy`). Con `autoSend`, las dos marcas son el mismo usuario y el mismo momento. Ver / Descargar; **Regenerar** solo en `draft`. El archivo se pide con Bearer y se abre como blob.
 
 `clientId` es obligatorio al generar: un informe no mezcla tenants.
 

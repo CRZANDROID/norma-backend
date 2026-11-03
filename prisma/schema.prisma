@@ -143,7 +143,8 @@ model User {
 
   memberships ClientMembership[]
   documents   Document[]
-  reports     Report[]
+  reportsGenerated Report[] @relation("ReportGeneratedBy")
+  reportsSent      Report[] @relation("ReportSentBy")
 
   @@map("users")
 }
@@ -436,6 +437,7 @@ model Report {
   dateTo             String?      @map("date_to")
   status             ReportStatus @default(DRAFT)
   generatedByUserId  String       @map("generated_by_user_id")
+  sentByUserId       String?      @map("sent_by_user_id")
   fileBucket         String?      @map("file_bucket")
   filePath           String?      @map("file_path")
   sentAt             DateTime?    @map("sent_at")
@@ -446,7 +448,8 @@ model Report {
   updatedAt          DateTime     @updatedAt @map("updated_at")
 
   client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  generatedBy User            @relation(fields: [generatedByUserId], references: [id], onDelete: Restrict)
+  generatedBy User            @relation("ReportGeneratedBy", fields: [generatedByUserId], references: [id], onDelete: Restrict)
+  sentBy      User?           @relation("ReportSentBy", fields: [sentByUserId], references: [id], onDelete: Restrict)
   items       ReportFinding[]
 
   @@index([clientId, createdAt])

@@ -68,6 +68,7 @@ const REPORT_INCLUDE = {
     },
   },
   generatedBy: { select: { id: true, name: true } },
+  sentBy: { select: { id: true, name: true } },
   items: {
     orderBy: { sortOrder: 'asc' as const },
     include: { finding: { include: FINDING_INCLUDE } },
@@ -133,7 +134,9 @@ export class ReportsService {
     });
 
     if (await this.isAutoSend(clientId)) {
-      return this.send(user, created, dto.contactIds ?? []);
+      return this.send(user, created, dto.contactIds ?? [], {
+        atGeneration: true,
+      });
     }
     return this.findOne(user, created);
   }
@@ -169,7 +172,12 @@ export class ReportsService {
     return this.findOne(user, row.id);
   }
 
-  async send(user: AuthUser, id: string, contactIds: string[]) {
+  async send(
+    user: AuthUser,
+    id: string,
+    contactIds: string[],
+    opts?: { atGeneration?: boolean },
+  ) {
     const row = await this.loadAccessibleRow(user, id);
     if (row.status === ReportStatus.SENT) {
       throw new ConflictException('El informe ya fue enviado.');
@@ -251,7 +259,8 @@ export class ReportsService {
       where: { id: row.id },
       data: {
         status: ReportStatus.SENT,
-        sentAt: new Date(),
+        sentAt: opts?.atGeneration ? row.createdAt : new Date(),
+        sentByUserId: user.id,
         emailDelivery: email as unknown as Prisma.InputJsonValue,
       },
     });
@@ -620,6 +629,8 @@ export class ReportsService {
       fileUrl: row.filePath ? `/reports/${row.id}/file` : null,
       generatedAt: row.createdAt,
       generatedBy: row.generatedBy,
+      sentAt: row.sentAt,
+      sentBy: row.sentBy,
       email: parseEmailDelivery(row.emailDelivery),
     };
   }
