@@ -52,7 +52,7 @@ export class ReportsController {
   })
   @ApiOperation({
     summary:
-      'Genera el PDF. Si el cliente tiene autoSend, lo deja sent e intenta el correo. Sin RESEND_API_KEY el estado cambia y email.sent queda false.',
+      'Genera el PDF. Si el cliente tiene autoSend, intenta enviarlo. Solo queda sent si Resend acepta el correo; si no, sigue en draft y email.sent es false.',
   })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateReportDto) {
     return this.reportsService.create(user, dto);
@@ -80,7 +80,7 @@ export class ReportsController {
   })
   @ApiOperation({
     summary:
-      'Confirma el envío de un draft. Pasa a sent e intenta el correo a contacts[]. Si falta RESEND_API_KEY no simula el envío.',
+      'Intenta el correo de un draft. Pasa a sent solo si Resend acepta. Si falta la llave, Resend rechaza o no responde, sigue en draft.',
   })
   send(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.reportsService.send(user, id);

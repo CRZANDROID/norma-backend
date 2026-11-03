@@ -251,12 +251,12 @@ El PDF: briefing sin portada. Franja NORMA + documento de trabajo; cliente, raz�
 
 | Método | Ruta | Quién | Qué |
 |--------|------|--------|-----|
-| `POST` | `/reports/:id/send` | ADMIN / ANALYST | Confirma un `draft`. **200**. Pasa a `sent` e intenta el correo a `contacts[]` activos con email. **409** si ya está `sent` o `discarded` |
+| `POST` | `/reports/:id/send` | ADMIN / ANALYST | Intenta el correo de un `draft`. **200**. Pasa a `sent` solo si Resend acepta. Si falta la llave, Resend rechaza o no responde, sigue `draft` y `email.sent` es `false`. **409** si ya está `sent` o `discarded` |
 | `POST` | `/reports/:id/discard` | ADMIN / ANALYST | **200**. El draft queda `discarded`; los hallazgos vuelven a candidatos y se limpia `excludedFromNextReport` de los que no están en un `sent`. **409** si ya está `sent` o `discarded` |
 
-`autoSend` vive en la ficha del cliente (`delivery.autoSend`, default `false`), no en la pantalla del informe. `true` → `POST /reports` deja `sent` e intenta el correo. `false` → queda `draft`; Enviar y Descartar están en `/informes`.
+`autoSend` vive en la ficha del cliente (`delivery.autoSend`, default `false`), no en la pantalla del informe. `true` → `POST /reports` intenta el correo. `false` → queda `draft`; Enviar y Descartar están en `/informes`.
 
-Correo: Resend (`RESEND_API_KEY` + `RESEND_FROM`). Si falta la llave o el remitente, **no** se llama al proveedor y **no** se simula el envío: el informe igual puede quedar `sent` y la respuesta trae `email.sent: false` con `email.message` (nombra la variable que falta). También si no hay contactos con correo o Resend rechaza. `email` es `null` en `draft`.
+Correo: Resend (`RESEND_API_KEY` + `RESEND_FROM`). `sent` solo si Resend acepta el mensaje. Si falta la llave o el remitente, no hay contactos con correo, Resend rechaza o no responde, el informe **sigue en `draft`** y `email.sent` es `false` con `email.message` (dice que el correo no salió y nombra la variable que falta). `email` es `null` en un `draft` que todavía no se intentó enviar.
 
 Misma norma (misma URL) y hash distinto en un crawl nuevo, sobre un hallazgo ya `sent`: el hallazgo nuevo queda abierto con `changeNote`. El PDF y el detalle imprimen **Qué cambió**.
 

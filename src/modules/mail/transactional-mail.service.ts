@@ -29,7 +29,7 @@ export class TransactionalMailService {
         sent: false,
         reason: 'missing_api_key',
         message:
-          'Falta RESEND_API_KEY. El informe quedó enviado y no se mandó correo.',
+          'Falta RESEND_API_KEY. No se envió el correo. El informe sigue en borrador.',
         recipients: to,
       };
     }
@@ -38,7 +38,7 @@ export class TransactionalMailService {
         sent: false,
         reason: 'missing_from',
         message:
-          'Falta RESEND_FROM. El informe quedó enviado y no se mandó correo.',
+          'Falta RESEND_FROM. No se envió el correo. El informe sigue en borrador.',
         recipients: to,
       };
     }
@@ -47,7 +47,7 @@ export class TransactionalMailService {
         sent: false,
         reason: 'no_recipients',
         message:
-          'Este cliente no tiene contactos activos con correo. El informe quedó enviado y no se mandó correo.',
+          'Este cliente no tiene contactos activos con correo. No se envió el correo. El informe sigue en borrador.',
         recipients: [],
       };
     }
@@ -92,7 +92,7 @@ export class TransactionalMailService {
         return {
           sent: false,
           reason: 'provider_error',
-          message: `Resend no aceptó el correo (${response.status}). El informe quedó enviado y no se mandó correo.`,
+          message: `Resend no aceptó el correo (${response.status}). No se envió el correo. El informe sigue en borrador.`,
           recipients: to,
         };
       }
@@ -112,7 +112,7 @@ export class TransactionalMailService {
         sent: false,
         reason: 'provider_error',
         message:
-          'No se pudo contactar a Resend. El informe quedó enviado y no se mandó correo.',
+          'No se pudo contactar a Resend. No se envió el correo. El informe sigue en borrador.',
         recipients: to,
       };
     }

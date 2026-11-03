@@ -185,43 +185,64 @@ export class ReportsService {
       dateTo: row.dateTo,
       generatedAt: row.createdAt,
     });
-    const base = this.toPdfInput(row);
     const blocked = this.mail.blocked(recipients);
     let email = blocked;
-    let footer = blocked
-      ? reportFooterNote(blocked)
-      : reportFooterNote({
-          sent: true,
-          reason: 'sent',
-          message: '',
-          recipients,
-        });
-    let buffer = await this.renderBuffer({ ...base, footerNote: footer }, row.id);
+    let sentPdf: Buffer | null = null;
     if (!blocked) {
+      sentPdf = await this.renderBuffer(
+        {
+          ...this.toPdfInput(row),
+          footerNote: reportFooterNote({
+            sent: true,
+            reason: 'sent',
+            message: '',
+            recipients,
+          }),
+        },
+        row.id,
+      );
       email = await this.mail.sendReport({
         recipients,
         subject: `Informe NORMA — ${row.client.name}`,
-        html: reportEmailHtml(row.client.name, row.dateFrom, row.dateTo, row.items.length),
-        text: reportEmailText(row.client.name, row.dateFrom, row.dateTo, row.items.length),
+        html: reportEmailHtml(
+          row.client.name,
+          row.dateFrom,
+          row.dateTo,
+          row.items.length,
+        ),
+        text: reportEmailText(
+          row.client.name,
+          row.dateFrom,
+          row.dateTo,
+          row.items.length,
+        ),
         filename,
-        pdf: buffer,
+        pdf: sentPdf,
       });
-      if (!email.sent) {
-        buffer = await this.renderBuffer(
-          {
-            ...base,
-            footerNote: reportFooterNote(email),
-          },
-          row.id,
-        );
-      }
     }
     if (!email) {
       throw new InternalServerErrorException(
         'No se registró el resultado del correo.',
       );
     }
-    await this.storePdf(row.id, row.clientId, buffer);
+    if (!email.sent) {
+      await this.prisma.report.update({
+        where: { id: row.id },
+        data: {
+          emailDelivery: email as unknown as Prisma.InputJsonValue,
+        },
+      });
+      return this.findOne(user, row.id);
+    }
+    if (sentPdf) {
+      try {
+        await this.storePdf(row.id, row.clientId, sentPdf);
+      } catch (error) {
+        this.logger.error(
+          `El correo salió pero no se pudo guardar el PDF report=${row.id}: ${String(error)}`,
+        );
+      }
+    }
     await this.prisma.report.update({
       where: { id: row.id },
       data: {

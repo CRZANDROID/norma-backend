@@ -29,6 +29,7 @@ describe('TransactionalMailService', () => {
     expect(result.sent).toBe(false);
     expect(result.reason).toBe('missing_api_key');
     expect(result.message).toContain('RESEND_API_KEY');
+    expect(result.message).toContain('borrador');
   });
 
   it('does not call Resend when the from address is missing', async () => {

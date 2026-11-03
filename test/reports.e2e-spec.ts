@@ -289,7 +289,7 @@ describe('Reports generate (e2e)', () => {
       .expect(403);
   });
 
-  it('POST /reports/:id/send marks sent and shows a missing Resend key', async () => {
+  it('POST /reports/:id/send stays draft when the Resend key is missing', async () => {
     const keys = hideMailKeys();
     try {
       const created = await generateOn('2001-03-20', 'send');
@@ -297,33 +297,28 @@ describe('Reports generate (e2e)', () => {
         .post(`/reports/${created.id}/send`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
-      expect(sent.body.status).toBe('sent');
+      expect(sent.body.status).toBe('draft');
       expect(sent.body.email.sent).toBe(false);
       expect(sent.body.email.reason).toBe('missing_api_key');
       expect(sent.body.email.message).toContain('RESEND_API_KEY');
-
-      await request(app.getHttpServer())
-        .post(`/reports/${created.id}/send`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(409);
-      await request(app.getHttpServer())
-        .post(`/reports/${created.id}/discard`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(409);
+      expect(sent.body.email.message).toContain('borrador');
 
       const prisma = app.get(PrismaService);
-      const arca = await prisma.client.findUnique({
-        where: { slug: 'arca-continental' },
-      });
-      await request(app.getHttpServer())
-        .post('/reports')
+      const row = await prisma.report.findUnique({ where: { id: created.id } });
+      expect(row?.status).toBe(ReportStatus.DRAFT);
+      expect(row?.sentAt).toBeNull();
+
+      const retry = await request(app.getHttpServer())
+        .post(`/reports/${created.id}/send`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          clientId: arca!.id,
-          dateFrom: '2001-03-20',
-          dateTo: '2001-03-20',
-        })
-        .expect(400);
+        .expect(200);
+      expect(retry.body.status).toBe('draft');
+
+      const discarded = await request(app.getHttpServer())
+        .post(`/reports/${created.id}/discard`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(discarded.body.status).toBe('discarded');
     } finally {
       restoreMailKeys(keys);
     }
@@ -384,7 +379,7 @@ describe('Reports generate (e2e)', () => {
     expect(ids).toEqual(expect.arrayContaining([kept.finding.id, excluded.finding.id]));
   });
 
-  it('autoSend leaves the report sent without pretending mail went out', async () => {
+  it('autoSend keeps the draft when Resend does not accept the mail', async () => {
     const prisma = app.get(PrismaService);
     const arca = await prisma.client.findUnique({
       where: { slug: 'arca-continental' },
@@ -396,9 +391,10 @@ describe('Reports generate (e2e)', () => {
     });
     try {
       const created = await generateOn('2001-03-22', 'autosend');
-      expect(created.status).toBe('sent');
+      expect(created.status).toBe('draft');
       expect(created.email.sent).toBe(false);
       expect(created.email.message).toContain('RESEND_API_KEY');
+      expect(created.email.message).toContain('borrador');
     } finally {
       await prisma.clientDeliveryConfig.update({
         where: { clientId: arca!.id },
