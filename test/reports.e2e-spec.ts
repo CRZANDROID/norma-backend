@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import {
   DocumentProcessingStatus,
+  EntityStatus,
   ImpactLevel,
   ReportStatus,
 } from '../src/database/prisma-client';
@@ -293,9 +294,33 @@ describe('Reports generate (e2e)', () => {
     const keys = hideMailKeys();
     try {
       const created = await generateOn('2001-03-20', 'send');
+      const prisma = app.get(PrismaService);
+      const arca = await prisma.client.findUnique({
+        where: { slug: 'arca-continental' },
+      });
+      const contactIds = await activeContactIds(arca!.id);
+      expect(contactIds.length).toBeGreaterThan(0);
+
+      const none = await request(app.getHttpServer())
+        .post(`/reports/${created.id}/send`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ contactIds: [] })
+        .expect(200);
+      expect(none.body.status).toBe('draft');
+      expect(none.body.email.sent).toBe(false);
+      expect(none.body.email.reason).toBe('no_recipients');
+      expect(none.body.email.message).toContain('contacto');
+
+      await request(app.getHttpServer())
+        .post(`/reports/${created.id}/send`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ contactIds: ['no-such-contact'] })
+        .expect(400);
+
       const sent = await request(app.getHttpServer())
         .post(`/reports/${created.id}/send`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .send({ contactIds })
         .expect(200);
       expect(sent.body.status).toBe('draft');
       expect(sent.body.email.sent).toBe(false);
@@ -303,7 +328,6 @@ describe('Reports generate (e2e)', () => {
       expect(sent.body.email.message).toContain('RESEND_API_KEY');
       expect(sent.body.email.message).toContain('borrador');
 
-      const prisma = app.get(PrismaService);
       const row = await prisma.report.findUnique({ where: { id: created.id } });
       expect(row?.status).toBe(ReportStatus.DRAFT);
       expect(row?.sentAt).toBeNull();
@@ -311,6 +335,7 @@ describe('Reports generate (e2e)', () => {
       const retry = await request(app.getHttpServer())
         .post(`/reports/${created.id}/send`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .send({ contactIds })
         .expect(200);
       expect(retry.body.status).toBe('draft');
 
@@ -390,7 +415,8 @@ describe('Reports generate (e2e)', () => {
       data: { autoSend: true },
     });
     try {
-      const created = await generateOn('2001-03-22', 'autosend');
+      const contactIds = await activeContactIds(arca!.id);
+      const created = await generateOn('2001-03-22', 'autosend', contactIds);
       expect(created.status).toBe('draft');
       expect(created.email.sent).toBe(false);
       expect(created.email.message).toContain('RESEND_API_KEY');
@@ -471,7 +497,20 @@ describe('Reports generate (e2e)', () => {
     ).not.toContain(previous.finding.id);
   });
 
-  async function generateOn(day: string, label: string) {
+  async function activeContactIds(clientId: string): Promise<string[]> {
+    const prisma = app.get(PrismaService);
+    const rows = await prisma.clientContact.findMany({
+      where: { clientId, status: EntityStatus.ACTIVE },
+      select: { id: true, email: true },
+    });
+    return rows.filter((row) => !!row.email?.trim()).map((row) => row.id);
+  }
+
+  async function generateOn(
+    day: string,
+    label: string,
+    contactIds?: string[],
+  ) {
     const prisma = app.get(PrismaService);
     const arca = await prisma.client.findUnique({
       where: { slug: 'arca-continental' },
@@ -480,7 +519,12 @@ describe('Reports generate (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/reports')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ clientId: arca!.id, dateFrom: day, dateTo: day })
+      .send({
+        clientId: arca!.id,
+        dateFrom: day,
+        dateTo: day,
+        ...(contactIds ? { contactIds } : {}),
+      })
       .expect(201);
     reportIds.push(res.body.id);
     return res.body as {

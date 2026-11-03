@@ -133,7 +133,7 @@ export class ReportsService {
     });
 
     if (await this.isAutoSend(clientId)) {
-      return this.send(user, created);
+      return this.send(user, created, dto.contactIds ?? []);
     }
     return this.findOne(user, created);
   }
@@ -169,7 +169,7 @@ export class ReportsService {
     return this.findOne(user, row.id);
   }
 
-  async send(user: AuthUser, id: string) {
+  async send(user: AuthUser, id: string, contactIds: string[]) {
     const row = await this.loadAccessibleRow(user, id);
     if (row.status === ReportStatus.SENT) {
       throw new ConflictException('El informe ya fue enviado.');
@@ -178,7 +178,17 @@ export class ReportsService {
       throw new ConflictException('No se puede enviar un informe descartado.');
     }
 
-    const recipients = await this.recipientEmails(row.clientId);
+    const chosen = uniqueIds(contactIds);
+    if (chosen.length === 0) {
+      return this.keepDraft(user, row.id, {
+        sent: false,
+        reason: 'no_recipients',
+        message:
+          'Elige al menos un contacto. No se envió el correo. El informe sigue en borrador.',
+        recipients: [],
+      });
+    }
+    const recipients = await this.recipientEmails(row.clientId, chosen);
     const filename = reportDownloadName({
       slug: row.client.slug,
       dateFrom: row.dateFrom,
@@ -226,13 +236,7 @@ export class ReportsService {
       );
     }
     if (!email.sent) {
-      await this.prisma.report.update({
-        where: { id: row.id },
-        data: {
-          emailDelivery: email as unknown as Prisma.InputJsonValue,
-        },
-      });
-      return this.findOne(user, row.id);
+      return this.keepDraft(user, row.id, email);
     }
     if (sentPdf) {
       try {
@@ -459,14 +463,46 @@ export class ReportsService {
     return config?.autoSend === true;
   }
 
-  private async recipientEmails(clientId: string): Promise<string[]> {
-    const contacts = await this.prisma.clientContact.findMany({
-      where: { clientId, status: EntityStatus.ACTIVE },
-      select: { email: true },
+  private async keepDraft(
+    user: AuthUser,
+    reportId: string,
+    email: EmailDelivery,
+  ) {
+    await this.prisma.report.update({
+      where: { id: reportId },
+      data: {
+        emailDelivery: email as unknown as Prisma.InputJsonValue,
+      },
     });
-    return contacts
+    return this.findOne(user, reportId);
+  }
+
+  private async recipientEmails(
+    clientId: string,
+    contactIds: string[],
+  ): Promise<string[]> {
+    const contacts = await this.prisma.clientContact.findMany({
+      where: {
+        clientId,
+        id: { in: contactIds },
+        status: EntityStatus.ACTIVE,
+      },
+      select: { id: true, email: true },
+    });
+    if (contacts.length !== contactIds.length) {
+      throw new BadRequestException(
+        'Elige contactos activos de este cliente.',
+      );
+    }
+    const emails = contacts
       .map((row) => row.email?.trim() ?? '')
       .filter((email) => email.length > 0);
+    if (emails.length !== contacts.length) {
+      throw new BadRequestException(
+        'Elige contactos activos que tengan correo.',
+      );
+    }
+    return emails;
   }
 
   private async loadLegalName(clientId: string): Promise<string | null> {
@@ -636,6 +672,18 @@ export class ReportsService {
       createdAt: row.createdAt,
     };
   }
+}
+
+function uniqueIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of ids) {
+    const id = raw.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
 }
 
 function reportEmailHtml(

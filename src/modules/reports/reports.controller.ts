@@ -26,6 +26,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ListReportsQueryDto } from './dto/list-reports.query.dto';
+import { SendReportDto } from './dto/send-report.dto';
 import { ReportsService } from './reports.service';
 
 @ApiTags('reports')
@@ -80,10 +81,14 @@ export class ReportsController {
   })
   @ApiOperation({
     summary:
-      'Intenta el correo de un draft. Pasa a sent solo si Resend acepta. Si falta la llave, Resend rechaza o no responde, sigue en draft.',
+      'Intenta el correo de un draft solo a contactIds. Vacío no envía. Pasa a sent solo si Resend acepta.',
   })
-  send(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.reportsService.send(user, id);
+  send(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: SendReportDto,
+  ) {
+    return this.reportsService.send(user, id, dto.contactIds ?? []);
   }
 
   @Post(':id/discard')

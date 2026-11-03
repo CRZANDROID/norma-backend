@@ -251,10 +251,10 @@ El PDF: briefing sin portada. Franja NORMA + documento de trabajo; cliente, raz�
 
 | Método | Ruta | Quién | Qué |
 |--------|------|--------|-----|
-| `POST` | `/reports/:id/send` | ADMIN / ANALYST | Intenta el correo de un `draft`. **200**. Pasa a `sent` solo si Resend acepta. Si falta la llave, Resend rechaza o no responde, sigue `draft` y `email.sent` es `false`. **409** si ya está `sent` o `discarded` |
+| `POST` | `/reports/:id/send` | ADMIN / ANALYST | Body `{ contactIds }`. Intenta el correo de un `draft` solo a esos contactos activos. `[]` no envía y sigue `draft`. **200**. Pasa a `sent` solo si Resend acepta. Si falta la llave, Resend rechaza o no responde, sigue `draft` y `email.sent` es `false`. **400** si un id no es un contacto activo con correo de ese cliente. **409** si ya está `sent` o `discarded` |
 | `POST` | `/reports/:id/discard` | ADMIN / ANALYST | **200**. El draft queda `discarded`; los hallazgos vuelven a candidatos y se limpia `excludedFromNextReport` de los que no están en un `sent`. **409** si ya está `sent` o `discarded` |
 
-`autoSend` vive en la ficha del cliente (`delivery.autoSend`, default `false`), no en la pantalla del informe. `true` → `POST /reports` intenta el correo. `false` → queda `draft`; Enviar y Descartar están en `/informes`.
+`autoSend` vive en la ficha del cliente (`delivery.autoSend`, default `false`), no en la pantalla del informe. `true` → `POST /reports` con `contactIds` intenta el correo solo a esos contactos. `false` → queda `draft`; Enviar (con los mismos `contactIds`) y Descartar están en `/informes`. Sin un contacto elegido no se envía.
 
 Correo: Resend (`RESEND_API_KEY` + `RESEND_FROM`). `sent` solo si Resend acepta el mensaje. Si falta la llave o el remitente, no hay contactos con correo, Resend rechaza o no responde, el informe **sigue en `draft`** y `email.sent` es `false` con `email.message` (dice que el correo no salió y nombra la variable que falta). `email` es `null` en un `draft` que todavía no se intentó enviar.
 
