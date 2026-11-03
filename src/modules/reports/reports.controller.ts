@@ -26,6 +26,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ListReportsQueryDto } from './dto/list-reports.query.dto';
+import { SendReportDto } from './dto/send-report.dto';
 import { ReportsService } from './reports.service';
 
 @ApiTags('reports')
@@ -52,7 +53,7 @@ export class ReportsController {
   })
   @ApiOperation({
     summary:
-      'Generar informe draft (Y/O/R no excluidos ni enviados) y guardar el PDF. No envía correo.',
+      'Genera el PDF. Si el cliente tiene autoSend, intenta enviarlo. Solo queda sent si Resend acepta el correo; si no, sigue en draft y email.sent es false.',
   })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateReportDto) {
     return this.reportsService.create(user, dto);
@@ -70,6 +71,38 @@ export class ReportsController {
   })
   regenerate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.reportsService.regenerate(user, id);
+  }
+
+  @Post(':id/send')
+  @HttpCode(200)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiConflictResponse({
+    description: 'El informe ya está sent o discarded.',
+  })
+  @ApiOperation({
+    summary:
+      'Intenta el correo de un draft solo a contactIds. Vacío no envía. Pasa a sent solo si Resend acepta.',
+  })
+  send(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: SendReportDto,
+  ) {
+    return this.reportsService.send(user, id, dto.contactIds ?? []);
+  }
+
+  @Post(':id/discard')
+  @HttpCode(200)
+  @Roles(UserRole.ADMIN, UserRole.ANALYST)
+  @ApiConflictResponse({
+    description: 'El informe ya está sent o discarded.',
+  })
+  @ApiOperation({
+    summary:
+      'Descarta un draft. Los hallazgos vuelven a candidatos y se limpia la exclusión de este PDF.',
+  })
+  discard(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.reportsService.discard(user, id);
   }
 
   @Get(':id/file')

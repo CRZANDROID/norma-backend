@@ -22,6 +22,7 @@ import {
   resolveCrawlMinYear,
   resourceIsBeforeMinYear,
 } from './crawl-min-year';
+import { applySentNormReopen } from './reopen-sent-norm';
 
 export type ClassifyJobResult = {
   documentId: string;
@@ -184,6 +185,9 @@ export class DocumentClassifyService {
             ...(doc.source?.keywordsGuide ?? []),
           ],
           excerpt,
+          contentHash: doc.contentHash,
+          metadata: doc.metadata,
+          extractedText: doc.extractedText,
           client: link.client,
         });
         findingsUpserted += 1;
@@ -203,6 +207,9 @@ export class DocumentClassifyService {
     sourceName: string;
     sourceFocus: string[];
     excerpt: string;
+    contentHash: string | null;
+    metadata: Prisma.JsonValue | null;
+    extractedText: string | null;
     client: {
       id: string;
       name: string;
@@ -304,6 +311,15 @@ export class DocumentClassifyService {
         sourceId: params.sourceId,
         aiMeta,
       },
+    });
+
+    await applySentNormReopen(this.prisma, {
+      documentId: params.documentId,
+      clientId: params.client.id,
+      sourceId: params.sourceId,
+      contentHash: params.contentHash,
+      metadata: params.metadata,
+      extractedText: params.extractedText,
     });
   }
 

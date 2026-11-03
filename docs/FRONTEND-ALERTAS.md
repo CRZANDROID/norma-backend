@@ -2,7 +2,7 @@
 
 **Audiencia:** backend y `norma-frontend`.  
 **Hecho:** S7 — `GET /findings` en `/alertas` (nav: **Clasificación**). S8 — editar / IA / excluir.  
-**Pendiente:** S9 envío/`autoSend` · S10 portal `CLIENT_USER`. PDF draft: generar en `/alertas`; ver / descargar / regenerar en `/informes`.  
+**Pendiente:** S10 portal `CLIENT_USER`. S9 envío hecho: `autoSend` en la ficha del cliente; confirmar o descartar el borrador en `/informes`. PDF: generar en `/alertas`; ver / descargar / regenerar / enviar / descartar en `/informes`.  
 Pastillas de lote en Clasificación: Incluidos / Excluidos / Enviados.  
 Panel de rastreo: [FRONTEND-TRACKING.md](./FRONTEND-TRACKING.md). Config `autoSend`: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md). Pipeline: [jobs.md](./jobs.md).
 
@@ -239,22 +239,28 @@ El borrador que edita la IA es **el vigente**, incluido lo que VCGA escribió a 
 
 UI `/alertas`: **Generar PDF** (cliente obligatorio, `{ clientId }` — no copies los filtros de la lista) + pastillas de lote. Tras generar, toast con enlace a `/informes/:id`. Copy: informe, no inbox.
 
-UI `/informes`: lista VCGA (Borradores / Enviados). Ver / Descargar; **Regenerar** solo en `draft`. El archivo se pide con Bearer y se abre como blob.
+UI `/informes`: lista VCGA (Borradores / Enviados). Cada tarjeta muestra quién generó y, si está `sent`, quién envió (`generatedAt` / `generatedBy`, `sentAt` / `sentBy`). Con `autoSend`, las dos marcas son el mismo usuario y el mismo momento. Ver / Descargar; **Regenerar** solo en `draft`. El archivo se pide con Bearer y se abre como blob.
 
-`clientId` es obligatorio al generar: un informe no mezcla tenants. Esta semana **no** manda correo.
+`clientId` es obligatorio al generar: un informe no mezcla tenants.
 
 El PDF: briefing sin portada. Franja NORMA + documento de trabajo; cliente, razón social, periodo y contadores Crítico / Alto / Medio en la primera página. Hallazgos en ficha (acción sugerida, justificación, «Ver documento»). Pie: no enviado. Verde no entra.
 
 `lote=incluidos` es el mismo criterio que `POST /reports` sin fechas: Y/O/R, no excluidos, no quemados, **todo el lote del cliente**. Fecha/`status`/fuente/semáforo en `GET /findings` no recortan esa cubeta ni `counts.included`. Enviados = hallazgo en un `ReportFinding` de un informe `sent`. Excluidos = flag y todavía no quemados.
 
-### S9 — pendiente
+### S9 — envío (hecho)
 
 | Método | Ruta | Quién | Qué |
 |--------|------|--------|-----|
-| `POST` | `/reports/:id/send` | ADMIN / ANALYST | Confirmar (cliente no automático) |
-| `POST` | `/reports/:id/discard` | ADMIN / ANALYST | Draft fuera; hallazgos vuelven |
+| `POST` | `/reports/:id/send` | ADMIN / ANALYST | Body `{ contactIds }`. Intenta el correo de un `draft` solo a esos contactos activos. `[]` no envía y sigue `draft`. **200**. Pasa a `sent` solo si Resend acepta. Si falta la llave, Resend rechaza o no responde, sigue `draft` y `email.sent` es `false`. **400** si un id no es un contacto activo con correo de ese cliente. **409** si ya está `sent` o `discarded` |
+| `POST` | `/reports/:id/discard` | ADMIN / ANALYST | **200**. El draft queda `discarded`; los hallazgos vuelven a candidatos y se limpia `excludedFromNextReport` de los que no están en un `sent`. **409** si ya está `sent` o `discarded` |
 
-`autoSend: true` → `POST /reports` deja `sent` y manda correo (**no esta semana**). Estados: `draft` → `sent` \| `discarded`.
+`autoSend` vive en la ficha del cliente (`delivery.autoSend`, default `false`), no en la pantalla del informe. `true` → `POST /reports` con `contactIds` intenta el correo solo a esos contactos. `false` → queda `draft`; Enviar (con los mismos `contactIds`) y Descartar están en `/informes`. Sin un contacto elegido no se envía.
+
+Correo: Resend (`RESEND_API_KEY` + `RESEND_FROM`). `sent` solo si Resend acepta el mensaje. Si falta la llave o el remitente, no hay contactos con correo, Resend rechaza o no responde, el informe **sigue en `draft`** y `email.sent` es `false` con `email.message` (dice que el correo no salió y nombra la variable que falta). `email` es `null` en un `draft` que todavía no se intentó enviar.
+
+Misma norma (misma URL) y hash distinto en un crawl nuevo, sobre un hallazgo ya `sent`: el hallazgo nuevo queda abierto con `changeNote`. El PDF y el detalle imprimen **Qué cambió**.
+
+Estados: `draft` → `sent` \| `discarded`.
 
 ### S10
 

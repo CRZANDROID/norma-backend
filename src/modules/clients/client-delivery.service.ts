@@ -29,12 +29,14 @@ export class ClientDeliveryService {
     const data = toDeliveryWriteData({
       emailEnabled: dto.emailEnabled,
       whatsappEnabled: dto.whatsappEnabled,
+      autoSend: dto.autoSend,
       schedule: dto.schedule,
       impactActions: dto.impactActions,
       fallback: existing
         ? {
             emailEnabled: existing.emailEnabled,
             whatsappEnabled: existing.whatsappEnabled,
+            autoSend: existing.autoSend,
             schedule: {
               time: existing.deliveryTime,
               timezone: existing.deliveryTimezone,

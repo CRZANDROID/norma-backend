@@ -59,6 +59,7 @@ export class CatalogContextService {
             select: {
               emailEnabled: true,
               whatsappEnabled: true,
+              autoSend: true,
               deliveryTime: true,
               deliveryTimezone: true,
               deliveryWeekdays: true,
@@ -101,6 +102,7 @@ export class CatalogContextService {
           ? {
               correo: client.deliveryConfig.emailEnabled,
               whatsapp: client.deliveryConfig.whatsappEnabled,
+              autoSend: client.deliveryConfig.autoSend,
               horario: client.deliveryConfig.deliveryTime,
               zona: client.deliveryConfig.deliveryTimezone,
               diasSemana: client.deliveryConfig.deliveryWeekdays,

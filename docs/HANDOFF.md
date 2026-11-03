@@ -21,10 +21,10 @@ Documento de continuidad para el **próximo agente de backend** y contexto para 
 | 3 front | Fuera de este repo | `/alertas` = hallazgos. Brief: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md) |
 | 4 | **Hecho** | Sentry + Storage OK en local |
 | 8 | **Hecho (API)** | Loop VCGA: editar / IA / excluir |
-| 9 | PDF draft + lote + `/informes` VCGA | Generar en `/alertas`; ver/descargar/regenerar en Informes; envío pendiente |
+| 9 | **Hecho** | PDF + `autoSend` + confirmar/descartar + correo (Resend) + reabrir si el hash cambia |
 | 10 | Pendiente | Portal `CLIENT_USER`; reutiliza `/informes` (solo enviados) |
 
-**Siguiente en este repo:** capacitación hoy ([TRAINING.md](./TRAINING.md)). S9 resto (envío/`autoSend`) sigue pendiente. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+**Siguiente en este repo:** S10 portal `CLIENT_USER`. S9 envío está hecho. Contrato: [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md). Capacitación: [TRAINING.md](./TRAINING.md).
 
 ---
 
@@ -68,7 +68,7 @@ Migraciones: `client_sources`, `documents`, `client_fiscal_contacts`, `source_st
 - Progress: `GET /jobs/progress`, `/documents/progress`, `/findings/progress` (1 fila/fuente ACTIVE)
 - Documentos: extract / normalize / classify; PDF escaneado = `FAILED` (“PDF escaneado”); sin OCR
 - Findings: unique documento×cliente; `GET /findings` = `{ dateFrom, dateTo, page, limit, total, totalPages, counts, items }` (`excludedFromNextReport`, `lote`, `counts.included/excluded/sent`). `lote=incluidos` y `counts.included` ignoran fecha/`status`/fuente/semáforo (lote real del PDF). `PATCH /findings/:id` (`title`/`justification`/`impact`), `POST /findings/:id/exclude|include|rewrite` (`rewrite-v6`: `rewriteNote`, o 422 con el limitante si el pedido no se sostiene con el documento). `GET /findings/:id`. HUD: `POST /jobs/crawl/all` → extract+classify; `POST /jobs/extract/all` → extract + classify que falte; `POST /jobs/classify/all` (salta sin cliente). Una fuente: `/jobs/crawl` \| `/extract` \| `/classify`. `POST /documents/:id/classify` archivo suelto. Classify `classify-v2`.
-- Informes: `POST /reports` + `GET /reports/:id/file` + regenerate. PDF = briefing sin portada (franja NORMA, fichas por hallazgo). `GET /findings?lote=` (`incluidos` \| `excluidos` \| `enviados`) y `counts.included/excluded/sent`. Front: Generar PDF en `/alertas`; mesa `/informes` (borradores/enviados). Esta semana **no** envía correo.
+- Informes: `POST /reports` + `GET /reports/:id/file` + regenerate + `POST /reports/:id/send` + `POST /reports/:id/discard`. `autoSend` en la ficha del cliente: generar intenta el envío; si no, el borrador se confirma en `/informes`. Correo a contactos vía Resend (`RESEND_API_KEY` + `RESEND_FROM`). `sent` solo si Resend acepta; si falta la llave, rechaza o no responde, el informe sigue en `draft` y `email.sent` es `false`. Crawl con hash distinto sobre una norma ya enviada reabre el hallazgo y el PDF dice qué cambió.
 
 Detalle de jobs: [jobs.md](./jobs.md). Admin UI: [FRONTEND-ADMIN.md](./FRONTEND-ADMIN.md).
 
@@ -83,10 +83,9 @@ src/jobs/            # BullMQ source.crawl + extract/normalize_dedup/classify
 ## 4. Qué falta (prioridad)
 
 1. **Capacitación / staging limpio:** catálogo vacío; ADMIN de pruebas; usuarios crean clientes y fuentes. [TRAINING.md](./TRAINING.md).
-2. **Sprint 9 resto:** envío/`autoSend`, descartar, correo a contactos. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
-3. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**.
-4. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
-5. Redis = Key Value Render. HTTP = Web Service (`JOBS_WORKER=false`, `JOBS_SCHEDULER=false`). Worker BullMQ = **Hetzner** ([worker-vps.md](./worker-vps.md)); el Background Worker de Render queda Suspend. Scheduler 07:00 **off** (`JOBS_SCHEDULER=false`) hasta acotar crawl 2026 / `gob.mx`.
+2. **Sprint 10:** `CLIENT_USER` + historial; acciones sobre el **PDF**. [FRONTEND-ALERTAS.md](./FRONTEND-ALERTAS.md).
+3. **Conectores MVP (después de S10):** YouTube / X / Facebook — [PRODUCT.md](./PRODUCT.md).
+4. Redis = Key Value Render. HTTP = Web Service (`JOBS_WORKER=false`, `JOBS_SCHEDULER=false`). Worker BullMQ = **Hetzner** ([worker-vps.md](./worker-vps.md)); el Background Worker de Render queda Suspend. Scheduler 07:00 **off** (`JOBS_SCHEDULER=false`) hasta acotar crawl 2026 / `gob.mx`. Para el correo de S9 hace falta `RESEND_API_KEY` y `RESEND_FROM` (no están en el repo).
 
 ---
 

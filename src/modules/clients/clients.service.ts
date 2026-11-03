@@ -131,6 +131,7 @@ export class ClientsService {
             create: toDeliveryWriteData({
               emailEnabled: dto.delivery?.emailEnabled,
               whatsappEnabled: dto.delivery?.whatsappEnabled,
+              autoSend: dto.delivery?.autoSend,
               schedule: dto.delivery?.schedule,
               impactActions: dto.delivery?.impactActions,
             }),
@@ -194,12 +195,14 @@ export class ClientsService {
         const delivery = toDeliveryWriteData({
           emailEnabled: dto.delivery.emailEnabled,
           whatsappEnabled: dto.delivery.whatsappEnabled,
+          autoSend: dto.delivery.autoSend,
           schedule: dto.delivery.schedule,
           impactActions: dto.delivery.impactActions,
           fallback: existing
             ? {
                 emailEnabled: existing.emailEnabled,
                 whatsappEnabled: existing.whatsappEnabled,
+                autoSend: existing.autoSend,
                 schedule: {
                   time: existing.deliveryTime,
                   timezone: existing.deliveryTimezone,

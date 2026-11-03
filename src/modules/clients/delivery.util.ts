@@ -21,6 +21,7 @@ export type DeliveryRow = {
   clientId: string;
   emailEnabled: boolean;
   whatsappEnabled: boolean;
+  autoSend: boolean;
   deliveryTime: string;
   deliveryTimezone: string;
   deliveryWeekdays: number[];
@@ -80,6 +81,7 @@ export function shapeDeliveryConfig(row: DeliveryRow) {
     clientId: row.clientId,
     emailEnabled: row.emailEnabled,
     whatsappEnabled: row.whatsappEnabled,
+    autoSend: row.autoSend,
     schedule: shapeSchedule({
       time: row.deliveryTime,
       timezone: row.deliveryTimezone,
@@ -113,11 +115,13 @@ export function snapshotSuggestedAction(
 export function toDeliveryWriteData(input: {
   emailEnabled?: boolean;
   whatsappEnabled?: boolean;
+  autoSend?: boolean;
   schedule?: ScheduleDto;
   impactActions?: ImpactActionDto[];
   fallback?: {
     emailEnabled: boolean;
     whatsappEnabled: boolean;
+    autoSend: boolean;
     schedule: ScheduleShape;
     impactActions?: Prisma.JsonValue;
   };
@@ -125,6 +129,7 @@ export function toDeliveryWriteData(input: {
   const fallback = input.fallback ?? {
     emailEnabled: true,
     whatsappEnabled: false,
+    autoSend: false,
     schedule: resolveSchedule(),
     impactActions: DEFAULT_IMPACT_ACTIONS,
   };
@@ -137,6 +142,7 @@ export function toDeliveryWriteData(input: {
   return {
     emailEnabled: input.emailEnabled ?? fallback.emailEnabled,
     whatsappEnabled: input.whatsappEnabled ?? fallback.whatsappEnabled,
+    autoSend: input.autoSend ?? fallback.autoSend,
     deliveryTime: schedule.time,
     deliveryTimezone: schedule.timezone,
     deliveryWeekdays: schedule.weekdays,

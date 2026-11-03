@@ -143,7 +143,8 @@ model User {
 
   memberships ClientMembership[]
   documents   Document[]
-  reports     Report[]
+  reportsGenerated Report[] @relation("ReportGeneratedBy")
+  reportsSent      Report[] @relation("ReportSentBy")
 
   @@map("users")
 }
@@ -282,7 +283,7 @@ model Source {
   @@map("sources")
 }
 
-/// Config de entrega y semáforo por cliente (1:1). No envía email/WhatsApp todavía.
+/// Config de entrega y semáforo por cliente (1:1). `autoSend` envía el PDF al generarlo. WhatsApp no se envía.
 model ClientDeliveryConfig {
   id               String   @id @default(cuid())
   clientId         String   @unique @map("client_id")
@@ -293,6 +294,8 @@ model ClientDeliveryConfig {
   deliveryWeekdays Int[]    @default([1, 2, 3, 4, 5]) @map("delivery_weekdays")
   /// Acciones por nivel GREEN|YELLOW|ORANGE|RED (JSON validado en Nest).
   impactActions    Json     @map("impact_actions")
+  /// Cliente automático (S9): generar el PDF también lo envía.
+  autoSend         Boolean  @default(false) @map("auto_send")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -330,6 +333,8 @@ model Finding {
   aiMeta          Json?         @map("ai_meta")
   /// Fuera del próximo informe (S8). No es DISMISSED; S9 lo lee al armar el PDF.
   excludedFromNextReport Boolean @default(false) @map("excluded_from_next_report")
+  /// Crawl nuevo con hash distinto sobre una norma ya enviada. El PDF lo imprime.
+  changeNote      String?       @map("change_note") @db.Text
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
@@ -432,15 +437,19 @@ model Report {
   dateTo             String?      @map("date_to")
   status             ReportStatus @default(DRAFT)
   generatedByUserId  String       @map("generated_by_user_id")
+  sentByUserId       String?      @map("sent_by_user_id")
   fileBucket         String?      @map("file_bucket")
   filePath           String?      @map("file_path")
   sentAt             DateTime?    @map("sent_at")
   discardedAt        DateTime?    @map("discarded_at")
+  /// Resultado del correo al pasar a SENT. Null en draft. sent=false no simula envío.
+  emailDelivery      Json?        @map("email_delivery")
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @updatedAt @map("updated_at")
 
   client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  generatedBy User            @relation(fields: [generatedByUserId], references: [id], onDelete: Restrict)
+  generatedBy User            @relation("ReportGeneratedBy", fields: [generatedByUserId], references: [id], onDelete: Restrict)
+  sentBy      User?           @relation("ReportSentBy", fields: [sentByUserId], references: [id], onDelete: Restrict)
   items       ReportFinding[]
 
   @@index([clientId, createdAt])

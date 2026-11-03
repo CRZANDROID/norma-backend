@@ -29,5 +29,5 @@ Antes de implementar, lee `docs/HANDOFF.md` (estado + siguientes pasos), luego `
 ## Sprint / foco actual
 
 - S3–S7 **hechos** (CRUD, crawl, documentos, clasificación/semáforo en `/alertas`).
-- Siguiente backend: S9 PDF+envío. S10 portal. Contrato: `docs/FRONTEND-ALERTAS.md`.
+- S9 PDF+envío **hecho**. Siguiente: S10 portal. Contrato: `docs/FRONTEND-ALERTAS.md`. Correo: `RESEND_API_KEY` + `RESEND_FROM`.
 - Índice de docs: [docs/README.md](docs/README.md).

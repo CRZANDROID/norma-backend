@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
 
 export class CreateReportDto {
   @ApiProperty({
@@ -29,4 +36,15 @@ export class CreateReportDto {
     message: 'dateTo debe ser YYYY-MM-DD',
   })
   dateTo?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Si autoSend está activo, solo estos contactos reciben el correo. Vacío no envía.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  contactIds?: string[];
 }

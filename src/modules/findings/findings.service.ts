@@ -673,6 +673,7 @@ export class FindingsService {
       ...this.toListItem(row),
       justification: row.justification,
       description: row.description,
+      changeNote: row.changeNote,
       aiMeta: row.aiMeta,
     };
   }
