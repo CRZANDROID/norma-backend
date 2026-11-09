@@ -6,6 +6,7 @@ import {
   EntityStatus,
   FindingStatus,
   Prisma,
+  ReportStatus,
 } from '../database/prisma-client';
 import { PrismaService } from '../database/prisma.service';
 import { OpenAiClientService } from '../modules/ai/openai-client.service';
@@ -22,6 +23,7 @@ import {
   resolveCrawlMinYear,
   resourceIsBeforeMinYear,
 } from './crawl-min-year';
+import { findMedidaDuplicate, type MedidaRow } from './medida-key';
 import { applySentNormReopen } from './reopen-sent-norm';
 
 export type ClassifyJobResult = {
@@ -176,7 +178,7 @@ export class DocumentClassifyService {
 
     try {
       for (const link of links) {
-        await this.classifyForClient({
+        const wrote = await this.classifyForClient({
           documentId: doc.id,
           sourceId,
           sourceName: doc.source?.name ?? doc.source?.code ?? 'fuente',
@@ -190,7 +192,7 @@ export class DocumentClassifyService {
           extractedText: doc.extractedText,
           client: link.client,
         });
-        findingsUpserted += 1;
+        if (wrote) findingsUpserted += 1;
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -221,7 +223,7 @@ export class DocumentClassifyService {
       }>;
       deliveryConfig: { impactActions: Prisma.JsonValue } | null;
     };
-  }) {
+  }): Promise<boolean> {
     const profile = params.client.profiles[0];
     const userPrompt = [
       `Cliente: ${params.client.name}`,
@@ -264,6 +266,19 @@ export class DocumentClassifyService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new UnrecoverableError(message);
+    }
+
+    const duplicate = await this.findDuplicateMedida({
+      clientId: params.client.id,
+      documentId: params.documentId,
+      url: crawlUrlFromMetadata(params.metadata),
+      title: parsed.title,
+    });
+    if (duplicate) {
+      this.logger.log(
+        `skip duplicate medida client=${params.client.id} document=${params.documentId} keep=${duplicate.id}`,
+      );
+      return false;
     }
 
     const suggestedAction = snapshotSuggestedAction(
@@ -321,6 +336,46 @@ export class DocumentClassifyService {
       metadata: params.metadata,
       extractedText: params.extractedText,
     });
+    return true;
+  }
+
+  private async findDuplicateMedida(input: {
+    clientId: string;
+    documentId: string;
+    url: string | null;
+    title: string;
+  }): Promise<MedidaRow | null> {
+    const rows = await this.prisma.finding.findMany({
+      where: {
+        clientId: input.clientId,
+        documentId: { not: input.documentId },
+      },
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        document: { select: { metadata: true } },
+        reportItems: {
+          where: {
+            report: {
+              status: { in: [ReportStatus.DRAFT, ReportStatus.SENT] },
+            },
+          },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    });
+    return findMedidaDuplicate(
+      rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        url: crawlUrlFromMetadata(row.document.metadata),
+        createdAt: row.createdAt,
+        inReport: row.reportItems.length > 0,
+      })),
+      { url: input.url, title: input.title },
+    );
   }
 
   private async markClassified(
